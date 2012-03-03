@@ -1,4 +1,4 @@
-GameCube disk editor 0.1.0 by J.
+GameCube disk editor 0.1.0-dev by J.
 
 http://i-know-nothing.co.cc/gcedit
 
@@ -35,8 +35,8 @@ On Windows, in the source directory, run
 
 where python is the Python 3 interpreter.
 
-On Unix-like OSs, once installed, just run gcedit (installed to /usr/bin/ by
-default).  Alternatively, you can run in-place without installing by
+On Unix-like OSs, once installed, just run gcedit (installed to /usr/local/bin/
+by default).  Alternatively, you can run in-place without installing by
 
     ./configure
-    ./gcedit
+    ./run_gcedit

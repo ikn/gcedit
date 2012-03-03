@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 1.
+Release: 2.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -184,6 +184,9 @@ fn: file path to the image file.
     METHODS
 
 build_tree
+update
+disk_changed
+changed
 get_info
 get_extra_files
 extract_extra_files [NOT IMPLEMENTED]
@@ -225,6 +228,10 @@ tree: a dict representing the root directory.  Each directory is a dict whose
     def __init__ (self, fn):
         self.fn = str(fn)
         # read data from the disk
+        self.update()
+
+    def _init (self):
+        """Read and store data from the disk."""
         with open(self.fn, 'rb') as f:
             self.fs_start = fs_start = read(f, 0x424, 0x4, True)
             self.fst_size = read(f, 0x428, 0x4, True)
@@ -247,8 +254,6 @@ tree: a dict representing the root directory.  Each directory is a dict whose
                 # only read 512 chars for safety
                 name = read(f, str_start + entry[1], 0x200, False, b'\0', 0x20)
                 names.append(_decode(name))
-            # build tree
-            self.tree = self.build_tree()
 
     def _tree_size (self, tree):
         """Get the number of children in a tree."""
@@ -301,8 +306,44 @@ tree: the built tree.
             self.tree = tree
         return tree
 
+    def update (self):
+        """Re-read data from the disk."""
+        self._init()
+        # build tree
+        self.tree = self.build_tree()
+
+    def disk_changed (self, update = False):
+        """Return whether changes have been made to the disk.
+
+This checks the filesystem table, but not the files themselves.
+
+"""
+        attrs = ('fs_start', 'fst_size', 'num_entries', 'str_start', 'entries',
+                 'names')
+        # store data
+        for attr in attrs:
+            setattr(self, '_' + attr, getattr(self, attr))
+        # read new data
+        self._init()
+        # compare
+        changed = False
+        for attr in attrs:
+            if getattr(self, attr) != getattr(self, '_' + attr):
+                changed = True
+                break
+        # revert old data
+        for attr in attrs:
+            setattr(self, attr, getattr(self, '_' + attr))
+            delattr(self, '_' + attr)
+        return changed
+
     def changed (self):
-        """Return whether changes have been made since the last write."""
+        """Return whether changes have been made since the last write.
+
+This checks whether the this instance's tree attribute still corresponds to the
+most recently loaded filesystem data.
+
+"""
         return self.tree != self.build_tree(False)
 
     def get_info (self):

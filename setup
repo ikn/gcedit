@@ -1,0 +1,6 @@
+#! /usr/bin/python
+
+from distutils.core import setup
+
+setup(name = 'gcedit', version = '0.1-dev',
+      packages = ['gcedit', 'gcedit.ext'])

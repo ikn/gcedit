@@ -1,0 +1,14 @@
+#! /bin/bash
+
+scripts=(run_gcedit setup)
+p=`type -p python3`
+if [ -n "$p" ]; then
+    for script in ${scripts[@]}; do
+        # don't overwrite the file we're reading from...
+        echo $script
+        tmp_script=."$script".tmp
+        sed "s:^#\!.*python$:#\! $p:" < "$script" > "$tmp_script"
+        mv -f "$tmp_script" "$script"
+        chmod +x "$script"
+    done
+fi

@@ -1,0 +1,42 @@
+GameCube disk editor 0.1.0 by J.
+
+http://i-know-nothing.co.cc/gcedit
+
+    LICENSE
+
+Licensed under the GNU General Public License, version 3; if this was not
+included, you can find it here:
+    http://www.gnu.org/licenses/gpl-3.0.txt
+
+    DEPENDENCIES
+
+Python 3 (>= 3.2): http://www.python.org
+PyGObject 3 (>= 3.0.3): https://live.gnome.org/PyGObject
+
+    INSTALLATION
+
+There is no installation method on Windows.  On Unix-like OSs, run
+
+    ./configure
+    make install
+
+The makefile respects the prefix, DESTDIR, etc. arguments.  To uninstall, run
+
+    make uninstall
+
+but note that this cannot remove the Python package at the moment (waiting for
+packaging.install.remove in Python 3.3).
+
+    USAGE
+
+On Windows, in the source directory, run
+
+    python run_gcedit
+
+where python is the Python 3 interpreter.
+
+On Unix-like OSs, once installed, just run gcedit (installed to /usr/bin/ by
+default).  Alternatively, you can run in-place without installing by
+
+    ./configure
+    ./gcedit

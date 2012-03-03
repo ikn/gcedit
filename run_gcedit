@@ -1,0 +1,49 @@
+#! /usr/bin/python
+
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU General Public License as published by the Free Software
+# Foundation, either version 3 of the License, or (at your option) any later
+# version.
+
+import sys
+
+from gi.repository import Gtk as gtk
+from gcedit.editor import Editor
+from gcedit.ext.gcutil import GCFS
+
+IDENTIFIER = 'gcedit'
+
+
+class LoadDisk (gtk.FileChooserDialog):
+    """The dialogue for choosing a disk image to load."""
+
+    def __init__ (self):
+        rt = gtk.ResponseType
+        gtk.FileChooserDialog.__init__(self, None, gtk.FileChooserAction.OPEN,
+                                       0, (gtk.STOCK_CLOSE, rt.CLOSE,
+                                           gtk.STOCK_OK, rt.OK))
+
+
+try:
+    # use the first argument as a filename to load, if given
+    fn = sys.argv[1]
+except IndexError:
+    # ask for a disk image
+    load = LoadDisk()
+    if load.run() == gtk.ResponseType.OK:
+        # got one
+        fn = load.get_filename()
+        load.destroy()
+    else:
+        fn = None
+# check we have a filename and it's valid
+if fn is not None:
+    try:
+        fs = GCFS(fn)
+    except: # TODO: raise something in GCFS if invalid
+        # TODO: show error dialogue
+        pass
+    else:
+        # start the editor
+        Editor(fs)
+        gtk.main()

@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 3.
+Release: 3-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -24,6 +24,7 @@ buttons
 # TODO:
 # - multi-DND
 # - allow resizing of breadcrumbs (gtk.Grid) smaller than its current size
+# - escape with address bar focused does self.grab_focus()
 
 from pickle import dumps, loads
 from base64 import encodebytes, decodebytes
@@ -184,7 +185,6 @@ buttons: the buttons attribute of a Buttons instance.
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
         self._model.set_sort_column_id(-1, gtk.SortType.ASCENDING)
         # accelerators
-        # TODO: escape with address bar focused does self.grab_focus()
         group = self.accel_group = gtk.AccelGroup()
         accels = [
             ('F2', self._rename_selected),
@@ -629,9 +629,10 @@ preserve_sel: whether to try to preserve the selection over the refresh
                         try:
                             selected.remove(old)
                         except KeyError:
-                            continue
-                        else:
-                            selected.add(new)
+                            pass
+                    selected.add(new)
+                if focus is not None and focus not in selected:
+                    focus = None
             else:
                 selected = []
                 focus = None

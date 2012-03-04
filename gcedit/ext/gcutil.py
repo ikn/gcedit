@@ -307,7 +307,7 @@ tree: the built tree.
         return tree
 
     def update (self):
-        """Re-read data from the disk."""
+        """Re-read data from the disk.  Discards all changes to the tree."""
         self._init()
         # build tree
         self.tree = self.build_tree()
@@ -920,7 +920,7 @@ IMPORTANT: any changes that have been made to the tree are discarded before
 compressing.  Make sure you write everything you want to keep first.
 
 """
-"""
+        """
 
 Replacement docstring for if I ever do full compress:
 

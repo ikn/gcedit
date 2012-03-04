@@ -13,9 +13,20 @@ Editor
 """
 
 # TODO:
-# - option to remember last import/extract path separately
+# - remember last import/extract path separately
 # - import button
 # - can search within filesystem
+# - menus:
+#   - compress, decompress, discard all changes (fs.update())
+#   - split view (horiz/vert/close)
+# - built-in tabbed editor (expands window out to the right)
+#   - if rename/move a file being edited, rename the tab
+#   - if delete, show error
+#   - if write, ask if want to save files being edited; afterwards, 're-open' them and show error if can't for some reason
+#   - in context menu, buttons
+#   - on open, check if can decode to text; if not, have hex editor
+# - option for open_files to edit instead of extract
+# - track deleted files (not dirs) (get paths recursively) and put in trash when write
 
 # NOTE: os.stat().st_dev gives path's device ID
 
@@ -47,6 +58,8 @@ fs, editor: the arguments given to the constructor.
     def __init__ (self, fs, editor):
         self.fs = fs
         self.editor = editor
+        self._hist_pos = 0
+        self._hist = []
 
     def get_tree (self, path, return_parent = False):
         """Get the tree for the given path.
@@ -102,6 +115,14 @@ is its entry in the tree.
         # nothing found
         raise ValueError('invalid path')
 
+    def undo (self):
+        """Undo the last action."""
+        print(self._hist)
+
+    def redo (self):
+        """Redo the next action."""
+        print(self._hist)
+
     def list_dir (self, path):
         try:
             tree = self.get_tree(path)
@@ -118,7 +139,7 @@ is its entry in the tree.
     def open_files (self, *files):
         self.editor.extract(*files)
 
-    def copy (self, *data, return_failed = False):
+    def copy (self, *data, return_failed = False, hist = True):
         failed = []
         cannot_copy = []
         for old, new in data:
@@ -130,9 +151,10 @@ is its entry in the tree.
                     continue
                 if data[2] == id(self.editor):
                     # same Editor
-                    print('same')
                     pass
                 else:
+                    # different Editor
+                    # TODO
                     print(data, old, new)
                     continue
             # get destination
@@ -156,7 +178,7 @@ is its entry in the tree.
                     continue
             this_failed = False
             while name in current_items:
-                # exists: ask what action to take 
+                # exists: ask what action to take
                 print('failed:', k[0])
                 failed.append(old)
                 # TODO: show overwrite/don't copy/rename error dialogue
@@ -181,29 +203,45 @@ is its entry in the tree.
             # show error for files that couldn't be copied
             # TODO: show error dialogue
             print('couldn\'t copy:', cannot_copy)
+        # add to history
+        if hist:
+            succeeded = [x for x in data if x[0] not in failed]
+            if succeeded:
+                self._hist.append(('copy', succeeded))
         if return_failed:
             return failed
         else:
             return len(failed) != len(data)
 
     def move (self, *data):
-        failed = self.copy(*data, return_failed = True)
+        failed = self.copy(*data, return_failed = True, hist = False)
         if len(failed) != len(data):
-            self.delete(*(old for old, new in data if old not in failed))
+            succeeded = [x for x in data if x[0] not in failed]
+            self.delete(*(old for old, new in succeeded), hist = False)
+            # add to history
+            if succeeded:
+                self._hist.append(('move', succeeded))
             return True
         else:
             return False
 
-    def delete (self, *files):
+    def delete (self, *files, hist = True):
+        done = []
         for f in files:
             try:
                 # dir
                 parent, k = self.get_tree(f, True)
-                del parent[k]
             except ValueError:
                 # file
                 parent, entry = self.get_file(f)
                 parent[None].remove(entry)
+                done.append((f, entry))
+            else:
+                done.append((f, k, parent[k]))
+                del parent[k]
+        # history
+        if hist and done:
+            self._hist.append(('delete', done))
         return True
 
     def new_dir (self, path):
@@ -216,6 +254,7 @@ is its entry in the tree.
             print('exists:', name)
             return False
         else:
+            self._hist.append(('new', path))
             dest[(name, None)] = {None: []}
             return True
 
@@ -258,13 +297,15 @@ file_manager: fsmanage.Manager instance.
         btns = []
         f = lambda widget, cb, *args: cb(*args)
         for btn_data in (
-            (gtk.STOCK_UNDO, 'Undo the last change', None),
-            (gtk.STOCK_REDO, 'Redo the next change', None),
+            (gtk.STOCK_UNDO, 'Undo the last change', self.fs_backend.undo),
+            (gtk.STOCK_REDO, 'Redo the next change', self.fs_backend.redo),
             None,
+            (('_Import', gtk.STOCK_HARDDISK), 'Import files from outside',
+             self.start_import),
             (('_Extract', gtk.STOCK_EXECUTE), 'Extract the selected files',
              self.extract),
             (('_Write', gtk.STOCK_SAVE), 'Write changes to the disk image',
-             self.fs.write),
+             self.write),
             (gtk.STOCK_QUIT, 'Quit the application', self.quit)
         ):
             if btn_data is None:
@@ -307,6 +348,10 @@ file_manager: fsmanage.Manager instance.
         address.update()
         m.grab_focus()
 
+    def start_import (self):
+        """Open an import dialogue."""
+        print('import')
+
     def extract (self, *files):
         """Extract the files at the given paths, else the selected files."""
         if not files:
@@ -319,6 +364,20 @@ file_manager: fsmanage.Manager instance.
         # TODO:
         # - if one file, ask for a filename to save it under
         # - if >1, list them and ask for a dir to put them in
+
+    def write (self):
+        """Write changes to the disk."""
+        write = True
+        if not self.fs.changed():
+            # no need to write
+            write = False
+        elif self.fs.disk_changed():
+            # TODO: ask: write anyway / cancel
+            write = False
+        if write:
+            # TODO: progress bar
+            # TODO: ask to confirm - can't undo/all undo history lost
+            self.fs.write()
 
     def quit (self, *args):
         """Quit the program."""

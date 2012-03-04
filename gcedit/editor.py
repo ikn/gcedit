@@ -14,6 +14,8 @@ Editor
 
 # TODO:
 # - option to remember last import/extract path separately
+# - import button
+# - can search within filesystem
 
 # NOTE: os.stat().st_dev gives path's device ID
 

@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 2.
+Release: 4.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -189,10 +189,10 @@ disk_changed
 changed
 get_info
 get_extra_files
-extract_extra_files [NOT IMPLEMENTED]
+extract_extra_files
 extract
 write
-compress [NOT IMPLEMENTED]
+compress
 
     ATTRIBUTES
 
@@ -387,7 +387,8 @@ _extract(f, start, size, dest, block_size = 0x100000, overwrite = False)
 f: the disk image opened in binary mode.
 start: position to start reading from.
 size: amount of data to read.
-dest: file to extract to.
+dest: file to extract to; may also be a file object to write to (open in binary
+      mode).
 block_size: the maximum amount of data, in bytes, to read and write at a time
             (0x100000 is 1MiB).
 overwrite: whether to overwrite the file if it exists (if False and the file
@@ -398,15 +399,20 @@ success: whether the file could be created.
 """
         if not overwrite and os.path.exists(dest):
             return False
+        f.seek(start)
         try:
-            with open(dest, 'wb') as f_dest:
-                f.seek(start)
-                # copy data
-                while size > 0:
-                    amount = min(size, block_size)
-                    data = f.read(amount)
-                    size -= amount
-                    f_dest.write(data)
+            if isinstance(dest, (str, bytes)):
+                f_dest = open(dest, 'wb')
+            else:
+                f_dest = dest
+            # copy data
+            while size > 0:
+                amount = min(size, block_size)
+                data = f.read(amount)
+                size -= amount
+                f_dest.write(data)
+            if isinstance(dest, (str, bytes)):
+                f_dest.close()
         except IOError:
             return False
         else:
@@ -419,24 +425,50 @@ success: whether the file could be created.
 extract_extra_files(*files, block_size = 0x100000, overwrite = False)
     -> success
 
-files: the files to extract, echa a (name, target) tuple, where:
+files: the files to extract, each a (name, target) tuple, where:
     name: the file's name as returned by get_extra_files.
     target: the path on the real filesystem to extract this file to.  This may
-            also be a file object to write to (open in binary mode).
+            also be a file object to write to (open in binary mode); in this
+            case, no seeking will occur.
 block_size: the maximum amount of data, in bytes, to read and write at a time
             (0x100000 is 1MiB).  This is a keyword-only argument.
 overwrite: whether to overwrite files if they exist (if False and a file
-           exists, its returned success will be False).
+           exists, its returned success will be False).  This is a keyword-only
+           argument.
 
 success: a list of bools corresponding to the given files, each indicating
-         whether the file could be created.  Failure can occur if the file
-         already exists or if the target path is invalid.
+         whether the file could be created.  Failure can occur if the name is
+         unknown, the destination file already exists, or the target path is
+         invalid.
 
 Any missing intermediate directories will be created.
 
 """
-        # TODO
-        return NotImplemented
+        success = []
+        all_files = {f[0]: f[1:] for f in self.get_extra_files()}
+        with open(self.fn, 'rb') as f:
+            for name, dest in files:
+                try:
+                    start, size = all_files[name]
+                except KeyError:
+                    # unknown file
+                    success.append(False)
+                    continue
+                # create dir if necessary
+                if isinstance(dest, (str, bytes)):
+                    d = dirname(dest)
+                    try:
+                        mkdir(d)
+                    except OSError as e:
+                        if e.errno != 17:
+                            # unknown error
+                            success.append(False)
+                            continue
+                        # else already exists and we want to ignore this
+                # extract file
+                success.append(self._extract(f, start, size, dest, block_size,
+                                        overwrite))
+        return success
 
     def extract (self, *files, block_size = 0x100000, overwrite = False):
         """Extract files from the filesystem.
@@ -453,7 +485,7 @@ block_size: the maximum amount of data, in bytes, to read and write at a time
             (0x100000 is 1MiB).  This is a keyword-only argument.
 overwrite: whether to overwrite files if they exist and ignore existing
            directories (if False and a file/directory exists, it will be in the
-           failed list).
+           failed list).  This is a keyword-only argument.
 
 failed: a list of files and directories that could not be created.  This is in
         the same format as the given files, but may include ones not given (if
@@ -525,19 +557,31 @@ Directories are extracted recursively.
                 files.pop(0)
         return failed
 
-    def write (self, block_size = 0x100000, temp_dir = None):
+    def _align_4B (self, x):
+        """Align the given number to the next multiple of 4."""
+        x, r = divmod(x, 4)
+        if r > 0:
+            x += 1
+        return x * 4
+
+    def write (self, block_size = 0x100000, tmp_dir = None):
         """Write the current tree to the image.
 
-write(block_size = 0x100000[, temp_dir])
+write(block_size = 0x100000[, tmp_dir])
 
 block_size: the maximum amount of data, in bytes, to read and write at a time
             (0x100000 is 1MiB).  This is used when copying data to the image.
-temp_dir: a directory to store temporary files in for some operations.
+tmp_dir: a directory to store temporary files in for some operations.
 
 This function looks at the current state of the tree and amends the filesystem
 in the GameCube image to be the same, copying files from the real filesystem as
 necessary.  The algorithm tries not to increase the size of the disk image, but
 it may be necessary.
+
+Note on internals: files may be moved within the disk by replacing their
+entries index with (index, new_start) before writing.  If you do this, you must
+guarantee the move will not overwrite any other files and that new_start is
+4-byte-aligned.
 
 It's probably a good idea to back up first...
 
@@ -549,6 +593,7 @@ It's probably a good idea to back up first...
         tree[None] = [f + (True,) for f in tree[None]]
         entries = []
         old_files = []
+        moving_files = []
         new_files = []
         names = []
         str_start = 0
@@ -580,7 +625,7 @@ It's probably a good idea to back up first...
                     # existing file
                     start, size = old_entries[old_i][2:]
                     old_files.append((start, i, old_i, size))
-                else:
+                elif isinstance(old_i, (str, bytes)):
                     # new file: get size
                     fn = old_i
                     start = fn
@@ -590,6 +635,11 @@ It's probably a good idea to back up first...
                     size = os.path.getsize(fn)
                     # put in new file list
                     new_files.append((size, i))
+                else:
+                    # existing file to move within the image
+                    old_i, start = old_i
+                    old_start, size = old_entries[old_i][2:]
+                    moving_files.append((old_i, i, old_start, start, size))
                 entries.append((False, str_start, start, size))
                 # update tree
                 tree[None].remove(child)
@@ -609,20 +659,43 @@ It's probably a good idea to back up first...
                 parent_indices[id(tree)] = len(entries)
             # terminate with a null byte
             str_start += len(_encode(name)) + 1
-        # sort existing files by position
-        old_files.sort()
         # get start of actual file data (str_start is now the string table
         # size)
         data_start = self.fs_start + (1 + len(entries)) * 0xc + str_start
+
+        if moving_files:
+            # move files within disk image
+            with open(self.fn, 'r+b') as f:
+                # if we will be seeking beyond the image end, expand the file
+                end = f.seek(0, 2)
+                last_start = max(f[3] for f in moving_files)
+                if end < last_start:
+                    f.truncate(last_start)
+                for old_i, i, old_start, start, size in moving_files:
+                    # copy, a block at a time
+                    done = 0
+                    left = size
+                    while left > 0:
+                        amount = min(left, block_size)
+                        f.seek(old_start + done)
+                        data = f.read(amount)
+                        f.seek(start + done)
+                        f.write(data)
+                        done += amount
+                        left -= amount
+                    # put in old_files
+                    old_files.append((start, i, old_i, size))
+        # sort existing files by position
+        old_files.sort()
         # get existing files overwritten by the filesystem/string tables and
         # extract them to a temp dir
-        temp_dir = tempfile.mkdtemp(prefix = 'gcutil', dir = temp_dir)
+        tmp_dir = tempfile.mkdtemp(prefix = 'gcutil', dir = tmp_dir)
         while old_files and old_files[0][0] < data_start:
             # move from old_files to new_files
             start, i, old_i, size = old_files.pop(0)
             new_files.append((size, i))
             # extract
-            f = tempfile.NamedTemporaryFile(prefix = '', dir = temp_dir,
+            f = tempfile.NamedTemporaryFile(prefix = '', dir = tmp_dir,
                                             delete = False)
             fn = f.name
             f.close()
@@ -630,19 +703,22 @@ It's probably a good idea to back up first...
                                   overwrite = True)
             if failed:
                 # cleanup
-                rmtree(temp_dir)
+                rmtree(tmp_dir)
                 self.build_tree()
                 msg = 'couldn\'t extract to a temporary file ({})'
                 raise IOError(msg.format(failed[0][1]))
-            # change entry
-            entries[i] = (False, entries[i][1], fn, size)
+            else:
+                # change entry
+                entries[i] = (False, entries[i][1], fn, size)
+
         # copy new files to the image
         if new_files:
             # get free space in the filesystem
             free = []
             l = [(data_start, None, None, 0)] + old_files
+            align = self._align_4B
             for j in range(len(l) - 1):
-                start = l[j][0] + l[j][3]
+                start = align(l[j][0] + l[j][3])
                 end = l[j + 1][0]
                 gap = end - start
                 if gap > 0:
@@ -653,6 +729,7 @@ It's probably a good idea to back up first...
                 end = last_file[0] + last_file[3]
             else:
                 end = data_start
+            end = align(end)
             new_files.sort(reverse = True)
             free.sort(reverse = True)
             # take the largest file
@@ -666,26 +743,34 @@ It's probably a good idea to back up first...
                 if gap_i < 0:
                     # either no gaps or won't fit in any: place at the end
                     start = end
-                    end += size
+                    end = align(end + size)
                 else:
-                    start = free[gap_i][1]
                     # alter the gap entry
                     gap, gap_start = free[gap_i]
-                    if gap == size:
-                        free.pop(gap_i)
-                    else:
-                        free[gap_i] = (gap - size, gap_start + size)
+                    start = gap_start
+                    gap_end = gap_start + gap
+                    gap_start = align(gap_start + size)
+                    gap = gap_end - gap_start
+                    if gap > 0:
+                        free[gap_i] = (gap, gap_start)
                         free.sort(reverse = True)
+                    else:
+                        free.pop(gap_i)
                 new_files[file_i] = (start, i)
-            # copy
             with open(self.fn, 'r+b') as f:
+                # if we will be seeking beyond the image end, expand the file
+                end = f.seek(0, 2)
+                last_start = max(start for start, i in new_files)
+                if end < last_start:
+                    f.truncate(last_start)
+                # perform the copy
                 for start, i in new_files:
                     str_start, fn, size = entries[i][1:]
                     copy(fn, f, start, block_size)
                     entries[i] = (False, str_start, start, size)
-            last_new = max(new_files)
+
         # clean up temp dir
-        rmtree(temp_dir)
+        rmtree(tmp_dir)
         # get new fst_size, num_entries, str_start
         self.fst_size = data_start - self.fs_start
         self.num_entries = len(entries) + 1
@@ -707,14 +792,121 @@ It's probably a good idea to back up first...
                 name = _encode(name)
                 write(name + b'\0', f, pos)
                 pos += len(name) + 1
+            # truncate image to new size if necessary
+            end = max(data_start,
+                      *(st + sz for d, ss, st, sz in entries if not d))
+            if end < f.seek(0, 2):
+                f.truncate(end)
         # build new tree
         self.build_tree()
+
+    def _get_file_tree_locations (self, tree = None):
+        """Get a list of files in the given tree with their parent trees.
+
+_get_file_tree_locations([tree]) -> files
+
+tree: the tree to look in; defaults to this instance's tree attribute.
+
+files: list of (file, tree, index) tuples, where tree[None][index] == file.
+
+"""
+        if tree is None:
+            tree = self.tree
+        files = []
+        # files
+        for i, f in enumerate(tree[None]):
+            files.append((f, tree, i))
+        # dirs
+        for k, t in tree.items():
+            if k is not None:
+                files += self._get_file_tree_locations(t)
+        return files
+
+    def _quick_compress (self, block_size = 0x100000):
+        """Quick compress of the image.
+
+_quick_compress(block_size = 0x100000) -> changed
+
+changed: whether any changes were made to the tree.
+
+See compress for more details.
+
+"""
+        # get files, sorted by reverse position
+        files = self._get_file_tree_locations()
+        entries = self.entries
+        files = [(entries[i][2], entries[i][3], i, name, tree[None], tree_i)
+                 for (name, i), tree, tree_i in files]
+        files.sort(reverse = True)
+        # get start of file data
+        start = (0, -1)
+        data_start, i = max(start, *((e[1], i) for i, e in enumerate(entries)))
+        if i != -1:
+            data_start += len(_encode(self.names[i])) + 1
+        data_start += self.str_start
+        # get free space in the filesystem, sorted by position, aligned to
+        # 4-bytes blocks
+        free = []
+        l = [(data_start, 0)] + list(reversed(files))
+        align = self._align_4B
+        for j in range(len(l) - 1):
+            start = align(l[j][0] + l[j][1])
+            end = l[j + 1][0]
+            gap = end - start
+            if gap > 0:
+                free.append((start, gap))
+        free.sort()
+        # repeatedly put the last file in earliest possible gap
+        changed = False
+        for file_i, (pos, size, i, name, d, d_i) in enumerate(files):
+            placed = False
+            for gap_i, (start, gap) in enumerate(free):
+                if gap >= size and start < pos:
+                    # mark file moved
+                    d[d_i] = (name, (i, start))
+                    # change gap entry
+                    end = start + gap
+                    start = align(start + size)
+                    gap = end - start
+                    if gap > 0:
+                        free[gap_i] = (start, gap)
+                        free.sort()
+                    else:
+                        free.pop(gap_i)
+                    placed = True
+                    changed = True
+                    break
+            if not placed:
+                # no gap: move to end of previous file if possible
+                if file_i != 0:
+                    start = files[file_i - 1][0] + files[file_i - 1][1]
+                    if pos - start > size:
+                        # got enough space to move without extracting anything
+                        d[d_i] = (name, (i, start))
+                        changed = True
+                # finished - no point trying to move any other files earlier
+                break
+        return changed
+
+    def _slow_compress (self, tmp_dir, block_size = 0x100000):
+        """Quick compress of the image.
+
+_slow_compress(tmp_dir, block_size = 0x100000) -> changed
+
+changed: whether any changes were made to the tree.
+
+tmp_dir is required and must exist.
+
+See compress for more details.
+
+"""
+        # TODO
+        pass
 
     def compress (self, block_size = 0x100000):
         """Compress the image.
 
-compress(block_size = 0x100000)
-
+compress(block_size = 0x100000[, tmp_dir])
 block_size: the maximum amount of data, in bytes, to read and write at a time
             (0x100000 is 1MiB).
 
@@ -724,17 +916,51 @@ filesystem string table and the file data, sometimes hundreds of MiB.  This
 will also remove free space between files that may have been opened up by
 deletions or other editing.
 
-This will effectively read the entire image to another file in the same
-directory, then delete the original and rename the new image.  For this reason,
-it can take some time, and can require as much as 1.4GiB free space on the disk
-on which the image is stored.
-
-Unless you're making a _lot_ of changes to the image, it is generally not
-necessary or useful to do this more than once, unless you're obsessive
-compulsive or something.
-
-Back up first.  Please.
+IMPORTANT: any changes that have been made to the tree are discarded before
+compressing.  Make sure you write everything you want to keep first.
 
 """
-        # TODO
-        return NotImplemented
+"""
+
+Replacement docstring for if I ever do full compress:
+
+compress(quick = True, block_size = 0x100000[, tmp_dir])
+
+quick: whether to do a quick compress (see below).
+block_size: the maximum amount of data, in bytes, to read and write at a time
+            (0x100000 is 1MiB).
+tmp_dir: a directory to store temporary files.  If this does not exist, it is
+         created and deleted before returning; if not given, Python's tempfile
+         package is used.  If quick is True, this is ignored.
+
+This function removes all free space in the image's filesystem to make it
+smaller.  GameCube images often have a load of free space between the
+filesystem string table and the file data, sometimes hundreds of MiB.  This
+will also remove free space between files that may have been opened up by
+deletions or other editing.
+
+A quick compress may not remove all free space, but does well enough.  It
+should also be faster and doesn't use any extra disk space (or memory, if you're
+thinking of a ramdisk).  Unless you're obsessive-compulsive, this should be
+good enough.
+
+As implied above, a full compress may use some extra disk space.  While
+unlikely, this may be as much as the size of this disk image.  More
+importantly, if tmp_dir is not given, the directory used might be on a ramdisk,
+so we could end up running out of memory.  Be careful.
+
+IMPORTANT: any changes that have been made to the tree are discarded before
+compressing.  Make sure you write everything you want to keep first.
+
+"""
+        # discard changes
+        self.tree = self.build_tree()
+        if self._quick_compress(block_size):
+            self.write(block_size)
+        #if quick:
+            #if self._quick_compress(block_size):
+                #self.write(block_size)
+        #else:
+            #tmp_dir = tempfile.mkdtemp(prefix = 'gcutil', dir = tmp_dir)
+            #self._slow_compress(tmp_dir, block_size)
+            #rmtree(tmp_dir)

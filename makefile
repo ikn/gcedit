@@ -7,6 +7,7 @@ datarootdir = $(prefix)/share
 exec_prefix = $(prefix)
 bindir = $(exec_prefix)/bin
 docdir = $(datarootdir)/doc/gcedit
+python_lib = $(shell ./get_python_lib $(DESTDIR)$(prefix))
 
 .PHONY: all clean distclean install uninstall
 
@@ -35,7 +36,7 @@ uninstall:
 	@ # executable
 	- $(RM) "$(DESTDIR)$(bindir)/gcedit"
 	@ # package
-	@ #./setup remove --prefix="$(DESTDIR)$(prefix)"
-	- $(RM) -r $(shell ./get_python_lib $(DESTDIR)$(prefix))/{gcedit,gcedit-*.egg-info}
+	- ./setup remove --prefix="$(DESTDIR)$(prefix)" &> /dev/null || \
+	$(RM) -r $(python_lib)/{gcedit,gcedit-*.egg-info}
 	@ # readme
 	- $(RM) -r "$(DESTDIR)$(docdir)/"

@@ -15,7 +15,8 @@ PyGObject 3 (>= 3.0.3): https://live.gnome.org/PyGObject
 
     INSTALLATION
 
-There is no installation method on Windows.  On Unix-like OSs, run
+There is no installation method on Windows.  On Unix-like OSs, with GNU make or
+equivalent, run
 
     ./configure
     make

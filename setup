@@ -1,4 +1,6 @@
-#! /usr/bin/python
+#! /usr/bin/env python
+
+# script for building and installing the Python package
 
 from distutils.core import setup
 

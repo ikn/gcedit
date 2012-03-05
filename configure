@@ -1,14 +1,17 @@
 #! /bin/bash
 
-scripts=(run_gcedit setup)
+# fix scripts' #! lines if Python 3 is installed as python3 (then python may
+# well be Python 2)
+
+scripts=(run_gcedit setup get_python_lib)
 p=`type -p python3`
 if [ -n "$p" ]; then
     for script in ${scripts[@]}; do
         # don't overwrite the file we're reading from...
-        echo $script
         tmp_script=."$script".tmp
-        sed "s:^#\!.*python$:#\! $p:" < "$script" > "$tmp_script"
+        sed "s:^#\!.*$:#\! $p:" < "$script" > "$tmp_script"
         mv -f "$tmp_script" "$script"
         chmod +x "$script"
+        echo $script
     done
 fi

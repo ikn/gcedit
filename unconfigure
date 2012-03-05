@@ -1,0 +1,13 @@
+#! /bin/bash
+
+# undo what configure does
+
+scripts=(run_gcedit setup get_python_lib)
+for script in ${scripts[@]}; do
+    # don't overwrite the file we're reading from...
+    tmp_script=."$script".tmp
+    sed "s:^#\!.*$:#\! /usr/bin/env python:" < "$script" > "$tmp_script"
+    mv -f "$tmp_script" "$script"
+    chmod +x "$script"
+    echo $script
+done

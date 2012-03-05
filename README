@@ -18,14 +18,16 @@ PyGObject 3 (>= 3.0.3): https://live.gnome.org/PyGObject
 There is no installation method on Windows.  On Unix-like OSs, run
 
     ./configure
+    make
     make install
 
-The makefile respects the prefix, DESTDIR, etc. arguments.  To uninstall, run
+The makefile respects the prefix, DESTDIR, etc. arguments.  Of course,
+`make install' needs to be run as root if installing outside of your home
+directory.  To uninstall, run
 
     make uninstall
 
-but note that this cannot remove the Python package at the moment (waiting for
-packaging.install.remove in Python 3.3).
+`make clean' and `make distclean' are also supported, and work as expected.
 
     USAGE
 

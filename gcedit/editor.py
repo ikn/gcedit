@@ -48,6 +48,8 @@ get_tree
 get_file
 undo
 redo
+can_undo
+can_redo
 
     ATTRIBUTES
 
@@ -117,11 +119,59 @@ is its entry in the tree.
 
     def undo (self):
         """Undo the last action."""
-        print(self._hist)
+        if not self.can_undo():
+            return
+        self._hist_pos -= 1
+        action, data = self._hist[self._hist_pos]
+        if action == 'move':
+            self.move(*((new, old) for old, new in data), hist = False)
+        elif action == 'copy':
+            self.delete(*(new for old, new in data), hist = False)
+        elif action == 'delete':
+            for x in data:
+                parent = self.get_tree(x[0][:-1])
+                if len(x) == 2:
+                    # file
+                    parent[None].append(x[1])
+                else:
+                    # dir
+                    parent[x[1]] = x[2]
+        else: # new
+            self.delete(data, hist = False)
+        self.editor.file_manager.refresh()
+        self.editor.update_hist_btns()
 
     def redo (self):
         """Redo the next action."""
-        print(self._hist)
+        if not self.can_redo():
+            return
+        action, data = self._hist[self._hist_pos]
+        self._hist_pos += 1
+        if action == 'move':
+            self.move(*data, hist = False)
+        elif action == 'copy':
+            self.copy(*data, hist = False)
+        elif action == 'delete':
+            self.delete(*(x[0] for x in data), hist = False)
+        else: # new
+            self.new_dir(data, hist = False)
+        self.editor.file_manager.refresh()
+        self.editor.update_hist_btns()
+
+    def can_undo (self):
+        """Check whether there's anything to undo."""
+        return self._hist_pos > 0
+
+    def can_redo (self):
+        """Check whether there's anything to redo."""
+        return self._hist_pos < len(self._hist)
+
+    def _add_hist (self, data):
+        """Add an action to the history."""
+        self._hist = self._hist[:self._hist_pos]
+        self._hist.append(data)
+        self._hist_pos += 1
+        self.editor.update_hist_btns()
 
     def list_dir (self, path):
         try:
@@ -207,20 +257,20 @@ is its entry in the tree.
         if hist:
             succeeded = [x for x in data if x[0] not in failed]
             if succeeded:
-                self._hist.append(('copy', succeeded))
+                self._add_hist(('copy', succeeded))
         if return_failed:
             return failed
         else:
             return len(failed) != len(data)
 
-    def move (self, *data):
+    def move (self, *data, hist = True):
         failed = self.copy(*data, return_failed = True, hist = False)
         if len(failed) != len(data):
             succeeded = [x for x in data if x[0] not in failed]
             self.delete(*(old for old, new in succeeded), hist = False)
             # add to history
-            if succeeded:
-                self._hist.append(('move', succeeded))
+            if hist and succeeded:
+                self._add_hist(('move', succeeded))
             return True
         else:
             return False
@@ -241,10 +291,10 @@ is its entry in the tree.
                 del parent[k]
         # history
         if hist and done:
-            self._hist.append(('delete', done))
+            self._add_hist(('delete', done))
         return True
 
-    def new_dir (self, path):
+    def new_dir (self, path, hist = True):
         *dest, name = path
         dest = self.get_tree(dest)
         current_items = [k[0] for k in dest if k is not None]
@@ -254,7 +304,8 @@ is its entry in the tree.
             print('exists:', name)
             return False
         else:
-            self._hist.append(('new', path))
+            if hist:
+                self._add_hist(('new', path))
             dest[(name, None)] = {None: []}
             return True
 
@@ -266,7 +317,10 @@ Takes a gcutil.GCFS instance.
 
     METHODS
 
+update_hist_btns
+start_import
 extract
+write
 quit
 
     ATTRIBUTES
@@ -274,6 +328,7 @@ quit
 fs: the given gcutil.GCFS instance.
 fs_backend: FSBackend instance.
 file_manager: fsmanage.Manager instance.
+buttons: a list of the buttons on the left.
 
 """
 
@@ -294,7 +349,7 @@ file_manager: fsmanage.Manager instance.
         g.set_row_spacing(6)
         g.set_column_spacing(12)
         # left
-        btns = []
+        self.buttons = btns = []
         f = lambda widget, cb, *args: cb(*args)
         for btn_data in (
             (gtk.STOCK_UNDO, 'Undo the last change', self.fs_backend.undo),
@@ -330,6 +385,9 @@ file_manager: fsmanage.Manager instance.
                     b.connect('clicked', f, cb, *cb_args)
         for i, b in enumerate(btns):
             g.attach(b, 0, i, 1, 1)
+        # undo/redo insensitive
+        for b in btns[:2]:
+            b.set_sensitive(False)
         # right
         g_right = gtk.Grid()
         g.attach(g_right, 1, 0, 1, len(btns))
@@ -342,11 +400,31 @@ file_manager: fsmanage.Manager instance.
         s.add(m)
         m.set_vexpand(True)
         m.set_hexpand(True)
+        # shortcuts
+        group = gtk.AccelGroup()
+        accels = (
+            ('<ctrl>z', self.fs_backend.undo),
+            ('<ctrl><shift>z', self.fs_backend.redo),
+            ('<ctrl>y', self.fs_backend.redo)
+        )
+        def mk_fn (cb, *cb_args):
+            def f (*args):
+                cb(*cb_args)
+            return f
+        for accel, cb, *args in accels:
+            key, mods = gtk.accelerator_parse(accel)
+            group.connect(key, mods, 0, mk_fn(cb, *args))
+        self.add_accel_group(group)
         self.add_accel_group(self.file_manager.accel_group)
         # display
         self.show_all()
         address.update()
         m.grab_focus()
+
+    def update_hist_btns (self):
+        """Update undo/redo buttons' sensitivity."""
+        self.buttons[0].set_sensitive(self.fs_backend.can_undo())
+        self.buttons[1].set_sensitive(self.fs_backend.can_redo())
 
     def start_import (self):
         """Open an import dialogue."""

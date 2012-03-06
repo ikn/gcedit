@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 4.
+Release: 4-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -154,12 +154,17 @@ That is, you can place it directly in such a tree to import lots of files.
     tree = {}
     if walk_iter is None:
         walk_iter = os.walk(root)
-    path, dirs, files = next(walk_iter)
-    # files
-    tree[None] = [(f, path + sep + f) for f in files]
-    # dirs
-    for d in dirs:
-        tree[(d, None)] = tree_from_dir(d, walk_iter)
+    try:
+        path, dirs, files = next(walk_iter)
+    except StopIteration:
+        # seems to indicate a dir we don't have read access to
+        tree[None] = []
+    else:
+        # files
+        tree[None] = [(f, path + sep + f) for f in files]
+        # dirs
+        for d in dirs:
+            tree[(d, None)] = tree_from_dir(d, walk_iter)
     return tree
 
 

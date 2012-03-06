@@ -592,9 +592,14 @@ buttons: the buttons attribute of a Buttons instance.
         if j is not None:
             self._rename([i])
 
-    def refresh (self):
-        """Refresh the directory listing."""
-        self._refresh()
+    def refresh (self, *new):
+        """Refresh the directory listing.
+
+Takes any number of paths as arguments to indicate that they are new and should
+be selected.
+
+"""
+        self._refresh(False, *((None, f) for f in new))
 
     def _refresh (self, purge_cache = False, *changes, preserve_sel = True):
         """Really refresh the directory listing.
@@ -672,8 +677,17 @@ preserve_sel: whether to try to preserve the selection over the refresh
         # enable sorting again
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
         model.set_sort_column_id(-1, gtk.SortType.ASCENDING)
-        # restore selection
+        # restore focus
         names = {row[COL_NAME]: i for i, row in enumerate(model)}
+        try:
+            focus = names[focus]
+        except KeyError:
+            focus = None
+        else:
+            if not isinstance(focus, gtk.TreePath):
+                focus = gtk.TreePath(focus)
+            self.set_cursor(focus, None, False)
+        # restore selection
         sel = self.get_selection()
         new_selected = []
         changes_new = [new for old, new in changes]
@@ -686,15 +700,6 @@ preserve_sel: whether to try to preserve the selection over the refresh
                 sel.select_path(i)
                 if name in changes_new or sel_from_hist:
                     new_selected.append(i)
-        # restore focus
-        try:
-            focus = names[focus]
-        except KeyError:
-            focus = None
-        else:
-            if not isinstance(focus, gtk.TreePath):
-                focus = gtk.TreePath(focus)
-            self.set_cursor(focus, None, False)
         # if got a focus, scroll to it
         if focus is not None:
             self.scroll_to_cell(focus, use_align = False)

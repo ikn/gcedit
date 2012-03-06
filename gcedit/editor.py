@@ -13,10 +13,12 @@ Editor
 """
 
 # TODO:
-# - remember last import/extract path separately
-# - import button
+# - buttons tab order is weird
+# - remember last import/extract paths (separately)
 # - can search within filesystem
 # - menus:
+#   - switch disk image
+#   - buttons
 #   - compress, decompress, discard all changes (fs.update())
 #   - split view (horiz/vert/close)
 # - built-in tabbed editor (expands window out to the right)
@@ -30,8 +32,11 @@ Editor
 
 # NOTE: os.stat().st_dev gives path's device ID
 
+import os
+
 from gi.repository import Gtk as gtk
 from .ext import fsmanage
+from .ext.gcutil import tree_from_dir
 
 IDENTIFIER = 'gcedit'
 
@@ -318,7 +323,7 @@ Takes a gcutil.GCFS instance.
     METHODS
 
 update_hist_btns
-start_import
+do_import
 extract
 write
 quit
@@ -355,8 +360,10 @@ buttons: a list of the buttons on the left.
             (gtk.STOCK_UNDO, 'Undo the last change', self.fs_backend.undo),
             (gtk.STOCK_REDO, 'Redo the next change', self.fs_backend.redo),
             None,
-            (('_Import', gtk.STOCK_HARDDISK), 'Import files from outside',
-             self.start_import),
+            (('_Import Files', gtk.STOCK_HARDDISK),
+             'Import files from outside', self.do_import, False),
+            (('I_mport Folders', gtk.STOCK_HARDDISK),
+             'Import folders from outside', self.do_import, True),
             (('_Extract', gtk.STOCK_EXECUTE), 'Extract the selected files',
              self.extract),
             (('_Write', gtk.STOCK_SAVE), 'Write changes to the disk image',
@@ -373,7 +380,8 @@ buttons: a list of the buttons on the left.
                     b = gtk.Button(name, None, '_' in name)
                     # FIXME: 4 should be GTK_ICON_SIZE_BUTTON, but I can't find
                     # it
-                    b.set_image(gtk.Image.new_from_stock(icon, 4))
+                    img = gtk.Image.new_from_stock(icon, gtk.IconSize.BUTTON)
+                    b.set_image(img)
                 elif name.startswith('gtk-'):
                     b = gtk.Button(None, name)
                 else:
@@ -426,9 +434,42 @@ buttons: a list of the buttons on the left.
         self.buttons[0].set_sensitive(self.fs_backend.can_undo())
         self.buttons[1].set_sensitive(self.fs_backend.can_redo())
 
-    def start_import (self):
+    def do_import (self, dirs):
         """Open an import dialogue."""
-        print('import')
+        # TODO: move to FSBackend and allow undo/redo
+        rt = gtk.ResponseType
+        if dirs:
+            action = gtk.FileChooserAction.SELECT_FOLDER
+        else:
+            action = gtk.FileChooserAction.OPEN
+        buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
+        d = gtk.FileChooserDialog('Choose files', self, action, buttons)
+        d.set_select_multiple(True)
+        if d.run() == rt.OK:
+            # import
+            current = self.fs_backend.get_tree(self.file_manager.path)
+            current_names = [name for name, i in current[None]]
+            current_names += [x[0] for x in current if x is not None]
+            new = []
+            failed = []
+            for f in d.get_filenames():
+                name = os.path.basename(f)
+                # check if exists
+                if name in current_names + new:
+                    failed.append(name)
+                else:
+                    # add to tree
+                    if dirs:
+                        tree = tree_from_dir(f)
+                        current[(name, None)] = tree
+                    else:
+                        current[None].append((name, f))
+                    new.append(name)
+            self.file_manager.refresh(*new)
+            if failed:
+                # TODO: show error dialogue
+                print('exist: {}'.format(failed))
+        d.destroy()
 
     def extract (self, *files):
         """Extract the files at the given paths, else the selected files."""
@@ -442,6 +483,7 @@ buttons: a list of the buttons on the left.
         # TODO:
         # - if one file, ask for a filename to save it under
         # - if >1, list them and ask for a dir to put them in
+        # - might be imported
 
     def write (self):
         """Write changes to the disk."""

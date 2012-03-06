@@ -25,9 +25,9 @@ class LoadDisk (gtk.FileChooserDialog):
 
     def __init__ (self):
         rt = gtk.ResponseType
-        gtk.FileChooserDialog.__init__(self, None, gtk.FileChooserAction.OPEN,
-                                       0, (gtk.STOCK_CLOSE, rt.CLOSE,
-                                           gtk.STOCK_OK, rt.OK))
+        buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
+        gtk.FileChooserDialog.__init__(self, 'Open disk image', None,
+                                       gtk.FileChooserAction.OPEN, buttons)
 
 
 try:
@@ -39,9 +39,9 @@ except IndexError:
     if load.run() == gtk.ResponseType.OK:
         # got one
         fn = load.get_filename()
-        load.destroy()
     else:
         fn = None
+    load.destroy()
 # check we have a filename and it's valid
 if fn is not None:
     try:

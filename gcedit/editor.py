@@ -14,12 +14,13 @@ Editor
 
 # TODO:
 # - buttons tab order is weird
+# - extract
 # - remember last import/extract paths (separately)
 # - can search within filesystem
 # - menus:
 #   - switch disk image
 #   - buttons
-#   - compress, decompress, discard all changes (fs.update())
+#   - compress, decompress, discard all changes (fs.update(), manager.refresh()), reload from disk
 #   - split view (horiz/vert/close)
 # - built-in tabbed editor (expands window out to the right)
 #   - if rename/move a file being edited, rename the tab
@@ -27,18 +28,122 @@ Editor
 #   - if write, ask if want to save files being edited; afterwards, 're-open' them and show error if can't for some reason
 #   - in context menu, buttons
 #   - on open, check if can decode to text; if not, have hex editor
-# - option for open_files to edit instead of extract
+#   - option for open_files to edit instead of extract
 # - track deleted files (not dirs) (get paths recursively) and put in trash when write
 
 # NOTE: os.stat().st_dev gives path's device ID
 
 import os
+from traceback import format_exc
 
 from gi.repository import Gtk as gtk
 from .ext import fsmanage
 from .ext.gcutil import tree_from_dir
 
 IDENTIFIER = 'gcedit'
+
+def nice_path (path):
+    """Get a printable version of a list-style path."""
+    return '/' + '/'.join(path)
+
+def text_viewer (text, wrap_mode = gtk.WrapMode.WORD):
+    """Get a read-only Gtk.TextView widget in a Gtk.ScrolledWindow.
+
+text_viewer(text, wrap_mode = Gtk.WrapMode.WORD) -> widget
+
+
+
+"""
+    w = gtk.ScrolledWindow()
+    v = gtk.TextView()
+    w.add(v)
+    v.set_editable(False)
+    v.set_cursor_visible(False)
+    v.set_wrap_mode(wrap_mode)
+    v.get_buffer().set_text(text)
+    v.set_vexpand(True)
+    v.set_hexpand(True)
+    v.set_valign(gtk.Align.FILL)
+    v.set_halign(gtk.Align.FILL)
+    v.show()
+    return w
+
+def error (msg, parent = None, *widgets, spacing = 12):
+    """Show an error dialogue.
+
+error(msg, parent = None, *widgets, spacing = 12)
+
+msg: text to display.
+parent: dialogue parent.
+widgets: widgets to add to the same grid as the text, which is at (0, 0) with
+         size (1, 1).  A widget can be (widget, x, y, w, h) to determine its
+         position; otherwise, it is placed the first free cell in column 0 once
+         all widgets with given positions have been placed.
+         widget.show() is called.
+spacing: spacing between added widgets in both directions.  Pass
+         (h_spacing, v_spacing) to specify them separately.  This is a
+         keyword-only argument.
+
+"""
+    # using .run(), so don't need modal flag
+    d = gtk.Dialog('Error', parent, gtk.DialogFlags.DESTROY_WITH_PARENT,
+                   (gtk.STOCK_OK, gtk.ResponseType.OK))
+    # label
+    msg = gtk.Label(msg)
+    msg.set_line_wrap(True)
+    msg.set_selectable(True)
+    msg.set_halign(gtk.Align.START)
+    msg.set_valign(gtk.Align.START)
+    # some properties
+    d.set_resizable(False)
+    c = d.get_content_area()
+    c.set_property('margin', 12)
+    c.set_spacing(12)
+    # grid
+    g = gtk.Grid()
+    c.pack_start(g, True, True, 0)
+    if isinstance(spacing, int):
+        spacing = (spacing, spacing)
+    g.set_column_spacing(spacing[0])
+    g.set_row_spacing(spacing[1])
+    # add label and given widgets, if any
+    used_rows = set()
+    todo = []
+    min_x = 0
+    min_y = 0
+    max_y = 1
+    i = 0
+    for widget in ((msg, 0, 0, 1, 1),) + widgets:
+        if isinstance(widget, gtk.Widget):
+            # leave until later
+            todo.append(widget)
+        else:
+            # place where asked
+            widget, x, y, w, h = widget
+            if x <= 0 and x + w > 0:
+                used_rows.update(range(y, y + h))
+            g.attach(widget, x, y, w, h)
+            min_x = min(min_x, x)
+            min_y = min(min_y, y)
+            max_y = max(max_y, y + w)
+        widget.show()
+    for widget in todo:
+        # place in first free cell in column 0
+        while i in used_rows:
+            i += 1
+        g.attach(widget, 0, i, 1, 1)
+        max_y = max(max_y, i + 1)
+        i += 1
+    # add image
+    img = gtk.Image.new_from_stock(gtk.STOCK_DIALOG_ERROR, gtk.IconSize.DIALOG)
+    img.set_halign(gtk.Align.CENTER)
+    img.set_valign(gtk.Align.START)
+    g.attach(img, min_x - 1, min_y, 1, max_y - min_y)
+    img.show()
+    # run
+    g.show()
+    d.run()
+    d.destroy()
 
 
 class FSBackend:
@@ -182,7 +287,8 @@ is its entry in the tree.
         try:
             tree = self.get_tree(path)
         except ValueError:
-            # TODO: show doesn't exist dialogue
+            # doesn't exist: show error
+            error('Directory doesn\'t exist.', self.editor)
             items = []
         else:
             # dirs
@@ -198,6 +304,7 @@ is its entry in the tree.
         failed = []
         cannot_copy = []
         for old, new in data:
+            foreign = False
             if old[0] is True:
                 # from another Manager: check data is valid
                 data, old = old[1:]
@@ -209,6 +316,7 @@ is its entry in the tree.
                     pass
                 else:
                     # different Editor
+                    foreign = True
                     # TODO
                     print(data, old, new)
                     continue
@@ -229,11 +337,16 @@ is its entry in the tree.
                 except ValueError:
                     # been deleted or something
                     failed.append(old)
-                    cannot_copy.append(old[-1])
+                    cannot_copy.append(nice_path(old))
                     continue
             this_failed = False
+            skip = False
             while name in current_items:
-                # exists: ask what action to take
+                # exists: skip if it's the same file
+                if old == new and not foreign:
+                    skip = True
+                    break
+                # else ask what action to take
                 print('failed:', k[0])
                 failed.append(old)
                 # TODO: show overwrite/don't copy/rename error dialogue
@@ -248,7 +361,7 @@ is its entry in the tree.
                 else:
                     this_failed = True
                     break
-            if not this_failed:
+            if not skip and not this_failed:
                 # copy
                 if is_dir:
                     dest[(name, k[1])] = parent[k]
@@ -256,8 +369,8 @@ is its entry in the tree.
                     dest[None].append((new[-1], k[1]))
         if cannot_copy:
             # show error for files that couldn't be copied
-            # TODO: show error dialogue
-            print('couldn\'t copy:', cannot_copy)
+            v = text_viewer('\n'.join(cannot_copy), gtk.WrapMode.NONE)
+            error('Couldn\'t copy some items:', self.editor, v)
         # add to history
         if hist:
             succeeded = [x for x in data if x[0] not in failed]
@@ -305,8 +418,9 @@ is its entry in the tree.
         current_items = [k[0] for k in dest if k is not None]
         current_items += [name for name, i in dest[None]]
         if name in current_items:
-            # TODO: show error dialogue
-            print('exists:', name)
+            # already exists: show error
+            error('Directory \'{}\' already exists.'.format(nice_path(path)),
+                  self.editor)
             return False
         else:
             if hist:
@@ -426,7 +540,6 @@ buttons: a list of the buttons on the left.
         self.add_accel_group(self.file_manager.accel_group)
         # display
         self.show_all()
-        address.update()
         m.grab_focus()
 
     def update_hist_btns (self):
@@ -451,13 +564,25 @@ buttons: a list of the buttons on the left.
             current_names = [name for name, i in current[None]]
             current_names += [x[0] for x in current if x is not None]
             new = []
-            failed = []
             for f in d.get_filenames():
                 name = os.path.basename(f)
+                failed = False
                 # check if exists
-                if name in current_names + new:
-                    failed.append(name)
-                else:
+                while name in current_names or name in new:
+                    # exists: ask what action to take
+                    print('failed:', f)
+                    # TODO: show overwrite/don't copy/rename error dialogue
+                    this_failed = True ##
+                    break ##
+                    if overwrite:
+                        self.fs_backend.delete(new)
+                        current_items.remove(name)
+                    elif rename:
+                        name = new_name
+                    else:
+                        failed = True
+                        break
+                if not failed:
                     # add to tree
                     if dirs:
                         tree = tree_from_dir(f)
@@ -466,9 +591,6 @@ buttons: a list of the buttons on the left.
                         current[None].append((name, f))
                     new.append(name)
             self.file_manager.refresh(*new)
-            if failed:
-                # TODO: show error dialogue
-                print('exist: {}'.format(failed))
         d.destroy()
 
     def extract (self, *files):
@@ -497,7 +619,21 @@ buttons: a list of the buttons on the left.
         if write:
             # TODO: progress bar
             # TODO: ask to confirm - can't undo/all undo history lost
-            self.fs.write()
+            try:
+                self.fs.write()
+            except Exception as e:
+                if hasattr(e, 'handled') and e.handled is True:
+                    # disk should still be in the same state
+                    error('Couldn\'t write: {}.'.format(e.args[0]), self)
+                else:
+                    # not good: show traceback
+                    msg = 'Something may have gone horribly wrong, and the ' \
+                          'disk image might have ended up in an ' \
+                          'inconsistent state.  Here\'s some debug ' \
+                          'information:'
+                    v = text_viewer(format_exc().strip(),
+                                    gtk.WrapMode.WORD_CHAR)
+                    error(msg, self, v)
 
     def quit (self, *args):
         """Quit the program."""

@@ -814,8 +814,6 @@ dirs: if none are given, clear all cache; otherwise, clear the cache for these
 class AddressBar (gtk.Box):
     """An address bar to work with a Manager.  Subclass of Gtk.Box.
 
-If you call show_all, call update immediately afterwards.
-
     CONSTRUCTOR
 
 AddressBar(manager, sep = '/', prepend_sep = True, append_sep = False,
@@ -824,7 +822,7 @@ AddressBar(manager, sep = '/', prepend_sep = True, append_sep = False,
 manager: a Manager instance.
 sep: the path separator used in output.  This can be any string.
 prepend_sep: whether to prepend paths in output with the path separator.
-append_sep: whether to append to paths in output the path separator.
+append_sep: whether to append to paths in output with the path separator.
 padding: the padding between widgets in this gtk.Box.
 root_icon: GTK stock for the icon shown on the root button in the breadcrumbs
            view.
@@ -860,7 +858,7 @@ path: the current path shown (in list form).
         self.set_vexpand(False)
         # widgets
         self.mode_button = mode_b = gtk.ToggleButton(None, gtk.STOCK_EDIT)
-        f = lambda b: self.set_mode(b.get_active(), False)
+        f = lambda b: self.set_mode(b.get_active(), False, True)
         mode_b.connect('toggled', f)
         self.pack_start(mode_b, False, False, 0)
         # entry
@@ -878,6 +876,7 @@ path: the current path shown (in list form).
         self.breadcrumbs = bc = gtk.Grid()
         self.pack_start(bc, True, True, 0)
         bc.connect('size-allocate', self._resize_breadcrumbs)
+        bc.show()
         # make scrollback button/root entry
         self._scrollback_b = sb = gtk.Button('\u25bc')
         sb.set_vexpand(True)
@@ -897,6 +896,8 @@ path: the current path shown (in list form).
             box.remove(box.get_children()[1])
 
         self.show_all()
+        self.address.set_no_show_all(True)
+        bc.set_no_show_all(True)
         self.hide()
         self.set_path([])
 
@@ -921,7 +922,7 @@ This does not affect the manager.
         path = sep.join(self.path)
         if self.prepend_sep:
             path = sep + path
-        if self.append_sep:
+        if self.append_sep and not (self.prepend_sep and not self.path):
             path += sep
         self.entry.set_text(path)
 
@@ -936,13 +937,15 @@ This does not affect the manager.
         self.set_path(path)
         self._set_manager_path(path)
 
-    def set_mode (self, mode, fix_button = True):
+    def set_mode (self, mode, fix_button = True, focus_address_bar = False):
         """Set the display mode: True for an entry, False for breadcrumbs."""
         if fix_button:
             self.mode_button.set_active(mode)
         if mode:
             self.breadcrumbs.hide()
             self.address.show()
+            if focus_address_bar:
+                self.entry.grab_focus()
         else:
             self.address.hide()
             self.breadcrumbs.show()

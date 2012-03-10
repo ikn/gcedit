@@ -583,6 +583,11 @@ in the GameCube image to be the same, copying files from the real filesystem as
 necessary.  The algorithm tries not to increase the size of the disk image, but
 it may be necessary.
 
+If an exception is raised, its 'handler' attribute is set to True if the disk
+is left unaltered (for all intents and purposes, anyway).  Exceptions without
+this setting should be treated with care: both the disk image and the data in
+this class might be broken.
+
 Note on internals: files may be moved within the disk by replacing their
 entries index with (index, new_start) before writing.  If you do this, you must
 guarantee the move will not overwrite any other files and that new_start is
@@ -635,8 +640,9 @@ It's probably a good idea to back up first...
                     fn = old_i
                     start = fn
                     if not os.path.isfile(fn):
-                        err = '\'{}\' is not a valid file'
-                        raise ValueError(err.format(fn))
+                        e = ValueError('\'{}\' is not a valid file'.format(fn))
+                        e.handled = True
+                        raise e
                     size = os.path.getsize(fn)
                     # put in new file list
                     new_files.append((size, i))
@@ -669,7 +675,7 @@ It's probably a good idea to back up first...
         data_start = self.fs_start + (1 + len(entries)) * 0xc + str_start
 
         if moving_files:
-            # move files within disk image
+            # copy files within disk image
             with open(self.fn, 'r+b') as f:
                 # if we will be seeking beyond the image end, expand the file
                 end = f.seek(0, 2)
@@ -711,7 +717,9 @@ It's probably a good idea to back up first...
                 rmtree(tmp_dir)
                 self.build_tree()
                 msg = 'couldn\'t extract to a temporary file ({})'
-                raise IOError(msg.format(failed[0][1]))
+                e = IOError(msg.format(failed[0][1]))
+                e.handled = True
+                raise e
             else:
                 # change entry
                 entries[i] = (False, entries[i][1], fn, size)

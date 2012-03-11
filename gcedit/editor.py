@@ -96,6 +96,7 @@ spacing: spacing between added widgets in both directions.  Pass
     msg.set_valign(gtk.Align.START)
     # some properties
     d.set_resizable(False)
+    d.set_default_response(gtk.ResponseType.OK)
     c = d.get_content_area()
     c.set_property('margin', 12)
     c.set_spacing(12)
@@ -342,16 +343,15 @@ is its entry in the tree.
                     cannot_copy.append(nice_path(old))
                     continue
             this_failed = False
-            skip = False
             while name in current_items:
-                # exists: skip if it's the same file
+                # exists
+                # skip if it's the same file
                 if old == new and not foreign:
-                    skip = True
+                    this_failed = True
                     break
                 # else ask what action to take
-                print('failed:', k[0])
-                failed.append(old)
                 # TODO: show overwrite/don't copy/rename error dialogue
+                print('failed:', k[0]) ##
                 this_failed = True ##
                 break ##
                 if overwrite:
@@ -363,7 +363,9 @@ is its entry in the tree.
                 else:
                     this_failed = True
                     break
-            if not skip and not this_failed:
+            if this_failed:
+                failed.append(old)
+            else:
                 # copy
                 if is_dir:
                     dest[(name, k[1])] = parent[k]
@@ -607,7 +609,7 @@ buttons: a list of the buttons on the left.
         # TODO:
         # - if one file, ask for a filename to save it under
         # - if >1, list them and ask for a dir to put them in
-        # - might be imported
+        # - display failed list
 
     def write (self):
         """Write changes to the disk."""

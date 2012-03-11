@@ -20,19 +20,28 @@ tree_from_dir
 
 """
 
+# TODO:
+# - decompress function
+# - write takes optional function to call periodically with progress ratio (still 0 after first bit)
+
 import os
-from os import sep
-from shutil import rmtree
+from shutil import rmtree, copyfile, Error as shutil_error
 import tempfile
 import codecs
 
 CODEC = 'shift-jis'
 _decode = lambda b: codecs.decode(b, CODEC)
 _encode = lambda s: codecs.encode(s, CODEC)
+_sep = lambda s: _encode(os.sep) if isinstance(s, bytes) else os.sep
 
 from os import mkdir
 from os.path import dirname, basename
 from base64 import urlsafe_b64encode as b64
+
+def _join (*dirs):
+    """Like os.path.join, but handles mismatched bytes/str args."""
+    sep = _encode(os.sep)
+    return sep.join(_encode(d) if isinstance(d, str) else d for d in dirs)
 
 def read (f, start, size = None, num = False, until = None, block_size = 0x10):
     """Read data from a file object.
@@ -161,7 +170,7 @@ That is, you can place it directly in such a tree to import lots of files.
         tree[None] = []
     else:
         # files
-        tree[None] = [(f, path + sep + f) for f in files]
+        tree[None] = [(f, _join(path, f)) for f in files]
         # dirs
         for d in dirs:
             tree[(d, None)] = tree_from_dir(d, walk_iter)
@@ -484,7 +493,9 @@ files: the files and directories to extract, each an (index, target) tuple,
        where:
     index: the index of the file/directory in this GCFS instance's entries
            attribute.  Use -1 (or any other number less than 0) for the root
-           directory.
+           directory.  Alternatively, this can be a tree in the same format as
+           the tree attribute to recreate on the real filesystem; imported
+           files are respected, and will be copied as necessary.
     target: the path on the real filesystem to extract this file/directory to.
 block_size: the maximum amount of data, in bytes, to read and write at a time
             (0x100000 is 1MiB).  This is a keyword-only argument.
@@ -495,12 +506,18 @@ overwrite: whether to overwrite files if they exist and ignore existing
 failed: a list of files and directories that could not be created.  This is in
         the same format as the given files, but may include ones not given (if
         a given directory could be created, but not one of its children).
-        Failure can occur if the file/directory already exists or if the target
-        path is invalid.
+        Failure can occur if:
+    - the file/directory already exists and overwrite is False
+    - extracting a file to a path that exists as a directory (no matter the
+      value of overwrite)
+    - the target path is invalid or otherwise can't be written to
+    - an imported file in a given tree could not be read
+    - an imported file in a given tree is being extracted back out to itself
 
 Like the entries attribute itself, this method does not take into account
 modifications made to the tree attribute that have not been written to the
-image (using the write method).
+image (using the write method).  To do that, pass trees instead of entries
+indexes.
 
 Directories are extracted recursively.
 
@@ -514,15 +531,29 @@ Directories are extracted recursively.
             while files:
                 i, dest, *args = files[0]
                 # remove trailing separator
-                s = (os.sep, sep)[isinstance(dest, bytes)]
-                while dest.endswith(s):
+                sep = _sep(dest)
+                while dest.endswith(sep):
                     dest = dest[:-1]
                 # get entry data
-                if i < 0:
-                    # root
+                if isinstance(i, int):
+                    # entries index
+                    if i < 0:
+                        # root
+                        is_dir = True
+                    else:
+                        is_dir, str_start, start, size = entries[i]
+                        on_disk = True
+                elif isinstance(i, dict):
+                    # tree: is a dir, and args[0] should be the tree
+                    is_dir = True
+                    args = [i]
+                elif i is None:
+                    # new dir
                     is_dir = True
                 else:
-                    is_dir, str_start, start, size = entries[i]
+                    # imported file
+                    is_dir = False
+                    on_disk = False
                 if is_dir:
                     # create dir
                     try:
@@ -547,18 +578,29 @@ Directories are extracted recursively.
                             tree = tree[(names[i], i)]
                     # add children to extract list
                     # files
-                    for name, j in reversed(list(tree[None])):
-                        files.insert(1, (j, dest + sep + name))
-                    del tree[None]
+                    for name, j in tree[None]:
+                        files.append((j, _join(dest, name)))
                     # dirs
-                    dirs = reversed(list(tree.items()))
-                    for (name, j), child_tree in dirs:
-                        files.insert(1, (j, dest + sep + name, child_tree))
-                else:
+                    for k, child_tree in tree.items():
+                        if k is not None:
+                            name, j = k
+                            files.append((j, _join(dest, name), child_tree))
+                elif on_disk:
                     # extract file
                     if not self._extract(f, start, size, dest, block_size,
                                          overwrite):
                         failed.append((i, dest))
+                else:
+                    # copy file
+                    if not overwrite and os.path.exists(dest):
+                        failed.append((i, dest))
+                    else:
+                        try:
+                            # GC filesystem doesn't know about metadata anyway,
+                            # so we're fine to ignore it here
+                            copyfile(i, dest)
+                        except (IOError, Error):
+                            failed.append((i, dest))
                 files.pop(0)
         return failed
 
@@ -591,7 +633,7 @@ this class might be broken.
 Note on internals: files may be moved within the disk by replacing their
 entries index with (index, new_start) before writing.  If you do this, you must
 guarantee the move will not overwrite any other files and that new_start is
-4-byte-aligned.
+4-byte-aligned.  This is only supported in this method.
 
 It's probably a good idea to back up first...
 
@@ -640,7 +682,8 @@ It's probably a good idea to back up first...
                     fn = old_i
                     start = fn
                     if not os.path.isfile(fn):
-                        e = ValueError('\'{}\' is not a valid file'.format(fn))
+                        err = '\'{}\' is not a valid file'
+                        e = ValueError(err.format(fn))
                         e.handled = True
                         raise e
                     size = os.path.getsize(fn)
@@ -914,6 +957,10 @@ See compress for more details.
 
 """
         # TODO
+        # - place files at start of data in entries order
+        # - copy any that are already in new region to temp dir
+        # - replace tree entries to reflect changes
+        # - write()
         pass
 
     def compress (self, block_size = 0x100000):

@@ -20,7 +20,7 @@ Editor
 # - menus:
 #   - switch disk image
 #   - buttons
-#   - compress, decompress, discard all changes (fs.update(), manager.refresh()), reload from disk
+#   - compress, decompress, discard all changes (fs.update(), manager.refresh()), reload from disk (fs.update())
 #   - split view (horiz/vert/close)
 # - built-in tabbed editor (expands window out to the right)
 #   - if rename/move a file being edited, rename the tab
@@ -307,18 +307,20 @@ is its entry in the tree.
             foreign = False
             if old[0] is True:
                 # from another Manager: check data is valid
-                data, old = old[1:]
-                if not isinstance(data, tuple) or len(data) != 3 or \
-                   data[0] != IDENTIFIER:
+                this_data, old = old[1:]
+                if not isinstance(this_data, tuple) or len(this_data) != 3 or \
+                   this_data[0] != IDENTIFIER:
                     continue
-                if data[2] == id(self.editor):
+                if this_data[2] == id(self.editor):
                     # same Editor
                     pass
                 else:
                     # different Editor
                     foreign = True
                     # TODO
-                    print(data, old, new)
+                    error('Drag-and-drop between instances is not supported ' \
+                          'yet.')
+                    print(this_data, old, new)
                     continue
             # get destination
             *dest, name = new

@@ -13,8 +13,7 @@ Editor
 """
 
 # TODO:
-# - pasting/creating dir/importing in non-existent dir breaks things
-# - can't import Documents/Music (check what utf-8 encoding a unicode string with japanese does) (should just show error: can't have such a filename?) (is it really shift-jis?  check yagcd)
+# - can't import Documents/Music (check what utf-8 encoding a unicode string with japanese does) (should just show error: can't have such a filename?) (is it really shift-jis?)
 # - buttons tab order is weird
 # - remember last import/extract paths (separately)
 # - can search within filesystem
@@ -315,7 +314,12 @@ Takes an argument indicating whether to import directories (else files).
         if d.run() == rt.OK:
             # import
             current_path = self.editor.file_manager.path
-            current = self.get_tree(current_path)
+            try:
+                current = self.get_tree(current_path)
+            except ValueError:
+                d.destroy()
+                error('Can\'t import to a non-existent directory.')
+                return
             current_names = [name for name, i in current[None]]
             current_names += [x[0] for x in current if x is not None]
             new = []
@@ -373,6 +377,7 @@ Takes an argument indicating whether to import directories (else files).
     def copy (self, *data, return_failed = False, hist = True):
         failed = []
         cannot_copy = []
+        said_nodest = False
         for old, new in data:
             foreign = False
             if old[0] is True:
@@ -381,10 +386,7 @@ Takes an argument indicating whether to import directories (else files).
                 if not isinstance(this_data, tuple) or len(this_data) != 3 or \
                    this_data[0] != IDENTIFIER:
                     continue
-                if this_data[2] == id(self.editor):
-                    # same Editor
-                    pass
-                else:
+                if this_data[2] != id(self.editor):
                     # different Editor
                     foreign = True
                     # TODO
@@ -394,10 +396,19 @@ Takes an argument indicating whether to import directories (else files).
                     continue
             # get destination
             *dest, name = new
-            dest = self.get_tree(dest)
+            try:
+                dest = self.get_tree(dest)
+            except ValueError:
+                if not said_nodest:
+                    error('Can\'t copy to a non-existent directory.')
+                    said_nodest = True
+                failed.append(old)
+                cannot_copy.append(nice_path(old))
+                continue
             current_items = [k[0] for k in dest if k is not None]
             current_items += [name for name, i in dest[None]]
             is_dir = True
+            # get source
             try:
                 # try to get dir
                 parent, k = self.get_tree(old, True)
@@ -488,7 +499,11 @@ Takes an argument indicating whether to import directories (else files).
 
     def new_dir (self, path, hist = True):
         *dest, name = path
-        dest = self.get_tree(dest)
+        try:
+            dest = self.get_tree(dest)
+        except ValueError:
+            error('Can\'t create a directory in a non-existent directory.')
+            return False
         current_items = [k[0] for k in dest if k is not None]
         current_items += [name for name, i in dest[None]]
         if name in current_items:

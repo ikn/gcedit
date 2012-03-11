@@ -13,8 +13,9 @@ Editor
 """
 
 # TODO:
+# - pasting/creating dir/importing in non-existent dir breaks things
+# - can't import Documents/Music (check what utf-8 encoding a unicode string with japanese does) (should just show error: can't have such a filename?) (is it really shift-jis?  check yagcd)
 # - buttons tab order is weird
-# - extract
 # - remember last import/extract paths (separately)
 # - can search within filesystem
 # - menus:
@@ -161,6 +162,7 @@ undo
 redo
 can_undo
 can_redo
+do_import
 
     ATTRIBUTES
 
@@ -247,8 +249,11 @@ is its entry in the tree.
                 else:
                     # dir
                     parent[x[1]] = x[2]
-        else: # new
+        elif action == 'new':
             self.delete(data, hist = False)
+        else: # import
+            for path, f in data:
+                self.delete(path, hist = False)
         self.editor.file_manager.refresh()
         self.editor.update_hist_btns()
 
@@ -264,8 +269,17 @@ is its entry in the tree.
             self.copy(*data, hist = False)
         elif action == 'delete':
             self.delete(*(x[0] for x in data), hist = False)
-        else: # new
+        elif action == 'new':
             self.new_dir(data, hist = False)
+        else: # import
+            for (*parent, name), f in data:
+                tree = self.get_tree(parent)
+                if isinstance(f, dict):
+                    # dir
+                    tree[(name, None)] = f
+                else:
+                    # file
+                    tree[None].append((name, f))
         self.editor.file_manager.refresh()
         self.editor.update_hist_btns()
 
@@ -283,6 +297,61 @@ is its entry in the tree.
         self._hist.append(data)
         self._hist_pos += 1
         self.editor.update_hist_btns()
+
+    def do_import (self, dirs):
+        """Open an import dialogue.
+
+Takes an argument indicating whether to import directories (else files).
+
+"""
+        rt = gtk.ResponseType
+        if dirs:
+            action = gtk.FileChooserAction.SELECT_FOLDER
+        else:
+            action = gtk.FileChooserAction.OPEN
+        buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
+        d = gtk.FileChooserDialog('Choose files', self.editor, action, buttons)
+        d.set_select_multiple(True)
+        if d.run() == rt.OK:
+            # import
+            current_path = self.editor.file_manager.path
+            current = self.get_tree(current_path)
+            current_names = [name for name, i in current[None]]
+            current_names += [x[0] for x in current if x is not None]
+            new = []
+            new_names = []
+            for f in d.get_filenames():
+                name = os.path.basename(f)
+                failed = False
+                # check if exists
+                while name in current_names or name in new:
+                    # exists: ask what action to take
+                    print('failed:', f)
+                    # TODO: show overwrite/don't copy/rename error dialogue
+                    this_failed = True ##
+                    break ##
+                    if overwrite:
+                        # TODO: careful of history
+                        self.delete(new)
+                        current_items.remove(name)
+                    elif rename:
+                        name = new_name
+                    else:
+                        failed = True
+                        break
+                if not failed:
+                    # add to tree
+                    if dirs:
+                        tree = tree_from_dir(f)
+                        current[(name, None)] = f = tree
+                    else:
+                        current[None].append((name, f))
+                    new.append((current_path + [name], f))
+                    new_names.append(name)
+            if new:
+                self.editor.file_manager.refresh(*new_names)
+                self._add_hist(('import', new))
+        d.destroy()
 
     def list_dir (self, path):
         try:
@@ -355,6 +424,7 @@ is its entry in the tree.
                 this_failed = True ##
                 break ##
                 if overwrite:
+                    # TODO: careful of history
                     self.delete(new)
                     current_items.remove(name)
                 elif rename:
@@ -441,7 +511,6 @@ Takes a gcutil.GCFS instance.
     METHODS
 
 update_hist_btns
-do_import
 extract
 write
 quit
@@ -479,9 +548,9 @@ buttons: a list of the buttons on the left.
             (gtk.STOCK_REDO, 'Redo the next change', self.fs_backend.redo),
             None,
             (('_Import Files', gtk.STOCK_HARDDISK),
-             'Import files from outside', self.do_import, False),
+             'Import files from outside', self.fs_backend.do_import, False),
             (('I_mport Folders', gtk.STOCK_HARDDISK),
-             'Import folders from outside', self.do_import, True),
+             'Import folders from outside', self.fs_backend.do_import, True),
             (('_Extract', gtk.STOCK_EXECUTE), 'Extract the selected files',
              self.extract),
             (('_Write', gtk.STOCK_SAVE), 'Write changes to the disk image',
@@ -550,52 +619,6 @@ buttons: a list of the buttons on the left.
         """Update undo/redo buttons' sensitivity."""
         self.buttons[0].set_sensitive(self.fs_backend.can_undo())
         self.buttons[1].set_sensitive(self.fs_backend.can_redo())
-
-    def do_import (self, dirs):
-        """Open an import dialogue."""
-        # TODO: move to FSBackend and allow undo/redo
-        rt = gtk.ResponseType
-        if dirs:
-            action = gtk.FileChooserAction.SELECT_FOLDER
-        else:
-            action = gtk.FileChooserAction.OPEN
-        buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
-        d = gtk.FileChooserDialog('Choose files', self, action, buttons)
-        d.set_select_multiple(True)
-        if d.run() == rt.OK:
-            # import
-            current = self.fs_backend.get_tree(self.file_manager.path)
-            current_names = [name for name, i in current[None]]
-            current_names += [x[0] for x in current if x is not None]
-            new = []
-            for f in d.get_filenames():
-                name = os.path.basename(f)
-                failed = False
-                # check if exists
-                while name in current_names or name in new:
-                    # exists: ask what action to take
-                    print('failed:', f)
-                    # TODO: show overwrite/don't copy/rename error dialogue
-                    this_failed = True ##
-                    break ##
-                    if overwrite:
-                        self.fs_backend.delete(new)
-                        current_items.remove(name)
-                    elif rename:
-                        name = new_name
-                    else:
-                        failed = True
-                        break
-                if not failed:
-                    # add to tree
-                    if dirs:
-                        tree = tree_from_dir(f)
-                        current[(name, None)] = tree
-                    else:
-                        current[None].append((name, f))
-                    new.append(name)
-            self.file_manager.refresh(*new)
-        d.destroy()
 
     def extract (self, *files):
         """Extract the files at the given paths, else the selected files."""

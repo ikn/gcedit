@@ -5,7 +5,10 @@
 # Foundation, either version 3 of the License, or (at your option) any later
 # version.
 
-# TODO: show list of all opened images (with buttons to remove from list) and 'browse' button to load a new image
+# TODO:
+# - show list of all opened images (with buttons to remove from list) and 'browse' button to load a new image
+# - option to always load chosen disk on startup
+
 # BNR: http://hitmen.c02.at/files/yagcd/yagcd/chap14.html#sec14.1
 # RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
 # Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
@@ -51,7 +54,7 @@ if fn is not None:
     try:
         fs = GCFS(fn)
     except: # TODO: raise something in GCFS if invalid
-        # TODO: show error dialogue
+        # TODO: show error dialogue and return to disk loader
         pass
     else:
         # start the editor

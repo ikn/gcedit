@@ -13,12 +13,15 @@ Editor
 """
 
 # TODO:
-# - can't import Documents/Music (check what utf-8 encoding a unicode string with japanese does) (should just show error: can't have such a filename?) (is it really shift-jis?)
-# - buttons tab order is weird
+# - breadcrumbs shrink if reduce size to < 10px above minimum
+# * error if can't encode filename to shift-jis
+#   - when rename file, create new dir, import tree, copy/move from another Editor
+#   - put notes in gcutil that additions to tree should be shift-jis-encoded or -encodable
+# * buttons tab order is weird
 # - remember last import/extract paths (separately)
-# - can search within filesystem
+# - can search within filesystem (ctrl-f, edit/find and ctrl-g, edit/find again)
 # - menus:
-#   - switch disk image
+#   - switch disk image (go back to initial screen)
 #   - buttons
 #   - compress, decompress, discard all changes (fs.update(), manager.refresh()), reload from disk (fs.update())
 #   - split view (horiz/vert/close)
@@ -30,6 +33,7 @@ Editor
 #   - on open, check if can decode to text; if not, have hex editor
 #   - option for open_files to edit instead of extract
 # - track deleted files (not dirs) (get paths recursively) and put in trash when write
+# - display file size
 
 # NOTE: os.stat().st_dev gives path's device ID
 
@@ -68,10 +72,42 @@ text_viewer(text, wrap_mode = Gtk.WrapMode.WORD) -> widget
     v.show()
     return w
 
-def error (msg, parent = None, *widgets, spacing = 12):
+def question (title, msg, options, parent = None, default = None,
+              warning = False):
+    """Show a dialogue asking a question.
+
+question(title, msg, options[, parent][, default], warning = False) -> response
+
+title: dialogue title text.
+msg: text to display.
+options: a list of options to present as buttons, where each is the button text
+         or a stock ID.
+parent: dialogue parent.
+default: the index of the option in the list that should be selected by default
+         (pressing enter normally).
+warning: whether this is a warning dialogue (instead of just a question).
+
+response: The index of the clicked button in the list, or a number less than 0
+          if the dialogue was closed.
+
+"""
+    # TODO: option to show 'don't ask again' checkbox; return its value too
+    mt = gtk.MessageType.WARNING if warning else gtk.MessageType.QUESTION
+    d = gtk.MessageDialog(parent, gtk.DialogFlags.DESTROY_WITH_PARENT,
+                          mt, gtk.ButtonsType.NONE, msg)
+    d.add_buttons(*(sum(((o, i) for i, o in enumerate(options)), ())))
+    d.set_title(title)
+    # FIXME: sets default to 0 if we don't set it here
+    if default is not None:
+        d.set_default_response(default)
+    response = d.run()
+    d.destroy()
+    return response
+
+def error (msg, parent = None, *widgets):
     """Show an error dialogue.
 
-error(msg, parent = None, *widgets, spacing = 12)
+error(msg, parent = None, *widgets)
 
 msg: text to display.
 parent: dialogue parent.
@@ -80,9 +116,6 @@ widgets: widgets to add to the same grid as the text, which is at (0, 0) with
          position; otherwise, it is placed the first free cell in column 0 once
          all widgets with given positions have been placed.
          widget.show() is called.
-spacing: spacing between added widgets in both directions.  Pass
-         (h_spacing, v_spacing) to specify them separately.  This is a
-         keyword-only argument.
 
 """
     # using .run(), so don't need modal flag
@@ -97,16 +130,14 @@ spacing: spacing between added widgets in both directions.  Pass
     # some properties
     d.set_resizable(False)
     d.set_default_response(gtk.ResponseType.OK)
-    c = d.get_content_area()
-    c.set_property('margin', 12)
-    c.set_spacing(12)
+    d.set_border_width(6)
     # grid
     g = gtk.Grid()
-    c.pack_start(g, True, True, 0)
-    if isinstance(spacing, int):
-        spacing = (spacing, spacing)
-    g.set_column_spacing(spacing[0])
-    g.set_row_spacing(spacing[1])
+    d.get_content_area().pack_start(g, True, True, 0)
+    g.set_border_width(6)
+    g.set_property('margin-bottom', 12)
+    g.set_column_spacing(12)
+    g.set_row_spacing(12)
     # add label and given widgets, if any
     used_rows = set()
     todo = []
@@ -331,11 +362,11 @@ Takes an argument indicating whether to import directories (else files).
                 while name in current_names or name in new:
                     # exists: ask what action to take
                     print('failed:', f)
-                    # TODO: show overwrite/don't copy/rename error dialogue
+                    # TODO*: show overwrite/don't copy/rename error dialogue
                     this_failed = True ##
                     break ##
                     if overwrite:
-                        # TODO: careful of history
+                        # TODO*: careful of history
                         self.delete(new)
                         current_items.remove(name)
                     elif rename:
@@ -430,12 +461,12 @@ Takes an argument indicating whether to import directories (else files).
                     this_failed = True
                     break
                 # else ask what action to take
-                # TODO: show overwrite/don't copy/rename error dialogue
+                # TODO*: show overwrite/don't copy/rename error dialogue
                 print('failed:', k[0]) ##
                 this_failed = True ##
                 break ##
                 if overwrite:
-                    # TODO: careful of history
+                    # TODO*: careful of history
                     self.delete(new)
                     current_items.remove(name)
                 elif rename:
@@ -644,23 +675,35 @@ buttons: a list of the buttons on the left.
             if not files:
                 # nothing to do
                 return
-        # TODO:
+        # TODO*:
         # - if one file, ask for a filename to save it under
         # - if >1, list them and ask for a dir to put them in
         # - display failed list
+        # - progress bar
 
     def write (self):
         """Write changes to the disk."""
         write = True
+        confirm_buttons = (gtk.STOCK_CANCEL, '_Write anyway')
         if not self.fs.changed():
             # no need to write
             write = False
         elif self.fs.disk_changed():
-            # TODO: ask: write anyway / cancel
-            write = False
+            msg = 'The contents of the disk have been changed by another ' \
+                  'program since it was loaded.  Are you sure you want to ' \
+                  'continue?'
+            if question('Confirm write', msg, confirm_buttons, self,
+                        warning = True) != 1:
+                write = False
         if write:
-            # TODO: progress bar
-            # TODO: ask to confirm - can't undo/all undo history lost
+            # ask for confirmation
+            msg = 'Once your changes have been written to the disk, they ' \
+                  'cannot be undone.  Are you sure you want to continue?'
+            if question('Confirm write', msg, confirm_buttons, self,
+                        warning = True) != 1:
+                write = False
+        if write:
+            # TODO*: progress bar [http://developer.gnome.org/hig-book/stable/windows-progress.html.en]
             try:
                 self.fs.write()
             except Exception as e:
@@ -679,5 +722,12 @@ buttons: a list of the buttons on the left.
 
     def quit (self, *args):
         """Quit the program."""
-        # TODO: if have unsaved changes, confirm
+        if self.fs.changed():
+            # confirm
+            msg = 'The changes that have been made will be lost if you ' \
+                  'quit.  Are you sure you want to continue?'
+            if question('Confirm quit', msg,
+                        (gtk.STOCK_CANCEL, '_Quit anyway'), self,
+                        warning = True) != 1:
+                return True
         gtk.main_quit()

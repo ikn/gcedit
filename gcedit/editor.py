@@ -14,6 +14,9 @@ Editor
 
 # TODO:
 # - breadcrumbs shrink if reduce size to < 10px above minimum
+# - in overwrite with copy/import, have the deletion in the same history action
+#   - history action can be list of actions
+#   - need to add copies/imports and deletes to this list in the right order
 # * error if can't encode filename to shift-jis
 #   - when rename file, create new dir, import tree, copy/move from another Editor
 #   - put notes in gcutil that additions to tree should be shift-jis-encoded or -encodable
@@ -45,6 +48,7 @@ from .ext import fsmanage
 from .ext.gcutil import tree_from_dir
 
 IDENTIFIER = 'gcedit'
+INVALID_FN_CHARS = set('\0/')
 
 def nice_path (path):
     """Get a printable version of a list-style path."""
@@ -73,10 +77,11 @@ text_viewer(text, wrap_mode = Gtk.WrapMode.WORD) -> widget
     return w
 
 def question (title, msg, options, parent = None, default = None,
-              warning = False):
+              warning = False, return_dialogue = False):
     """Show a dialogue asking a question.
 
-question(title, msg, options[, parent][, default], warning = False) -> response
+question(title, msg, options[, parent][, default], warning = False,
+         return_dialogue = False) -> response
 
 title: dialogue title text.
 msg: text to display.
@@ -86,6 +91,7 @@ parent: dialogue parent.
 default: the index of the option in the list that should be selected by default
          (pressing enter normally).
 warning: whether this is a warning dialogue (instead of just a question).
+return_dialogue: whether to return the created dialogue instead of running it.
 
 response: The index of the clicked button in the list, or a number less than 0
           if the dialogue was closed.
@@ -100,9 +106,72 @@ response: The index of the clicked button in the list, or a number less than 0
     # FIXME: sets default to 0 if we don't set it here
     if default is not None:
         d.set_default_response(default)
-    response = d.run()
-    d.destroy()
-    return response
+    if return_dialogue:
+        return d
+    else:
+        response = d.run()
+        d.destroy()
+        return response
+
+def move_conflict (fn_from, f_to, parent = None):
+    """Show a dialogue that handles a conflict in moving a file.
+
+move_conflict(fn_from, fn_to[, parent]) -> action
+
+fn_from: the filename to move from.
+f_to: the full file path to move to (in a printable format).
+parent: dialogue parent.
+
+action: True to overwrite, False to cancel the move, a string to move to that
+        name instead.
+
+"""
+    # get dialogue
+    msg = 'The file \'{}\' cannot be moved to \'{}\' because the ' \
+          'destination file exists.'
+    msg = msg.format(fn_from, f_to)
+    buttons = ('_Rename', gtk.STOCK_CANCEL, '_Overwrite')
+    d = question('Filename Conflict', msg, buttons, parent, 1, warning = True,
+                 return_dialogue = True)
+    # rename button sensitivity
+    d.set_response_sensitive(0, False)
+    def set_sensitive (e, *args):
+        renaming = e.get_text()
+        d.set_response_sensitive(0, renaming)
+        d.set_default_response(0 if renaming else 1)
+        e.set_activates_default(renaming)
+    # make message left-aligned
+    msg_area = d.get_message_area()
+    msg_area.get_children()[0].set_alignment(0, .5)
+    # add error message
+    err = gtk.Label('<i>Error: invalid filename.</i>')
+    err.set_use_markup(True)
+    err.set_alignment(0, .5)
+    msg_area.pack_start(err, False, False, 0)
+    # add entry
+    h = gtk.Box(gtk.Orientation.HORIZONTAL, 6)
+    msg_area.pack_start(h, False, False, 0)
+    h.pack_start(gtk.Label('New name:'), False, False, 0)
+    e = gtk.Entry()
+    h.pack_start(e, False, False, 0)
+    e.connect('changed', set_sensitive)
+    h.show_all()
+    # run
+    while True:
+        response = d.run()
+        if response == 2:
+            action = True
+        elif response == 0:
+            action = e.get_text()
+            if INVALID_FN_CHARS.intersection(action):
+                e.grab_focus()
+                err.show()
+                continue
+        else:
+            action = False
+        break
+    d.destroy() # need to do this after we retrieve entry's text
+    return action
 
 def error (msg, parent = None, *widgets):
     """Show an error dialogue.
@@ -342,7 +411,10 @@ Takes an argument indicating whether to import directories (else files).
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
         d = gtk.FileChooserDialog('Choose files', self.editor, action, buttons)
         d.set_select_multiple(True)
-        if d.run() == rt.OK:
+        response = d.run()
+        fs = d.get_filenames()
+        d.destroy()
+        if response == rt.OK:
             # import
             current_path = self.editor.file_manager.path
             try:
@@ -355,22 +427,19 @@ Takes an argument indicating whether to import directories (else files).
             current_names += [x[0] for x in current if x is not None]
             new = []
             new_names = []
-            for f in d.get_filenames():
+            for f in fs:
                 name = os.path.basename(f)
                 failed = False
                 # check if exists
-                while name in current_names or name in new:
+                while name in current_names:
                     # exists: ask what action to take
-                    print('failed:', f)
-                    # TODO*: show overwrite/don't copy/rename error dialogue
-                    this_failed = True ##
-                    break ##
-                    if overwrite:
-                        # TODO*: careful of history
-                        self.delete(new)
-                        current_items.remove(name)
-                    elif rename:
-                        name = new_name
+                    dest = nice_path(current_path + [name])
+                    action = move_conflict(name, dest, self.editor)
+                    if action is True:
+                        self.delete(current_path + [name])
+                        current_names.remove(name)
+                    elif action:
+                        name = action
                     else:
                         failed = True
                         break
@@ -383,10 +452,10 @@ Takes an argument indicating whether to import directories (else files).
                         current[None].append((name, f))
                     new.append((current_path + [name], f))
                     new_names.append(name)
+                    current_names.append(name)
             if new:
                 self.editor.file_manager.refresh(*new_names)
                 self._add_hist(('import', new))
-        d.destroy()
 
     def list_dir (self, path):
         try:
@@ -461,17 +530,12 @@ Takes an argument indicating whether to import directories (else files).
                     this_failed = True
                     break
                 # else ask what action to take
-                # TODO*: show overwrite/don't copy/rename error dialogue
-                print('failed:', k[0]) ##
-                this_failed = True ##
-                break ##
-                if overwrite:
-                    # TODO*: careful of history
+                action = move_conflict(name, nice_path(new), self.editor)
+                if action is True:
                     self.delete(new)
                     current_items.remove(name)
-                elif rename:
-                    name = new_name
-                    new = dest + [name]
+                elif action:
+                    new[-1] = name = action
                 else:
                     this_failed = True
                     break
@@ -684,7 +748,7 @@ buttons: a list of the buttons on the left.
     def write (self):
         """Write changes to the disk."""
         write = True
-        confirm_buttons = (gtk.STOCK_CANCEL, '_Write anyway')
+        confirm_buttons = (gtk.STOCK_CANCEL, '_Write Anyway')
         if not self.fs.changed():
             # no need to write
             write = False
@@ -692,14 +756,14 @@ buttons: a list of the buttons on the left.
             msg = 'The contents of the disk have been changed by another ' \
                   'program since it was loaded.  Are you sure you want to ' \
                   'continue?'
-            if question('Confirm write', msg, confirm_buttons, self,
+            if question('Confirm Write', msg, confirm_buttons, self,
                         warning = True) != 1:
                 write = False
         if write:
             # ask for confirmation
             msg = 'Once your changes have been written to the disk, they ' \
                   'cannot be undone.  Are you sure you want to continue?'
-            if question('Confirm write', msg, confirm_buttons, self,
+            if question('Confirm Write', msg, confirm_buttons, self,
                         warning = True) != 1:
                 write = False
         if write:
@@ -726,8 +790,8 @@ buttons: a list of the buttons on the left.
             # confirm
             msg = 'The changes that have been made will be lost if you ' \
                   'quit.  Are you sure you want to continue?'
-            if question('Confirm quit', msg,
-                        (gtk.STOCK_CANCEL, '_Quit anyway'), self,
+            if question('Confirm Quit', msg,
+                        (gtk.STOCK_CANCEL, '_Quit Anyway'), self,
                         warning = True) != 1:
                 return True
         gtk.main_quit()

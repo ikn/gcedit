@@ -33,7 +33,7 @@ class LoadDisk (gtk.FileChooserDialog):
     def __init__ (self):
         rt = gtk.ResponseType
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
-        gtk.FileChooserDialog.__init__(self, 'Open disk image', None,
+        gtk.FileChooserDialog.__init__(self, 'Open Disk Image', None,
                                        gtk.FileChooserAction.OPEN, buttons)
 
 

@@ -20,7 +20,6 @@ Editor
 # * error if can't encode filename to shift-jis
 #   - when rename file, create new dir, import tree, copy/move from another Editor
 #   - put notes in gcutil that additions to tree should be shift-jis-encoded or -encodable
-# * buttons tab order is weird
 # - remember last import/extract paths (separately)
 # - can search within filesystem (ctrl-f, edit/find and ctrl-g, edit/find again)
 # - menus:
@@ -644,6 +643,7 @@ buttons: a list of the buttons on the left.
         gtk.Window.__init__(self)
         self.resize(350, 350)
         self.set_border_width(12)
+        self.set_title('GCEdit') # TODO: include game name (need BNR support)
         self.connect('delete-event', self.quit)
         # contents
         g = gtk.Grid()
@@ -675,8 +675,6 @@ buttons: a list of the buttons on the left.
                 if not isinstance(name, str):
                     name, icon = name
                     b = gtk.Button(name, None, '_' in name)
-                    # FIXME: 4 should be GTK_ICON_SIZE_BUTTON, but I can't find
-                    # it
                     img = gtk.Image.new_from_stock(icon, gtk.IconSize.BUTTON)
                     b.set_image(img)
                 elif name.startswith('gtk-'):
@@ -705,6 +703,8 @@ buttons: a list of the buttons on the left.
         s.add(m)
         m.set_vexpand(True)
         m.set_hexpand(True)
+        # automatically computed button focus order is weird
+        g.set_focus_chain(btns + [g_right])
         # shortcuts
         group = gtk.AccelGroup()
         accels = (

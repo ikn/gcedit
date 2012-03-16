@@ -1,4 +1,6 @@
-GameCube disk editor 0.1.0-dev by J.
+GCEdit 0.1.0-dev.
+
+A GameCube disk editor.
 
 http://i-know-nothing.co.cc/gcedit
 
@@ -11,7 +13,7 @@ included, you can find it here:
     DEPENDENCIES
 
 Python 3 (>= 3.2): http://www.python.org
-PyGObject 3 (>= 3.0.3): https://live.gnome.org/PyGObject
+PyGObject 3: https://live.gnome.org/PyGObject
 
     INSTALLATION
 

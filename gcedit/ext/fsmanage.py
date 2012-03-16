@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 3-dev.
+Release: 3.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -25,6 +25,7 @@ buttons
 # - multi-DND
 # - allow resizing of breadcrumbs (gtk.Grid) smaller than its current size
 # - escape with address bar focused does self.grab_focus()
+# - extra fields
 
 from pickle import dumps, loads
 from base64 import encodebytes, decodebytes

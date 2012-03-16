@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 4-dev.
+Release: 5-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -23,6 +23,7 @@ tree_from_dir
 # TODO:
 # - decompress function
 # - write, extract take optional functions to call periodically with progress ratio (still 0 after first bit)
+# - BNR support
 
 import os
 from shutil import rmtree, copyfile, Error as shutil_error
@@ -36,11 +37,11 @@ _sep = lambda s: _encode(os.sep) if isinstance(s, bytes) else os.sep
 from os import mkdir
 from os.path import dirname, basename
 from base64 import urlsafe_b64encode as b64
+from copy import deepcopy
 
 def _join (*dirs):
     """Like os.path.join, but handles mismatched bytes/str args."""
-    sep = _encode(os.sep)
-    return sep.join(_encode(d) if isinstance(d, str) else d for d in dirs)
+    return os.sep.join(_decode(d) if isinstance(d, bytes) else d for d in dirs)
 
 def read (f, start, size = None, num = False, until = None, block_size = 0x10):
     """Read data from a file object.
@@ -624,10 +625,11 @@ in the GameCube image to be the same, copying files from the real filesystem as
 necessary.  The algorithm tries not to increase the size of the disk image, but
 it may be necessary.
 
-If an exception is raised, its 'handler' attribute is set to True if the disk
-is left unaltered (for all intents and purposes, anyway).  Exceptions without
-this setting should be treated with care: both the disk image and the data in
-this class might be broken.
+If an exception is raised, its 'handled' attribute is set to True if the disk
+and this instance (including the tree attribute) are left unaltered (for all
+intents and purposes, anyway).  Exceptions without this setting should be
+treated with care: both the disk image and the data in this instance might be
+broken.
 
 Note on internals: files may be moved within the disk by replacing their
 entries index with (index, new_start) before writing.  If you do this, you must
@@ -640,6 +642,7 @@ It's probably a good idea to back up first...
         old_entries = self.entries
         old_names = self.names
         tree = self.tree
+        tree_copy = deepcopy(tree)
         # compile new filesystem/string tables
         tree[None] = [f + (True,) for f in tree[None]]
         entries = []
@@ -681,6 +684,7 @@ It's probably a good idea to back up first...
                     fn = old_i
                     start = fn
                     if not os.path.isfile(fn):
+                        self.tree = tree_copy
                         err = '\'{}\' is not a valid file'
                         e = ValueError(err.format(fn))
                         e.handled = True

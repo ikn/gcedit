@@ -20,7 +20,8 @@ from distutils import sysconfig
 _LIB_PREFIX = '/usr/local'
 sys.path.append(sysconfig.get_python_lib(prefix = _LIB_PREFIX))
 
-from gi.repository import Gtk as gtk
+# non-lowercase modules = evil
+from gi.repository import Gtk as gtk, Gdk as gdk, GObject as gobject
 from gcedit.editor import Editor
 from gcedit.ext.gcutil import GCFS
 
@@ -35,7 +36,6 @@ class LoadDisk (gtk.FileChooserDialog):
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
         gtk.FileChooserDialog.__init__(self, 'Open Disk Image', None,
                                        gtk.FileChooserAction.OPEN, buttons)
-
 
 try:
     # use the first argument as a filename to load, if given
@@ -59,4 +59,8 @@ if fn is not None:
     else:
         # start the editor
         Editor(fs)
+        gobject.threads_init()
+        gdk.threads_init()
+        gdk.threads_enter()
         gtk.main()
+        gdk.threads_leave()

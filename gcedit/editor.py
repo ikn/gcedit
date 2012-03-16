@@ -40,9 +40,15 @@ Editor
 # NOTE: os.stat().st_dev gives path's device ID
 
 import os
+from time import sleep
 from traceback import format_exc
+try:
+    from threading import Thread
+except ImportError:
+    from dummy_threading import Thread
+from queue import Queue
 
-from gi.repository import Gtk as gtk
+from gi.repository import Gtk as gtk, Gdk as gdk
 from .ext import fsmanage
 from .ext.gcutil import tree_from_dir
 
@@ -253,7 +259,7 @@ Takes a gcutil.GCFS instance and an Editor instance.
 
     METHODS
 
-(as required by fsmanage.Manager)
+reset
 get_tree
 get_file
 undo
@@ -261,6 +267,7 @@ redo
 can_undo
 can_redo
 do_import
+[those required by fsmanage.Manager]
 
     ATTRIBUTES
 
@@ -271,6 +278,10 @@ fs, editor: the arguments given to the constructor.
     def __init__ (self, fs, editor):
         self.fs = fs
         self.editor = editor
+        self.reset()
+
+    def reset (self):
+        """Forget all history."""
         self._hist_pos = 0
         self._hist = []
 
@@ -494,9 +505,8 @@ Takes an argument indicating whether to import directories (else files).
                     print(this_data, old, new)
                     continue
             # get destination
-            *dest, name = new
             try:
-                dest = self.get_tree(dest)
+                dest = self.get_tree(new[:-1])
             except ValueError:
                 if not said_nodest:
                     error('Can\'t copy to a non-existent directory.')
@@ -510,31 +520,32 @@ Takes an argument indicating whether to import directories (else files).
             # get source
             try:
                 # try to get dir
-                parent, k = self.get_tree(old, True)
+                parent, (old[-1], index) = self.get_tree(old, True)
             except ValueError:
                 # file instead
                 is_dir = False
                 try:
-                    parent, k = self.get_file(old)
+                    parent, (old[-1], index) = self.get_file(old)
                 except ValueError:
                     # been deleted or something
                     failed.append(old)
                     cannot_copy.append(nice_path(old))
                     continue
             this_failed = False
-            while name in current_items:
+            while new[-1] in current_items:
                 # exists
-                # skip if it's the same file
-                if old == new and not foreign:
+                # same dir means rename or same file, so skip (rename will go
+                # back to renaming on fail)
+                if old[:-1] == new[:-1] and not foreign:
                     this_failed = True
                     break
                 # else ask what action to take
-                action = move_conflict(name, nice_path(new), self.editor)
+                action = move_conflict(old[-1], nice_path(new), self.editor)
                 if action is True:
                     self.delete(new)
-                    current_items.remove(name)
+                    current_items.remove(new[-1])
                 elif action:
-                    new[-1] = name = action
+                    new[-1] = action
                 else:
                     this_failed = True
                     break
@@ -543,9 +554,9 @@ Takes an argument indicating whether to import directories (else files).
             else:
                 # copy
                 if is_dir:
-                    dest[(name, k[1])] = parent[k]
+                    dest[(new[-1], index)] = parent[(old[-1], index)]
                 else:
-                    dest[None].append((new[-1], k[1]))
+                    dest[None].append((new[-1], index))
         if cannot_copy:
             # show error for files that couldn't be copied
             v = text_viewer('\n'.join(cannot_copy), gtk.WrapMode.NONE)
@@ -745,6 +756,24 @@ buttons: a list of the buttons on the left.
         # - display failed list
         # - progress bar
 
+    def _write (self, q):
+        """Perform a write."""
+        try:
+            self.fs.write()
+        except Exception as e:
+            if hasattr(e, 'handled') and e.handled is True:
+                # disk should still be in the same state
+                q.put(('Couldn\'t write: {}.'.format(e.args[0]), None))
+            else:
+                # not good: show traceback
+                msg = 'Something may have gone horribly wrong, and the ' \
+                        'disk image might have ended up in an ' \
+                        'inconsistent state.  Here\'s some debug ' \
+                        'information.'
+                q.put((msg, format_exc().strip()))
+        else:
+            q.put((None, None))
+
     def write (self):
         """Write changes to the disk."""
         write = True
@@ -767,25 +796,37 @@ buttons: a list of the buttons on the left.
                         warning = True) != 1:
                 write = False
         if write:
+            # start write in another thread
             # TODO*: progress bar [http://developer.gnome.org/hig-book/stable/windows-progress.html.en]
-            try:
-                self.fs.write()
-            except Exception as e:
-                if hasattr(e, 'handled') and e.handled is True:
-                    # disk should still be in the same state
-                    error('Couldn\'t write: {}.'.format(e.args[0]), self)
+            self.set_sensitive(False)
+            q = Queue()
+            t = Thread(target = self._write, args = (q,))
+            t.start()
+            while q.empty():
+                gtk.main_iteration_do(False)
+                sleep(.02)
+            msg, traceback = q.get()
+            t.join()
+            self.set_sensitive(True)
+            if msg is not None:
+                # show error
+                if traceback is None:
+                    error(msg, self)
+                    refresh = False
                 else:
-                    # not good: show traceback
-                    msg = 'Something may have gone horribly wrong, and the ' \
-                          'disk image might have ended up in an ' \
-                          'inconsistent state.  Here\'s some debug ' \
-                          'information:'
-                    v = text_viewer(format_exc().strip(),
-                                    gtk.WrapMode.WORD_CHAR)
+                    v = text_viewer(traceback, gtk.WrapMode.WORD_CHAR)
                     error(msg, self, v)
+                    # don't try and do anything else, in case it breaks things
+            else:
+                # tree is different, so have to get rid of history
+                self.fs_backend.reset()
+                self.file_manager.refresh()
 
     def quit (self, *args):
         """Quit the program."""
+        if not self.get_sensitive():
+            # doing stuff
+            return True
         if self.fs.changed():
             # confirm
             msg = 'The changes that have been made will be lost if you ' \

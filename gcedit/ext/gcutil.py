@@ -24,6 +24,9 @@ tree_from_dir
 # - decompress function
 # - write, extract take optional functions to call periodically with progress ratio (still 0 after first bit)
 # - BNR support
+# - revert increased file size (truncate) in write if we cancel (through
+#   handled error or progress -> True)
+# - progress update every block in copying larger files
 
 import os
 from shutil import rmtree, copyfile, Error as shutil_error
@@ -32,6 +35,7 @@ import tempfile
 CODEC = 'shift-jis'
 _decode = lambda b: b.decode(CODEC)
 _encode = lambda s: s.encode(CODEC)
+_decoded = lambda s: _decode(s) if isinstance(s, bytes) else s
 _sep = lambda s: _encode(os.sep) if isinstance(s, bytes) else os.sep
 
 from os import mkdir
@@ -611,14 +615,38 @@ Directories are extracted recursively.
             x += 1
         return x * 4
 
-    def write (self, block_size = 0x100000, tmp_dir = None):
+    def write (self, block_size = 0x100000, tmp_dir = None, progress = None,
+               paused_check_interval = .5):
         """Write the current tree to the image.
 
-write(block_size = 0x100000[, tmp_dir])
+write(block_size = 0x100000[, tmp_dir][, progress, paused_check_interval = .5])
 
 block_size: the maximum amount of data, in bytes, to read and write at a time
             (0x100000 is 1MiB).  This is used when copying data to the image.
 tmp_dir: a directory to store temporary files in for some operations.
+progress: a function to periodically pass the current progress to.  It takes 3
+          arguments: the amount of data that has been copied in bytes, the
+          total amount of data to copy in bytes, and the name of the current
+          file (in the disk's filesystem) being read/written (str not bytes).
+
+          In the period of time before any calls are made to this function, the
+          total amount to copy is unknown.  Even if the write is completed,
+          this passed function may never be called - if, for example, all you
+          are doing is creating directories or deleting files.
+
+          [NOT IMPLEMENTED]
+          You can pause the write by returning 1.  This function will then call
+          progress periodically until the return value is no longer 1.  The
+          progress function is only called between every block/file copied -
+          this gives an idea of how quickly a running write can be paused.
+
+          [NOT IMPLEMENTED]
+          You can try to cancel the write by returning 2.  If it can still
+          be safely canceled, this function will perform some cleanup and
+          return, leaving the disk and this instance (including the tree
+          attribute) unaltered (for all intents and purposes, anyway).
+paused_check_interval: if the write is paused, it waits this many seconds
+                       between subsequent calls (see above for details).
 
 This function looks at the current state of the tree and amends the filesystem
 in the GameCube image to be the same, copying files from the real filesystem as
@@ -746,6 +774,9 @@ It's probably a good idea to back up first...
         old_files.sort()
         # get existing files overwritten by the filesystem/string tables and
         # extract them to a temp dir
+        # don't bother including this in the progress calculations, because
+        # unless we're adding a crazy amount of files with crazily long names,
+        # it won't take any time at all
         tmp_dir = tempfile.mkdtemp(prefix = 'gcutil', dir = tmp_dir)
         while old_files and old_files[0][0] < data_start:
             # move from old_files to new_files
@@ -772,6 +803,9 @@ It's probably a good idea to back up first...
 
         # copy new files to the image
         if new_files:
+            # track progress
+            total = sum(size for size, i in new_files)
+            copied = 0
             # get free space in the filesystem
             free = []
             l = [(data_start, None, None, 0)] + old_files
@@ -816,6 +850,7 @@ It's probably a good idea to back up first...
                     else:
                         free.pop(gap_i)
                 new_files[file_i] = (start, i)
+            # actually copy
             with open(self.fn, 'r+b') as f:
                 # if we will be seeking beyond the image end, expand the file
                 end = f.seek(0, 2)
@@ -825,7 +860,10 @@ It's probably a good idea to back up first...
                 # perform the copy
                 for start, i in new_files:
                     str_start, fn, size = entries[i][1:]
+                    if callable(progress):
+                        progress(copied, total, _decoded(names[i]))
                     copy(fn, f, start, block_size)
+                    copied += size
                     entries[i] = (False, str_start, start, size)
 
         # clean up temp dir

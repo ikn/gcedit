@@ -13,6 +13,7 @@ Editor
 """
 
 # TODO:
+# - dialogues should use primary text (brief summary - have no title)
 # - breadcrumbs shrink if reduce size to < 10px above minimum
 # - in overwrite with copy/import, have the deletion in the same history action
 #   - history action can be list of actions
@@ -36,28 +37,48 @@ Editor
 #   - option for open_files to edit instead of extract
 # - track deleted files (not dirs) (get paths recursively) and put in trash when write
 # - display file size
+# - instead of progress disappearing, give it a finish() method which replaces buttons with a 'Close' button, allows closing by esc/etc., sets default response to Close (if error, destroy dialogue instead of calling this)
 
 # NOTE: os.stat().st_dev gives path's device ID
 
 import os
 from time import sleep
 from traceback import format_exc
+from html import escape
+from math import log10
 try:
     from threading import Thread
 except ImportError:
     from dummy_threading import Thread
 from queue import Queue
 
-from gi.repository import Gtk as gtk, Gdk as gdk
+from gi.repository import Gtk as gtk, Gdk as gdk, Pango as pango
 from .ext import fsmanage
 from .ext.gcutil import tree_from_dir
 
 IDENTIFIER = 'gcedit'
 INVALID_FN_CHARS = set('\0/')
+SLEEP_INTERVAL = .02
 
-def nice_path (path):
+def printable_path (path):
     """Get a printable version of a list-style path."""
     return '/' + '/'.join(path)
+
+def printable_filesize (size):
+    """Get a printable version of a filesize in bytes."""
+    for factor, suffix in (
+        (0, ''),
+        (1, 'Ki'),
+        (2, 'Mi'),
+        (3, 'Gi'),
+        (4, 'Ti')
+    ):
+        if size < 1024 ** (factor + 1):
+            break
+    size /= (1024 ** factor)
+    # 3 significant figures but always show up to units
+    dp = max(2 - int(log10(max(size, 1))), 0)
+    return ('{:.' + str(dp) + 'f}{}B').format(size, suffix)
 
 def text_viewer (text, wrap_mode = gtk.WrapMode.WORD):
     """Get a read-only Gtk.TextView widget in a Gtk.ScrolledWindow.
@@ -252,6 +273,83 @@ widgets: widgets to add to the same grid as the text, which is at (0, 0) with
     d.destroy()
 
 
+class Progress (gtk.Dialog):
+    """Show a progress dialogue.  Subclass of Gtk.Dialog.
+
+Act directly on the bar attribute to control the progress bar itself.
+
+    CONSTRUCTOR
+
+Progress(title[, cancel][, pause][, parent])
+
+title: dialogue title.
+cancel: response for the cancel button (else don't show a cancel button).
+pause: response for the pause button (else don't show a pause button).
+parent: parent widget.
+
+    METHODS
+
+set_item
+
+    ATTRIBUTES
+
+bar: Gtk.ProgressBar instance.
+item: current item that's being processed, or None.
+
+"""
+    def __init__ (self, title, cancel = None, pause = None, parent = None):
+        self.item = None
+        # create dialogue
+        flags = gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT
+        buttons = []
+        if cancel is not None:
+            buttons += [gtk.STOCK_CANCEL, cancel]
+        if pause is not None:
+            buttons += ['_Pause', pause]
+        gtk.Dialog.__init__(self, title, parent, flags, buttons)
+        if pause is not None:
+            self.set_default_response(pause)
+        # some properties
+        self.set_border_width(12)
+        self.set_default_size(400, 0)
+        self.set_deletable(False)
+        self.connect('delete-event', lambda *args: True)
+        # add widgets
+        v = self.vbox
+        v.set_spacing(6)
+        head = escape(title)
+        head = '<span weight="bold" size="larger">{}\n</span>'.format(head)
+        head = gtk.Label(head)
+        head.set_use_markup(True)
+        head.set_alignment(0, .5)
+        v.pack_start(head, False, False, 0)
+        self.bar = gtk.ProgressBar()
+        v.pack_start(self.bar, False, False, 0)
+        self.bar.set_show_text(True)
+        self._item = i = gtk.Label()
+        i.set_alignment(0, .5)
+        i.set_ellipsize(pango.EllipsizeMode.END) # to avoid dialogue resizing
+        i.show()
+        v.show_all()
+
+    def set_item (self, item = None):
+        """Set the text that displays the current item being progressed.
+
+If no argument is given, the current item text is removed from the dialogue.
+
+"""
+        if item is None:
+            if self.item is not None:
+                self.vbox.remove(self._item)
+        else:
+            self._item.set_text('<i>{}</i>'.format(escape(item)))
+            # for some reason we have to do this every time we set the text
+            self._item.set_use_markup(True)
+            if self.item is None:
+                self.vbox.pack_start(self._item, False, False, 0)
+        self.item = item
+
+
 class FSBackend:
     """The backend for fsmanage, to make changes to the filesystem.
 
@@ -443,7 +541,7 @@ Takes an argument indicating whether to import directories (else files).
                 # check if exists
                 while name in current_names:
                     # exists: ask what action to take
-                    dest = nice_path(current_path + [name])
+                    dest = printable_path(current_path + [name])
                     action = move_conflict(name, dest, self.editor)
                     if action is True:
                         self.delete(current_path + [name])
@@ -512,7 +610,7 @@ Takes an argument indicating whether to import directories (else files).
                     error('Can\'t copy to a non-existent directory.')
                     said_nodest = True
                 failed.append(old)
-                cannot_copy.append(nice_path(old))
+                cannot_copy.append(printable_path(old))
                 continue
             current_items = [k[0] for k in dest if k is not None]
             current_items += [name for name, i in dest[None]]
@@ -529,7 +627,7 @@ Takes an argument indicating whether to import directories (else files).
                 except ValueError:
                     # been deleted or something
                     failed.append(old)
-                    cannot_copy.append(nice_path(old))
+                    cannot_copy.append(printable_path(old))
                     continue
             this_failed = False
             while new[-1] in current_items:
@@ -540,7 +638,8 @@ Takes an argument indicating whether to import directories (else files).
                     this_failed = True
                     break
                 # else ask what action to take
-                action = move_conflict(old[-1], nice_path(new), self.editor)
+                action = move_conflict(old[-1], printable_path(new),
+                                       self.editor)
                 if action is True:
                     self.delete(new)
                     current_items.remove(new[-1])
@@ -613,8 +712,8 @@ Takes an argument indicating whether to import directories (else files).
         current_items += [name for name, i in dest[None]]
         if name in current_items:
             # already exists: show error
-            error('Directory \'{}\' already exists.'.format(nice_path(path)),
-                  self.editor)
+            path = printable_path(path)
+            error('Directory \'{}\' already exists.'.format(path, self.editor))
             return False
         else:
             if hist:
@@ -654,7 +753,7 @@ buttons: a list of the buttons on the left.
         gtk.Window.__init__(self)
         self.resize(350, 350)
         self.set_border_width(12)
-        self.set_title('GCEdit') # TODO: include game name (need BNR support)
+        self.set_title('GCEdit') # TODO: include game name (need BNR support) [http://developer.gnome.org/hig-book/stable/windows-primary.html.en#primary-window-titles]
         self.connect('delete-event', self.quit)
         # contents
         g = gtk.Grid()
@@ -759,7 +858,7 @@ buttons: a list of the buttons on the left.
     def _write (self, q):
         """Perform a write."""
         try:
-            self.fs.write()
+            self.fs.write(progress = lambda *args: q.put(args))
         except Exception as e:
             if hasattr(e, 'handled') and e.handled is True:
                 # disk should still be in the same state
@@ -776,51 +875,65 @@ buttons: a list of the buttons on the left.
 
     def write (self):
         """Write changes to the disk."""
-        write = True
         confirm_buttons = (gtk.STOCK_CANCEL, '_Write Anyway')
         if not self.fs.changed():
             # no need to write
-            write = False
+            return
         elif self.fs.disk_changed():
             msg = 'The contents of the disk have been changed by another ' \
                   'program since it was loaded.  Are you sure you want to ' \
                   'continue?'
             if question('Confirm Write', msg, confirm_buttons, self,
                         warning = True) != 1:
-                write = False
-        if write:
-            # ask for confirmation
-            msg = 'Once your changes have been written to the disk, they ' \
-                  'cannot be undone.  Are you sure you want to continue?'
-            if question('Confirm Write', msg, confirm_buttons, self,
-                        warning = True) != 1:
-                write = False
-        if write:
-            # start write in another thread
-            # TODO*: progress bar [http://developer.gnome.org/hig-book/stable/windows-progress.html.en]
-            self.set_sensitive(False)
-            q = Queue()
-            t = Thread(target = self._write, args = (q,))
-            t.start()
+                return
+        # ask for confirmation
+        msg = 'Once your changes have been written to the disk, they ' \
+                'cannot be undone.  Are you sure you want to continue?'
+        if question('Confirm Write', msg, confirm_buttons, self,
+                    warning = True) != 1:
+            return
+        # show progress dialogue
+        d = Progress('Writing to disk', parent = self)
+        d.show()
+        # start write in another thread
+        #self.set_sensitive(False)
+        q = Queue()
+        t = Thread(target = self._write, args = (q,))
+        t.start()
+        while True:
             while q.empty():
-                gtk.main_iteration_do(False)
-                sleep(.02)
-            msg, traceback = q.get()
-            t.join()
-            self.set_sensitive(True)
-            if msg is not None:
-                # show error
-                if traceback is None:
-                    error(msg, self)
-                    refresh = False
-                else:
-                    v = text_viewer(traceback, gtk.WrapMode.WORD_CHAR)
-                    error(msg, self, v)
-                    # don't try and do anything else, in case it breaks things
+                while gtk.events_pending():
+                    gtk.main_iteration()
+                sleep(SLEEP_INTERVAL)
+            got = q.get()
+            if len(got) == 3:
+                # update progress bar
+                done, total, name = got
+                d.bar.set_fraction(done / total)
+                done = printable_filesize(done)
+                total = printable_filesize(total)
+                d.bar.set_text('Completed {} of {}'.format(done, total))
+                d.set_item('Copying file: ' + name)
             else:
-                # tree is different, so have to get rid of history
-                self.fs_backend.reset()
-                self.file_manager.refresh()
+                # finished
+                msg, traceback = got
+                break
+        t.join()
+        d.destroy()
+        #self.set_sensitive(True)
+        if msg is None:
+            # tree is different, so have to get rid of history
+            self.fs_backend.reset()
+            self.file_manager.refresh()
+        else:
+            # show error
+            if traceback is None:
+                error(msg, self)
+                refresh = False
+            else:
+                v = text_viewer(traceback, gtk.WrapMode.WORD_CHAR)
+                error(msg, self, v)
+                # don't try and do anything else, in case it breaks things
 
     def quit (self, *args):
         """Quit the program."""

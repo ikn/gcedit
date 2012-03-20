@@ -22,11 +22,10 @@ tree_from_dir
 
 # TODO:
 # - decompress function
-# - write, extract take optional functions to call periodically with progress ratio (still 0 after first bit)
+# - extract progress argument
 # - BNR support
-# - revert increased file size (truncate) in write if we cancel (through
-#   handled error or progress -> True)
-# - progress update every block in copying larger files
+# - revert increased file size (truncate) in write if we cancel (through handled error or progress -> True)
+# - progress update every block in copying larger files (in extract, write/new files)
 
 import os
 from shutil import rmtree, copyfile, Error as shutil_error
@@ -273,16 +272,38 @@ tree: a dict representing the root directory.  Each directory is a dict whose
                 name = read(f, str_start + entry[1], 0x200, False, b'\0', 0x20)
                 names.append(_decode(name))
 
-    def _tree_size (self, tree):
-        """Get the number of children in a tree."""
+    def _tree_size (self, tree, file_size = False):
+        """Get the number of children in a tree.
+
+_tree_size(tree, file_size = False)
+
+tree: the tree.
+file_size: whether to return the total file size of the children in the tree
+           instead.  Imported files are respected (if they cannot be accessed,
+           they are ignored).
+
+"""
         size = 0
         for k, v in tree.items():
             if k is None:
                 # files
-                size += len(v)
+                if file_size:
+                    entries = self.entries
+                    for name, i in v:
+                        if isinstance(i, int):
+                            size += entries[i][3]
+                        else:
+                            try:
+                                size += os.path.getsize(i)
+                            except OSError:
+                                pass
+                else:
+                    size += len(v)
             else:
                 # dir
-                size += 1 + self._tree_size(v)
+                if not file_size:
+                    size += 1
+                size += self._tree_size(v, file_size)
         return size
 
     def build_tree (self, store = True, start = 0, end = None):
@@ -488,10 +509,11 @@ Any missing intermediate directories will be created.
                                         overwrite))
         return success
 
-    def extract (self, *files, block_size = 0x100000, overwrite = False):
+    def extract (self, *files, block_size = 0x100000, overwrite = False,
+                 progress = None):
         """Extract files from the filesystem.
 
-extract(*files, block_size = 0x100000, overwrite = False) -> failed
+extract(*files, block_size = 0x100000, overwrite = False[, progress]) -> failed
 
 files: the files and directories to extract, each an (index, target) tuple,
        where:
@@ -506,6 +528,8 @@ block_size: the maximum amount of data, in bytes, to read and write at a time
 overwrite: whether to overwrite files if they exist and ignore existing
            directories (if False and a file/directory exists, it will be in the
            failed list).  This is a keyword-only argument.
+progress: a function to call to indicate progress.  See the same argument to
+          the write method for details.  This is a keyword-only argument.
 
 failed: a list of files and directories that could not be created.  This is in
         the same format as the given files, but may include ones not given (if
@@ -529,83 +553,82 @@ Directories are extracted recursively.
         entries = self.entries
         names = self.names
         failed = []
-        # files might be a non-list iterable, and we might need to append to it
-        files = list(files)
+        # build trees for dirs
+        _files = files
+        files = []
+        total = 0
+        for i, dest in _files:
+            if isinstance(i, int):
+                if i < 0:
+                    # root
+                    j = self.build_tree(False)
+                elif entries[i][0]:
+                    # dir
+                    j = self.build_tree(False, i, i + 1)
+                else:
+                    # file
+                    j = i
+            else:
+                # i already a tree
+                j = i
+            files.append((i, dest, j))
+            # add to total amount of data to copy
+            if not isinstance(j, dict):
+                j = {None: [('', j)]}
+            total += self._tree_size(j, True)
+        copied = 0
         with open(self.fn, 'rb') as f:
             while files:
-                i, dest, *args = files[0]
+                orig_i, dest, i = files.pop(0)
                 # remove trailing separator
                 sep = _sep(dest)
                 while dest.endswith(sep):
                     dest = dest[:-1]
                 # get entry data
-                if isinstance(i, int):
-                    # entries index
-                    if i < 0:
-                        # root
-                        is_dir = True
-                    else:
-                        is_dir, str_start, start, size = entries[i]
-                        on_disk = True
-                elif isinstance(i, dict):
-                    # tree: is a dir, and args[0] should be the tree
-                    is_dir = True
-                    args = [i]
-                elif i is None:
-                    # new dir
-                    is_dir = True
-                else:
-                    # imported file
-                    is_dir = False
-                    on_disk = False
-                if is_dir:
+                if isinstance(i, dict):
                     # create dir
                     try:
                         mkdir(dest)
                     except OSError as e:
                         if not overwrite or e.errno != 17:
                             # unknown error
-                            files.pop(0)
-                            failed.append((i, dest))
+                            failed.append((orig_i, dest))
                             continue
                         # else already exists and we want to ignore this
-                    # need a vanilla tree
-                    if args:
-                        tree = args[0]
-                    else:
-                        # we don't already have one: create it
-                        if i < 0:
-                            # root
-                            tree = self.build_tree(False)
-                        else:
-                            tree = self.build_tree(False, i, i + 1)
-                            tree = tree[(names[i], i)]
-                    # add children to extract list
-                    # files
-                    for name, j in tree[None]:
-                        files.append((j, _join(dest, name)))
+                    # add children to extract list: files
+                    for name, j in i[None]:
+                        files.append((j, _join(dest, name), j))
                     # dirs
-                    for k, child_tree in tree.items():
+                    for k, child_tree in i.items():
                         if k is not None:
                             name, j = k
                             files.append((j, _join(dest, name), child_tree))
-                elif on_disk:
+                elif isinstance(i, int):
                     # extract file
+                    start, size = entries[i][2:]
+                    if callable(progress):
+                        progress(copied, total, names[i])
                     if not self._extract(f, start, size, dest, block_size,
                                          overwrite):
-                        failed.append((i, dest))
+                        failed.append((orig_i, dest))
+                    copied += size
                 else:
                     # copy file
+                    if callable(progress):
+                        progress(copied, total, i)
                     if not overwrite and os.path.exists(dest):
-                        failed.append((i, dest))
+                        failed.append((orig_i, dest))
                     else:
                         try:
                             # GC filesystem doesn't know about metadata anyway,
                             # so we're fine to ignore it here
                             copyfile(i, dest)
                         except (IOError, Error):
-                            failed.append((i, dest))
-                files.pop(0)
+                            failed.append((orig_i, dest))
+                    try:
+                        copied += os.path.getsize(i)
+                    except OSError:
+                        pass
         return failed
 
     def _align_4B (self, x):
@@ -756,17 +779,23 @@ It's probably a good idea to back up first...
                 last_start = max(f[3] for f in moving_files)
                 if end < last_start:
                     f.truncate(last_start)
+                # track progress
+                total = sum(size for o_i, i, o_s, s, size in moving_files)
+                copied = 0
                 for old_i, i, old_start, start, size in moving_files:
                     # copy, a block at a time
                     done = 0
                     left = size
                     while left > 0:
+                        if callable(progress):
+                            progress(copied, total, _decoded(names[i]))
                         amount = min(left, block_size)
                         f.seek(old_start + done)
                         data = f.read(amount)
                         f.seek(start + done)
                         f.write(data)
                         done += amount
+                        copied += amount
                         left -= amount
                     # put in old_files
                     old_files.append((start, i, old_i, size))
@@ -860,7 +889,7 @@ It's probably a good idea to back up first...
                 # perform the copy
                 for start, i in new_files:
                     str_start, fn, size = entries[i][1:]
-                    if callable(progress):
+                    if not moving_files and callable(progress):
                         progress(copied, total, _decoded(names[i]))
                     copy(fn, f, start, block_size)
                     copied += size
@@ -985,10 +1014,10 @@ See compress for more details.
                 break
         return changed
 
-    def _slow_compress (self, tmp_dir, block_size = 0x100000):
+    def _slow_compress (self, tmp_dir, block_size = 0x100000, progress = None):
         """Quick compress of the image.
 
-_slow_compress(tmp_dir, block_size = 0x100000) -> changed
+_slow_compress(tmp_dir, block_size = 0x100000[, progress]) -> changed
 
 changed: whether any changes were made to the tree.
 
@@ -1004,12 +1033,15 @@ See compress for more details.
         # - write()
         pass
 
-    def compress (self, block_size = 0x100000):
+    def compress (self, block_size = 0x100000, progress = None):
         """Compress the image.
 
-compress(block_size = 0x100000[, tmp_dir])
+compress(block_size = 0x100000[, progress])
+
 block_size: the maximum amount of data, in bytes, to read and write at a time
             (0x100000 is 1MiB).
+progress: a function to call to indicate progress.  See the same argument to
+          the write method for details.
 
 This function removes all free space in the image's filesystem to make it
 smaller.  GameCube images often have a load of free space between the
@@ -1025,7 +1057,7 @@ compressing.  Make sure you write everything you want to keep first.
 
 Replacement docstring for if I ever do full compress:
 
-compress(quick = True, block_size = 0x100000[, tmp_dir])
+compress(quick = True, block_size = 0x100000[, tmp_dir][, progress])
 
 quick: whether to do a quick compress (see below).
 block_size: the maximum amount of data, in bytes, to read and write at a time
@@ -1033,6 +1065,8 @@ block_size: the maximum amount of data, in bytes, to read and write at a time
 tmp_dir: a directory to store temporary files.  If this does not exist, it is
          created and deleted before returning; if not given, Python's tempfile
          package is used.  If quick is True, this is ignored.
+progress: a function to call to indicate progress.  See the same argument to
+          the write method for details.
 
 This function removes all free space in the image's filesystem to make it
 smaller.  GameCube images often have a load of free space between the
@@ -1057,11 +1091,11 @@ compressing.  Make sure you write everything you want to keep first.
         # discard changes
         self.tree = self.build_tree()
         if self._quick_compress(block_size):
-            self.write(block_size)
+            self.write(block_size, progress = progress)
         #if quick:
             #if self._quick_compress(block_size):
-                #self.write(block_size)
+                #self.write(block_size, progress = progress)
         #else:
             #tmp_dir = tempfile.mkdtemp(prefix = 'gcutil', dir = tmp_dir)
-            #self._slow_compress(tmp_dir, block_size)
+            #self._slow_compress(tmp_dir, block_size, progress)
             #rmtree(tmp_dir)

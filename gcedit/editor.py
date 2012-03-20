@@ -376,12 +376,14 @@ fs, editor: the arguments given to the constructor.
     def __init__ (self, fs, editor):
         self.fs = fs
         self.editor = editor
-        self.reset()
+        self._hist_pos = 0
+        self._hist = []
 
     def reset (self):
         """Forget all history."""
         self._hist_pos = 0
         self._hist = []
+        self.editor.update_hist_btns()
 
     def get_tree (self, path, return_parent = False):
         """Get the tree for the given path.
@@ -940,10 +942,10 @@ buttons: a list of the buttons on the left.
         if not self.get_sensitive():
             # doing stuff
             return True
-        if self.fs.changed():
+        if self.fs_backend.can_undo() or self.fs_backend.can_redo():
             # confirm
-            msg = 'The changes that have been made will be lost if you ' \
-                  'quit.  Are you sure you want to continue?'
+            msg = 'The changes you\'ve made will be lost if you quit.  Are ' \
+                  'you sure you want to continue?'
             if question('Confirm Quit', msg,
                         (gtk.STOCK_CANCEL, '_Quit Anyway'), self,
                         warning = True) != 1:

@@ -425,7 +425,7 @@ rtn: if return_parent is False this is the tree for the given path.  Otherwise,
             return tree
 
     def get_file (self, path):
-        """Get the the file at the given path in the tree.
+        """Get the file at the given path in the tree.
 
 Returns (parent, entry), where parent is the file's parent directory and entry
 is its entry in the tree.
@@ -842,20 +842,88 @@ buttons: a list of the buttons on the left.
         self.buttons[0].set_sensitive(self.fs_backend.can_undo())
         self.buttons[1].set_sensitive(self.fs_backend.can_redo())
 
+    def _extract (self, q, files):
+        """Extract files from the disk."""
+        progress = lambda *args: q.put((False, args))
+        failed = self.fs.extract(*files, progress = progress)
+        q.put((True, failed))
+
     def extract (self, *files):
         """Extract the files at the given paths, else the selected files."""
         if not files:
-            path = self.file_manager.path
+            # get selected files
             files = self.file_manager.get_selected_files()
-            files = [path + [name] for name in files]
             if not files:
                 # nothing to do
+                msg = 'No files selected: to extract, select some files first.'
+                error(msg, self)
                 return
-        # TODO*:
-        # - if one file, ask for a filename to save it under
-        # - if >1, list them and ask for a dir to put them in
-        # - display failed list
-        # - progress bar
+            path = self.file_manager.path
+            files = [path + [name] for name in files]
+        # get destination(s)
+        rt = gtk.ResponseType
+        if len(files) == 1:
+            # ask for filename to extract to
+            label = 'Choose where to extract to'
+            action = gtk.FileChooserAction.SAVE
+        else:
+            # ask for directory to extract all files to
+            label = 'Choose a directory to extract all items to'
+            action = gtk.FileChooserAction.SELECT_FOLDER
+        buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
+        d = gtk.FileChooserDialog(label, self, action, buttons)
+        if d.run() != rt.OK:
+            d.destroy()
+            return
+        dest = d.get_filename()
+        d.destroy()
+        if len(files) == 1:
+            dests = [dest]
+        else:
+            dests = [os.path.join(dest, f[-1]) for f in files]
+        # get dirs' trees and files' entries indices
+        args = []
+        for f, d in zip(files, dests):
+            try:
+                f = self.fs_backend.get_tree(f)
+            except ValueError:
+                f = self.fs_backend.get_file(f)[1][1]
+            args.append((f, d))
+        # show progress dialogue
+        d = Progress('Extracting files', parent = self)
+        d.show()
+        # start write in another thread
+        q = Queue()
+        t = Thread(target = self._extract, args = (q, args))
+        t.start()
+        while True:
+            while q.empty():
+                while gtk.events_pending():
+                    gtk.main_iteration()
+                sleep(SLEEP_INTERVAL)
+            finished, data = q.get()
+            if finished:
+                # finished
+                failed = data
+                break
+            else:
+                # update progress bar
+                done, total, name = data
+                d.bar.set_fraction(done / total)
+                done = printable_filesize(done)
+                total = printable_filesize(total)
+                d.bar.set_text('Completed {} of {}'.format(done, total))
+                d.set_item('Extracting file: ' + name)
+        t.join()
+        d.destroy()
+        # display failed list
+        if failed:
+            v = text_viewer('\n'.join(dest for f, dest in failed),
+                            gtk.WrapMode.NONE)
+            msg = 'Couldn\'t extract to the following locations.  Maybe the ' \
+                  'files already exist, or you don\'t have permission to ' \
+                  'write here.'
+            error(msg, self, v)
 
     def _write (self, q):
         """Perform a write."""
@@ -898,7 +966,6 @@ buttons: a list of the buttons on the left.
         d = Progress('Writing to disk', parent = self)
         d.show()
         # start write in another thread
-        #self.set_sensitive(False)
         q = Queue()
         t = Thread(target = self._write, args = (q,))
         t.start()
@@ -922,7 +989,6 @@ buttons: a list of the buttons on the left.
                 break
         t.join()
         d.destroy()
-        #self.set_sensitive(True)
         if msg is None:
             # tree is different, so have to get rid of history
             self.fs_backend.reset()

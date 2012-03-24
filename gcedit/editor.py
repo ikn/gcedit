@@ -13,14 +13,13 @@ Editor
 """
 
 # TODO:
+# - on import dir, can rename two invalid-named files to same name
+# - 'do this for all remaining conflicts' for move_conflict
 # - dialogues should use primary text (brief summary - have no title)
 # - breadcrumbs shrink if reduce size to < 10px above minimum
 # - in overwrite with copy/import, have the deletion in the same history action
 #   - history action can be list of actions
 #   - need to add copies/imports and deletes to this list in the right order
-# * error if can't encode filename to shift-jis
-#   - when rename file, create new dir, import tree, copy/move from another Editor
-#   - put notes in gcutil that additions to tree should be shift-jis-encoded or -encodable
 # - remember last import/extract paths (separately)
 # - can search within filesystem (ctrl-f, edit/find and ctrl-g, edit/find again)
 # - menus:
@@ -54,10 +53,10 @@ from queue import Queue
 
 from gi.repository import Gtk as gtk, Gdk as gdk, Pango as pango
 from .ext import fsmanage
-from .ext.gcutil import tree_from_dir
+from .ext.gcutil import tree_from_dir, valid_name
 
 IDENTIFIER = 'gcedit'
-INVALID_FN_CHARS = set('\0/')
+INVALID_FN_CHARS = ({b'/'}, {'/'})
 SLEEP_INTERVAL = .02
 
 def printable_path (path):
@@ -139,66 +138,6 @@ response: The index of the clicked button in the list, or a number less than 0
         d.destroy()
         return response
 
-def move_conflict (fn_from, f_to, parent = None):
-    """Show a dialogue that handles a conflict in moving a file.
-
-move_conflict(fn_from, fn_to[, parent]) -> action
-
-fn_from: the filename to move from.
-f_to: the full file path to move to (in a printable format).
-parent: dialogue parent.
-
-action: True to overwrite, False to cancel the move, a string to move to that
-        name instead.
-
-"""
-    # get dialogue
-    msg = 'The file \'{}\' cannot be moved to \'{}\' because the ' \
-          'destination file exists.'
-    msg = msg.format(fn_from, f_to)
-    buttons = ('_Rename', gtk.STOCK_CANCEL, '_Overwrite')
-    d = question('Filename Conflict', msg, buttons, parent, 1, warning = True,
-                 return_dialogue = True)
-    # rename button sensitivity
-    d.set_response_sensitive(0, False)
-    def set_sensitive (e, *args):
-        renaming = e.get_text()
-        d.set_response_sensitive(0, renaming)
-        d.set_default_response(0 if renaming else 1)
-        e.set_activates_default(renaming)
-    # make message left-aligned
-    msg_area = d.get_message_area()
-    msg_area.get_children()[0].set_alignment(0, .5)
-    # add error message
-    err = gtk.Label('<i>Error: invalid filename.</i>')
-    err.set_use_markup(True)
-    err.set_alignment(0, .5)
-    msg_area.pack_start(err, False, False, 0)
-    # add entry
-    h = gtk.Box(gtk.Orientation.HORIZONTAL, 6)
-    msg_area.pack_start(h, False, False, 0)
-    h.pack_start(gtk.Label('New name:'), False, False, 0)
-    e = gtk.Entry()
-    h.pack_start(e, False, False, 0)
-    e.connect('changed', set_sensitive)
-    h.show_all()
-    # run
-    while True:
-        response = d.run()
-        if response == 2:
-            action = True
-        elif response == 0:
-            action = e.get_text()
-            if INVALID_FN_CHARS.intersection(action):
-                e.grab_focus()
-                err.show()
-                continue
-        else:
-            action = False
-        break
-    d.destroy() # need to do this after we retrieve entry's text
-    return action
-
 def error (msg, parent = None, *widgets):
     """Show an error dialogue.
 
@@ -271,6 +210,118 @@ widgets: widgets to add to the same grid as the text, which is at (0, 0) with
     g.show()
     d.run()
     d.destroy()
+
+def move_conflict (fn_from, f_to, parent = None, invalid = False):
+    """Show a dialogue that handles a conflict in moving a file.
+
+move_conflict(fn_from, fn_to[, parent], invalid = False) -> action
+
+fn_from: the filename to move from.
+f_to: the full file path to move to (in a printable format).
+parent: dialogue parent.
+invalid: whether the problem is that the destination is invalid (as opposed to
+         the destination existing).
+
+action: True to overwrite (not for an invalid name), False to cancel the move,
+        or a string to move to that name instead.
+
+"""
+    # get dialogue
+    msg = 'The file \'{}\' cannot be moved to \'{}\' because {}.'
+    reason = 'the destination name is invalid' if invalid else \
+             'the destination file exists'
+    msg = msg.format(fn_from, f_to, reason)
+    buttons = ['_Rename', gtk.STOCK_CANCEL]
+    if not invalid:
+        buttons.append('_Overwrite')
+    d = question('Filename Conflict', msg, buttons, parent, 1, warning = True,
+                 return_dialogue = True)
+    # rename button sensitivity
+    d.set_response_sensitive(0, False)
+    def set_sensitive (e, *args):
+        renaming = e.get_text()
+        d.set_response_sensitive(0, renaming)
+        d.set_default_response(0 if renaming else 1)
+        e.set_activates_default(renaming)
+    # make message left-aligned
+    msg_area = d.get_message_area()
+    msg_area.get_children()[0].set_alignment(0, .5)
+    # add error message
+    err = gtk.Label('<i>Error: invalid filename.</i>')
+    err.set_use_markup(True)
+    err.set_alignment(0, .5)
+    msg_area.pack_start(err, False, False, 0)
+    # add entry
+    h = gtk.Box(gtk.Orientation.HORIZONTAL, 6)
+    msg_area.pack_start(h, False, False, 0)
+    h.pack_start(gtk.Label('New name:'), False, False, 0)
+    e = gtk.Entry()
+    h.pack_start(e, False, False, 0)
+    e.connect('changed', set_sensitive)
+    h.show_all()
+    if invalid:
+        # add invalid name details
+        details = _invalid_name_details_expander()
+        msg_area.pack_start(details, False, False, 0)
+        details.show()
+    # run
+    while True:
+        response = d.run()
+        if response == 2:
+            action = True
+        elif response == 0:
+            action = e.get_text()
+            if INVALID_FN_CHARS[isinstance(action, str)].intersection(action):
+                e.grab_focus()
+                err.show()
+                continue
+        else:
+            action = False
+        break
+    d.destroy() # need to do this after we retrieve entry's text
+    return action
+
+def _invalid_name_details_expander ():
+    """Get a Gtk.Expander with invalid name details."""
+    e = gtk.Expander()
+    e.set_label('_Details')
+    e.set_use_underline(True)
+    l = gtk.Label('It must be possible to encode file and directory names ' \
+                  'using the shift-JIS encoding, and \'/\' and null bytes ' \
+                  '(\'\\0\') are not allowed.')
+    e.add(l)
+    l.set_line_wrap(True)
+    l.show()
+    return e
+
+def invalid_name_dialogue (paths, parent = None):
+    """Show an error dialogue for trying to create files with invalid names.
+
+invalid_name_dialogue(paths[, parent])
+
+paths: a list of the invalid paths (in printable form).
+parent: dialogue parent.
+
+"""
+    widgets = []
+    if len(paths) == 1:
+        msg = 'Couldn\'t create \'{}\' because its name is invalid.'
+        msg = msg.format(paths)
+    else:
+        msg = 'The following items couldn\'t be created because their names ' \
+              'are invalid:'
+        widgets.append(text_viewer('\n'.join(paths), gtk.WrapMode.NONE))
+    # details
+    e = _invalid_name_details_expander()
+    widgets.append(e)
+    error(msg, parent, *widgets)
+
+def invalid_name (name):
+    """Check if a filename is valid."""
+    if INVALID_FN_CHARS[isinstance(name, str)].intersection(name):
+        return False
+    else:
+        return not valid_name(name)
 
 
 class Progress (gtk.Dialog):
@@ -541,10 +592,16 @@ Takes an argument indicating whether to import directories (else files).
                 name = os.path.basename(f)
                 failed = False
                 # check if exists
-                while name in current_names:
-                    # exists: ask what action to take
+                while True:
                     dest = printable_path(current_path + [name])
-                    action = move_conflict(name, dest, self.editor)
+                    if name in current_names:
+                        # exists
+                        action = move_conflict(name, dest, self.editor)
+                    elif invalid_name(name):
+                        action = move_conflict(name, dest, self.editor, True)
+                    else:
+                        break
+                    # handle action
                     if action is True:
                         self.delete(current_path + [name])
                         current_names.remove(name)
@@ -557,6 +614,17 @@ Takes an argument indicating whether to import directories (else files).
                     # add to tree
                     if dirs:
                         tree = tree_from_dir(f)
+                        # check contained items' names' validity
+                        items = self.editor.fs.get_file_tree_locations(tree)
+                        for (this_name, fn), parent, k in items:
+                            while invalid_name(this_name):
+                                action = move_conflict(fn, this_name,
+                                                       self.editor, True)
+                                if action:
+                                    this_name = action
+                                    parent[None][k] = (this_name, fn)
+                                else:
+                                    break
                         current[(name, None)] = f = tree
                     else:
                         current[None].append((name, f))
@@ -599,7 +667,6 @@ Takes an argument indicating whether to import directories (else files).
                 if this_data[2] != id(self.editor):
                     # different Editor
                     foreign = True
-                    # TODO
                     error('Drag-and-drop between instances is not supported ' \
                           'yet.')
                     print(this_data, old, new)
@@ -632,16 +699,23 @@ Takes an argument indicating whether to import directories (else files).
                     cannot_copy.append(printable_path(old))
                     continue
             this_failed = False
-            while new[-1] in current_items:
-                # exists
-                # same dir means rename or same file, so skip (rename will go
-                # back to renaming on fail)
-                if old[:-1] == new[:-1] and not foreign:
-                    this_failed = True
+            while True:
+                if new[-1] in current_items:
+                    # exists
+                    # same dir means rename or same file, so skip (rename will go
+                    # back to renaming on fail)
+                    if old[:-1] == new[:-1] and not foreign:
+                        this_failed = True
+                        break
+                    else:
+                        action = move_conflict(old[-1], printable_path(new),
+                                               self.editor)
+                elif invalid_name(new[-1]):
+                    action = move_conflict(old[-1], printable_path(new),
+                                           self.editor, True)
+                else:
                     break
-                # else ask what action to take
-                action = move_conflict(old[-1], printable_path(new),
-                                       self.editor)
+                # handle action
                 if action is True:
                     self.delete(new)
                     current_items.remove(new[-1])
@@ -716,6 +790,9 @@ Takes an argument indicating whether to import directories (else files).
             # already exists: show error
             path = printable_path(path)
             error('Directory \'{}\' already exists.'.format(path, self.editor))
+            return False
+        elif invalid_name(name):
+            invalid_name_dialogue((printable_path(path),), self.editor)
             return False
         else:
             if hist:

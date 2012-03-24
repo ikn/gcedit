@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 5-dev.
+Release: 6-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -45,6 +45,22 @@ from copy import deepcopy
 def _join (*dirs):
     """Like os.path.join, but handles mismatched bytes/str args."""
     return os.sep.join(_decode(d) if isinstance(d, bytes) else d for d in dirs)
+
+def valid_name (name):
+    """Check whether a file/directory name is valid.
+
+Takes the name to check, which can be str or bytes, and returns whether it is
+valid.  A valid name can be safely added to the tree of a GCFS instance.
+
+"""
+    if (b'\0', '\0')[isinstance(name, str)] in name:
+        return False
+    try:
+        (_encode if isinstance(name, str) else _decode)(name)
+    except (UnicodeEncodeError, UnicodeDecodeError):
+        return False
+    else:
+        return True
 
 def read (f, start, size = None, num = False, until = None, block_size = 0x10):
     """Read data from a file object.
@@ -205,6 +221,7 @@ update
 disk_changed
 changed
 get_info
+get_file_tree_locations
 get_extra_files
 extract_extra_files
 extract
@@ -236,7 +253,9 @@ tree: a dict representing the root directory.  Each directory is a dict whose
     {id1: {id2: {...}, ...}, ..., None: [id3, ...]}
 
       In each case, an identifier is (name, index), where:
-    name: the directory/file's (current) name.
+    name: the directory/file's (current) name.  Any names added to the tree
+          must be shift-JIS-encoded bytes instances, or str instances that can
+          be encoded with shift-JIS (see the valid_name function).
     index: the index in the entries list if the file/directory is already in
            the image's filesystem, else (for items yet to be added) None for a
            directory, or the real filesystem path for a file.
@@ -405,6 +424,28 @@ Returns a dict containing 'code', 'version' (int), 'name' and
                 data[name] = read(f, *args)
         return data
 
+    def get_file_tree_locations (self, tree = None):
+        """Get a list of files in the given tree with their parent trees.
+
+get_file_tree_locations([tree]) -> files
+
+tree: the tree to look in; defaults to this instance's tree attribute.
+
+files: list of (file, tree, index) tuples, where tree[None][index] == file.
+
+"""
+        if tree is None:
+            tree = self.tree
+        files = []
+        # files
+        for i, f in enumerate(tree[None]):
+            files.append((f, tree, i))
+        # dirs
+        for k, t in tree.items():
+            if k is not None:
+                files += self.get_file_tree_locations(t)
+        return files
+
     def get_extra_files (self):
         """Get a list of files in the image that aren't in the filesystem.
 
@@ -470,10 +511,9 @@ files: the files to extract, each a (name, target) tuple, where:
             also be a file object to write to (open in binary mode); in this
             case, no seeking will occur.
 block_size: the maximum amount of data, in bytes, to read and write at a time
-            (0x100000 is 1MiB).  This is a keyword-only argument.
+            (0x100000 is 1MiB).
 overwrite: whether to overwrite files if they exist (if False and a file
-           exists, its returned success will be False).  This is a keyword-only
-           argument.
+           exists, its returned success will be False).
 
 success: a list of bools corresponding to the given files, each indicating
          whether the file could be created.  Failure can occur if the name is
@@ -524,12 +564,12 @@ files: the files and directories to extract, each an (index, target) tuple,
            files are respected, and will be copied as necessary.
     target: the path on the real filesystem to extract this file/directory to.
 block_size: the maximum amount of data, in bytes, to read and write at a time
-            (0x100000 is 1MiB).  This is a keyword-only argument.
+            (0x100000 is 1MiB).
 overwrite: whether to overwrite files if they exist and ignore existing
            directories (if False and a file/directory exists, it will be in the
-           failed list).  This is a keyword-only argument.
+           failed list).
 progress: a function to call to indicate progress.  See the same argument to
-          the write method for details.  This is a keyword-only argument.
+          the write method for details.
 
 failed: a list of files and directories that could not be created.  This is in
         the same format as the given files, but may include ones not given (if
@@ -724,7 +764,7 @@ It's probably a good idea to back up first...
             if len(child) == 3:
                 # file
                 name, old_i = child[:2]
-                names.append(name)
+                names.append(_decoded(name))
                 i = len(entries)
                 if isinstance(old_i, int):
                     # existing file
@@ -760,15 +800,15 @@ It's probably a good idea to back up first...
                 del tree[child]
                 tree = new_tree
                 tree[None] = [f + (True,) for f in tree[None]]
-                name = child[0]
+                name = _decoded(child[0])
                 names.append(name)
                 next_index = len(entries) + 2 + self._tree_size(tree)
                 entries.append((True, str_start, parent, next_index))
                 parent_indices[id(tree)] = len(entries)
             # terminate with a null byte
             str_start += len(_encode(name)) + 1
-        # get start of actual file data (str_start is now the string table
-        # size)
+        # get start of actual file data
+        # str_start is now the string table size
         data_start = self.fs_start + (1 + len(entries)) * 0xc + str_start
 
         if moving_files:
@@ -788,7 +828,7 @@ It's probably a good idea to back up first...
                     left = size
                     while left > 0:
                         if callable(progress):
-                            progress(copied, total, _decoded(names[i]))
+                            progress(copied, total, names[i])
                         amount = min(left, block_size)
                         f.seek(old_start + done)
                         data = f.read(amount)
@@ -890,7 +930,7 @@ It's probably a good idea to back up first...
                 for start, i in new_files:
                     str_start, fn, size = entries[i][1:]
                     if not moving_files and callable(progress):
-                        progress(copied, total, _decoded(names[i]))
+                        progress(copied, total, names[i])
                     copy(fn, f, start, block_size)
                     copied += size
                     entries[i] = (False, str_start, start, size)
@@ -926,28 +966,6 @@ It's probably a good idea to back up first...
         # build new tree
         self.build_tree()
 
-    def _get_file_tree_locations (self, tree = None):
-        """Get a list of files in the given tree with their parent trees.
-
-_get_file_tree_locations([tree]) -> files
-
-tree: the tree to look in; defaults to this instance's tree attribute.
-
-files: list of (file, tree, index) tuples, where tree[None][index] == file.
-
-"""
-        if tree is None:
-            tree = self.tree
-        files = []
-        # files
-        for i, f in enumerate(tree[None]):
-            files.append((f, tree, i))
-        # dirs
-        for k, t in tree.items():
-            if k is not None:
-                files += self._get_file_tree_locations(t)
-        return files
-
     def _quick_compress (self, block_size = 0x100000):
         """Quick compress of the image.
 
@@ -959,14 +977,14 @@ See compress for more details.
 
 """
         # get files, sorted by reverse position
-        files = self._get_file_tree_locations()
+        files = self.get_file_tree_locations()
         entries = self.entries
         files = [(entries[i][2], entries[i][3], i, name, tree[None], tree_i)
                  for (name, i), tree, tree_i in files]
         files.sort(reverse = True)
         # get start of file data
-        start = (0, -1)
-        data_start, i = max(start, *((e[1], i) for i, e in enumerate(entries)))
+        data_start, i = max((0, -1),
+                            *((e[1], i) for i, e in enumerate(entries)))
         if i != -1:
             data_start += len(_encode(self.names[i])) + 1
         data_start += self.str_start

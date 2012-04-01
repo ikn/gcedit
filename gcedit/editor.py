@@ -7,6 +7,7 @@ version.
 
     CLASSES
 
+Progress
 FSBackend
 Editor
 
@@ -54,6 +55,8 @@ from queue import Queue
 from gi.repository import Gtk as gtk, Gdk as gdk, Pango as pango
 from .ext import fsmanage
 from .ext.gcutil import tree_from_dir, valid_name
+
+from .conf import settings_manager as settings
 
 IDENTIFIER = 'gcedit'
 INVALID_FN_CHARS = ({b'/'}, {'/'})
@@ -122,7 +125,7 @@ response: The index of the clicked button in the list, or a number less than 0
           if the dialogue was closed.
 
 """
-    # TODO: option to show 'don't ask again' checkbox; return its value too
+    # TODO: [ENH] option to show 'don't ask again' checkbox; return its value too
     mt = gtk.MessageType.WARNING if warning else gtk.MessageType.QUESTION
     d = gtk.MessageDialog(parent, gtk.DialogFlags.DESTROY_WITH_PARENT,
                           mt, gtk.ButtonsType.NONE, msg)
@@ -843,10 +846,16 @@ buttons: a list of the buttons on the left.
         self.file_manager = m
         # window
         gtk.Window.__init__(self)
-        self.resize(350, 350)
+        w, h = settings['win_size'][:2]
+        self.set_default_size(w, h)
+        if settings['win_max']:
+            self.maximize()
         self.set_border_width(12)
-        self.set_title('GCEdit') # TODO: include game name (need BNR support) [http://developer.gnome.org/hig-book/stable/windows-primary.html.en#primary-window-titles]
+        # TODO: [ENH] include game name (need BNR support) [http://developer.gnome.org/hig-book/stable/windows-primary.html.en#primary-window-titles]
+        self.set_title('GCEdit')
         self.connect('delete-event', self.quit)
+        self.connect('size-allocate', self._size_cb)
+        self.connect('window-state-event', self._state_cb)
         # contents
         g = gtk.Grid()
         self.add(g)
@@ -926,6 +935,15 @@ buttons: a list of the buttons on the left.
         # display
         self.show_all()
         m.grab_focus()
+
+    def _state_cb (self, w, e):
+        """Save changes to maximised state."""
+        is_max = e.new_window_state & gdk.WindowState.MAXIMIZED
+        settings['win_max'] = bool(is_max)
+
+    def _size_cb (self, w, size):
+        """Save changes to window size."""
+        settings['win_size'] = (size.width, size.height)
 
     def update_hist_btns (self):
         """Update undo/redo buttons' sensitivity."""

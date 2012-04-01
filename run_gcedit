@@ -37,6 +37,7 @@ class LoadDisk (gtk.FileChooserDialog):
         gtk.FileChooserDialog.__init__(self, 'Open Disk Image', None,
                                        gtk.FileChooserAction.OPEN, buttons)
 
+
 try:
     # use the first argument as a filename to load, if given
     fn = sys.argv[1]
@@ -53,8 +54,8 @@ except IndexError:
 if fn is not None:
     try:
         fs = GCFS(fn)
-    except: # TODO: raise something in GCFS if invalid
-        # TODO: show error dialogue and return to disk loader
+    except: # TODO: [ENH] raise something in GCFS if invalid
+        # TODO: [ENH] show error dialogue and return to disk loader
         pass
     else:
         # start the editor

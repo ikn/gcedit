@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 6.
+Release: 7-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -22,10 +22,9 @@ tree_from_dir
 
 # TODO:
 # - decompress function
-# - extract progress argument
 # - BNR support
-# - revert increased file size (truncate) in write if we cancel (through handled error or progress -> True)
 # - progress update every block in copying larger files (in extract, write/new files)
+# - pause/cancel in write, compress, extract
 
 import os
 from shutil import rmtree, copyfile, Error as shutil_error
@@ -811,13 +810,16 @@ It's probably a good idea to back up first...
         # str_start is now the string table size
         data_start = self.fs_start + (1 + len(entries)) * 0xc + str_start
 
+        truncated = False
         if moving_files:
+            orig_disk_size = os.path.getsize(self.fn)
             # copy files within disk image
             with open(self.fn, 'r+b') as f:
                 # if we will be seeking beyond the image end, expand the file
                 end = f.seek(0, 2)
                 last_start = max(f[3] for f in moving_files)
                 if end < last_start:
+                    truncated = True
                     f.truncate(last_start)
                 # track progress
                 total = sum(size for o_i, i, o_s, s, size in moving_files)
@@ -862,6 +864,9 @@ It's probably a good idea to back up first...
                 # cleanup
                 rmtree(tmp_dir)
                 self.build_tree()
+                if truncated:
+                    with open(self.fn, 'r+b') as f:
+                        f.truncate(orig_disk_size)
                 msg = 'couldn\'t extract to a temporary file ({})'
                 e = IOError(msg.format(failed[0][1]))
                 e.handled = True

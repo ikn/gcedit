@@ -13,31 +13,30 @@ Editor
 """
 
 # TODO:
-# - on extract, set initial output name to in-game name
-# - icon
-# - on import dir, can rename two invalid-named files to same name
-# - 'do this for all remaining conflicts' for move_conflict
-# - dialogues should use primary text (brief summary - have no title)
-# - in overwrite with copy/import, have the deletion in the same history action
+# [BUG] on import dir, can rename two invalid-named files to same name
+# [ENH] icon
+# [ENH] 'do this for all remaining conflicts' for move_conflict
+# [ENH] dialogues should use primary text (brief summary - have no title)
+# [ENH] in overwrite with copy/import, have the deletion in the same history action
 #   - history action can be list of actions
 #   - need to add copies/imports and deletes to this list in the right order
-# - remember last import/extract paths (separately)
-# - can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
-# - menus:
+# [ENH] remember last import/extract paths (separately)
+# [FEA] can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
+# [FEA] menus:
 #   - switch disk image (go back to initial screen)
 #   - buttons
 #   - compress, decompress, discard all changes (fs.update(), manager.refresh()), reload from disk (fs.update())
 #   - split view (horiz/vert/close)
 #   - about
-# - built-in tabbed editor (expands window out to the right)
+# [FEA] built-in tabbed editor (expands window out to the right)
 #   - if rename/move a file being edited, rename the tab
 #   - if delete, show error
 #   - if write, ask if want to save files being edited; afterwards, 're-open' them and show error if can't for some reason
 #   - in context menu, buttons
 #   - on open, check if can decode to text; if not, have hex editor
 #   - option for open_files to edit instead of extract
-# - track deleted files (not dirs) (get paths recursively) and put in trash when write
-# - display file size
+# [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
+# [FEA] display file size
 
 # NOTE: os.stat().st_dev gives path's device ID
 
@@ -963,6 +962,9 @@ buttons: a list of the buttons on the left.
             action = gtk.FileChooserAction.SELECT_FOLDER
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
         d = gtk.FileChooserDialog(label, self, action, buttons)
+        if len(files) == 1:
+            # set name to that in the disk
+            d.set_current_name(files[0][-1])
         if d.run() != rt.OK:
             d.destroy()
             return

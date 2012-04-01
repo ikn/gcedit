@@ -13,20 +13,22 @@ Editor
 """
 
 # TODO:
+# - on extract, set initial output name to in-game name
+# - icon
 # - on import dir, can rename two invalid-named files to same name
 # - 'do this for all remaining conflicts' for move_conflict
 # - dialogues should use primary text (brief summary - have no title)
-# - breadcrumbs shrink if reduce size to < 10px above minimum
 # - in overwrite with copy/import, have the deletion in the same history action
 #   - history action can be list of actions
 #   - need to add copies/imports and deletes to this list in the right order
 # - remember last import/extract paths (separately)
-# - can search within filesystem (ctrl-f, edit/find and ctrl-g, edit/find again)
+# - can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
 # - menus:
 #   - switch disk image (go back to initial screen)
 #   - buttons
 #   - compress, decompress, discard all changes (fs.update(), manager.refresh()), reload from disk (fs.update())
 #   - split view (horiz/vert/close)
+#   - about
 # - built-in tabbed editor (expands window out to the right)
 #   - if rename/move a file being edited, rename the tab
 #   - if delete, show error
@@ -36,7 +38,6 @@ Editor
 #   - option for open_files to edit instead of extract
 # - track deleted files (not dirs) (get paths recursively) and put in trash when write
 # - display file size
-# - instead of progress disappearing, give it a finish() method which replaces buttons with a 'Close' button, allows closing by esc/etc., sets default response to Close (if error, destroy dialogue instead of calling this)
 
 # NOTE: os.stat().st_dev gives path's device ID
 
@@ -341,6 +342,7 @@ parent: parent widget.
     METHODS
 
 set_item
+finish
 
     ATTRIBUTES
 
@@ -364,7 +366,7 @@ item: current item that's being processed, or None.
         self.set_border_width(12)
         self.set_default_size(400, 0)
         self.set_deletable(False)
-        self.connect('delete-event', lambda *args: True)
+        self._nodel_id = self.connect('delete-event', lambda *args: True)
         # add widgets
         v = self.vbox
         v.set_spacing(6)
@@ -399,6 +401,18 @@ If no argument is given, the current item text is removed from the dialogue.
             if self.item is None:
                 self.vbox.pack_start(self._item, False, False, 0)
         self.item = item
+
+    def finish (self):
+        """Allow the dialogue to be closed."""
+        # remove old buttons
+        a = self.get_action_area()
+        for b in a.get_children():
+            a.remove(b)
+        # add close button
+        self.add_buttons(gtk.STOCK_CLOSE, gtk.ResponseType.CLOSE)
+        self.set_default_response(gtk.ResponseType.CLOSE)
+        self.set_deletable(True)
+        self.disconnect(self._nodel_id)
 
 
 class FSBackend:
@@ -992,15 +1006,22 @@ buttons: a list of the buttons on the left.
                 d.bar.set_text('Completed {} of {}'.format(done, total))
                 d.set_item('Extracting file: ' + name)
         t.join()
-        d.destroy()
-        # display failed list
         if failed:
+            d.destroy()
+            # display failed list
             v = text_viewer('\n'.join(dest for f, dest in failed),
                             gtk.WrapMode.NONE)
             msg = 'Couldn\'t extract to the following locations.  Maybe the ' \
                   'files already exist, or you don\'t have permission to ' \
                   'write here.'
             error(msg, self, v)
+        else:
+            d.bar.set_fraction(1)
+            d.bar.set_text(None)
+            d.set_item('All items complete')
+            d.finish()
+            d.run()
+            d.destroy()
 
     def _write (self, q):
         """Perform a write."""
@@ -1065,12 +1086,18 @@ buttons: a list of the buttons on the left.
                 msg, traceback = got
                 break
         t.join()
-        d.destroy()
         if msg is None:
+            d.bar.set_fraction(1)
+            d.bar.set_text(None)
+            d.set_item('All items complete')
+            d.finish()
+            d.run()
+            d.destroy()
             # tree is different, so have to get rid of history
             self.fs_backend.reset()
             self.file_manager.refresh()
         else:
+            d.destroy()
             # show error
             if traceback is None:
                 error(msg, self)

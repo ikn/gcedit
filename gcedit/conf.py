@@ -17,11 +17,16 @@ retrieve
 import os
 import json
 
+# TODO: different values on Windows
 HOME = os.path.expanduser('~')
 CONF = os.path.join(HOME, '.config', 'gcedit')
 SHARE = os.path.join(HOME, '.local', 'gcedit')
 
+APPLICATION = 'GCEdit'
+IDENTIFIER = 'gcedit'
 UPDATE_ON_CHANGE = True
+SLEEP_INTERVAL = .02
+INVALID_FN_CHARS = ({b'/'}, {'/'})
 
 """
 
@@ -85,18 +90,18 @@ defaults = {
     # interface
     'win_size': (400, 450),
     'win_max': False,
-    'import_path': HOME,
-    'extract_path': HOME,
-    'sel_on_drag': True,
-    'warnings': {},
+    'import_path': HOME, # use, set
+    'extract_path': HOME, # use, set
+    'sel_on_drag': True, # set
+    'warnings': {}, # use, set
     # trash
-    'trash_enabled': True,
-    'trash_location': os.path.join(SHARE, 'trash'),
-    'trash_size': 50 * 1024 ** 2, # 50MiB
+    'trash_enabled': True, # use, set
+    'trash_location': os.path.join(SHARE, 'trash'), # use, set
+    'trash_size': 50 * 1024 ** 2, # 50MiB # use, set
     # backend
-    'tmp_dir': '', # empty string means use tempfile module
-    'simul_rw': 'automatic',
-    'block_size': 1024 ** 2 # 1MiB
+    'tmp_dir': '', # empty string means use tempfile module # use, set
+    'simul_rw': 'automatic', # use, set
+    'block_size': 1024 ** 2 # 1MiB # use, set
 }
 
 types = {

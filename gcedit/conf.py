@@ -5,17 +5,16 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version.
 
-    FUNCTIONS
+    DATA
 
-set
-get
-store
-retrieve
+settings: dict-like object to handle settings.
 
 """
 
 import os
 import json
+
+from gi.repository import Gtk as gtk
 
 # TODO: different values on Windows
 HOME = os.path.expanduser('~')
@@ -28,65 +27,7 @@ UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})
 
-"""
-
-widgets is a data structure defining settings to automatically build the
-preferences widgets; it is a dict with setting_ID keys and
-    (setting_type[, type_args][, update_cb][, update_on_close])
-values.
-
-setting_ID: ID used in the settings data structure.
-setting_type: a string that indicates the type of setting (see list below).
-type_args: data that affects the behaviour of the setting; if the required
-           value in the list below is not specified, this is ignored.
-update_cb: a function that is passed the running Editor instance, setting_ID
-           and the new value of the setting when it is changed (None for types
-           with no value).  Returns True to indicate that updating the setting
-           has been handled (or should not be handled); otherwise, it is
-           automatically updated based on its type (does nothing for types with
-           no value).
-
-           Alternatively, update_cb can be the name of a method of Editor to
-           call that with setting_ID and the value (and handle its return value
-           in the same manner).  If this argument is None or not given, the
-           setting is just automatically updated.
-update_on_change: whether to call update_cb (and/or perform automatic setting
-                 update) when the widget is changed (otherwise only do so
-                 when the preferences is closed); defaults to UPDATE_ON_CHANGE.
-
-Setting types are:
-
-button: takes the label, which is assumed to be stock if it starts with 'gtk-';
-        otherwise, it is assumed to use underline if it contains '_'.  This
-        type has no value.
-text: shows a text entry.
-bool: shows a checkbox.
-dir: choose a directory on the real filesystem.
-int: shows a widget to set an integer; takes (min, max, step[, units]).  units
-     is a list, which, if given, defines a choice of units to show in a
-     dropdown to the right, and update_cb is called with (int, choice) for the
-     respective values for those setting types when either widget is changed.
-choice: shows a dropdown; takes a list of (string) values; value is the index
-        of the chosen value in the given list.
-
-"""
-
-CB = None
-widgets = {
-    # interface
-    'sel_on_drag': ('bool', None, CB),
-    'warnings': ('button', 'Re-enable all warnings', CB),
-    # trash
-    'trash_enabled': ('bool', None, CB, False),
-    'trash_location': ('dir', None, CB, False),
-    'trash_size': ('int', (1, 1023, 1, ('KiB', 'MiB', 'GiB')), CB, False),
-    # backend
-    'tmp_dir': ('dir',),
-    'simul_rw': ('choice', ('automatic', 'always', 'never')),
-    'block_size': ('int', (1, 1023, 1, ('B', 'KiB', 'MiB')))
-}
-
-defaults = {
+_defaults = {
     # interface
     'win_size': (400, 450),
     'win_max': False,
@@ -97,14 +38,15 @@ defaults = {
     # trash
     'trash_enabled': True, # use, set
     'trash_location': os.path.join(SHARE, 'trash'), # use, set
-    'trash_size': 50 * 1024 ** 2, # 50MiB # use, set
+    'trash_size': (50, 1), # 50MiB # use, set
     # backend
-    'tmp_dir': '', # empty string means use tempfile module # use, set
-    'simul_rw': 'automatic', # use, set
-    'block_size': 1024 ** 2 # 1MiB # use, set
+    'set_tmp_dir': False,
+    'tmp_dir': HOME, # use, set
+    'simul_rw': 0, # use, set
+    'block_size': (1, 2) # 1MiB # use, set
 }
 
-types = {
+_types = {
     # interface
     'win_size': list,
     'win_max': bool,
@@ -115,14 +57,16 @@ types = {
     # trash
     'trash_enabled': bool,
     'trash_location': str,
-    'trash_size': int,
+    'trash_size': list,
     # backend
+    'set_tmp_dir': bool,
     'tmp_dir': str,
-    'simul_rw': str,
-    'block_size': int
+    'simul_rw': int,
+    'block_size': list
 }
 
-class SettingsManager (dict):
+
+class _SettingsManager (dict):
     """A dict subclass for handling settings.
 
 Takes file to store settings in and a dict of default values for settings.  All
@@ -144,13 +88,13 @@ possible settings are assumed to be in this dict.
     def __getitem__ (self, k):
         v = dict.__getitem__(self, k)
         try:
-            v = types[k](v)
+            v = _types[k](v)
         except (TypeError, ValueError):
             v = self.defaults[k]
         return v
 
     def __setitem__ (self, k, v):
-        v = types[k](v)
+        v = _types[k](v)
         if v == self[k]:
             # no change
             return
@@ -161,4 +105,5 @@ possible settings are assumed to be in this dict.
         except IOError:
             pass
 
-settings_manager = SettingsManager(CONF, defaults)
+
+settings = _SettingsManager(CONF, _defaults)

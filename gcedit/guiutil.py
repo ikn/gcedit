@@ -223,7 +223,7 @@ action: True to overwrite (not for an invalid name), False to cancel the move,
     err.set_alignment(0, .5)
     msg_area.pack_start(err, False, False, 0)
     # add entry
-    h = gtk.Box(gtk.Orientation.HORIZONTAL, 6)
+    h = gtk.Box(False, 6)
     msg_area.pack_start(h, False, False, 0)
     h.pack_start(gtk.Label('New name:'), False, False, 0)
     e = gtk.Entry()

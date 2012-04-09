@@ -52,9 +52,10 @@ from gi.repository import Gtk as gtk, Gdk as gdk
 from .ext import fsmanage
 
 from .fsbackend import FSBackend
+from .prefs import Preferences
 from . import guiutil
 from . import conf
-from .conf import settings_manager as settings
+from .conf import settings
 
 IDENTIFIER = 'gcedit'
 
@@ -69,6 +70,7 @@ Takes a gcutil.GCFS instance.
 update_hist_btns
 extract
 write
+open_prefs
 quit
 
     ATTRIBUTES
@@ -77,10 +79,12 @@ fs: the given gcutil.GCFS instance.
 fs_backend: FSBackend instance.
 file_manager: fsmanage.Manager instance.
 buttons: a list of the buttons on the left.
+prefs: preferences window or None
 
 """
 
     def __init__ (self, fs):
+        #print(conf.gen_widgets(self))
         self.fs = fs
         self.fs_backend = FSBackend(fs, self)
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
@@ -105,6 +109,7 @@ buttons: a list of the buttons on the left.
         g.set_row_spacing(6)
         g.set_column_spacing(12)
         # left
+        self.prefs = None
         self.buttons = btns = []
         f = lambda widget, cb, *args: cb(*args)
         for btn_data in (
@@ -119,6 +124,8 @@ buttons: a list of the buttons on the left.
              self.extract),
             (('_Write', gtk.STOCK_SAVE), 'Write changes to the disk image',
              self.write),
+            (gtk.STOCK_PREFERENCES, 'Open the preferences window',
+             self.open_prefs),
             (gtk.STOCK_QUIT, 'Quit the application', self.quit)
         ):
             if btn_data is None:
@@ -186,7 +193,8 @@ buttons: a list of the buttons on the left.
 
     def _size_cb (self, w, size):
         """Save changes to window size."""
-        settings['win_size'] = (size.width, size.height)
+        if not settings['win_max']:
+            settings['win_size'] = (size.width, size.height)
 
     def update_hist_btns (self):
         """Update undo/redo buttons' sensitivity."""
@@ -369,6 +377,13 @@ buttons: a list of the buttons on the left.
                 v = guiutil.text_viewer(traceback, gtk.WrapMode.WORD_CHAR)
                 guiutil.error(msg, self, v)
                 # don't try and do anything else, in case it breaks things
+
+    def open_prefs (self):
+        """Open the preferences window."""
+        if self.prefs is None:
+            self.prefs = Preferences(self)
+        else:
+            self.prefs.present()
 
     def quit (self, *args):
         """Quit the program."""

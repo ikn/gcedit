@@ -39,7 +39,7 @@ _defaults = {
     'trash_enabled': True, # use, set
     'trash_location': os.path.join(SHARE, 'trash'), # use, set
     'trash_size': (50, 1), # 50MiB # use, set
-    # backend
+    # advanced
     'set_tmp_dir': False,
     'tmp_dir': HOME, # use, set
     'simul_rw': 0, # use, set
@@ -58,7 +58,7 @@ _types = {
     'trash_enabled': bool,
     'trash_location': str,
     'trash_size': list,
-    # backend
+    # advanced
     'set_tmp_dir': bool,
     'tmp_dir': str,
     'simul_rw': int,

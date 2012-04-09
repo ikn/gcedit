@@ -16,12 +16,10 @@ gen_widgets
 """
 
 # TODO:
-# [ENH] access keys in tabs, widgets
-# [IMP] widget labels
 # [IMP] sensitivity
 # [IMP] filechooserbuttons choose files, not dirs
 # [BUG] filechooserbuttons shouldn't change on close (they become None)
-# [IMP] set page (grid) first column to 12px
+# [IMP] set page (grid) first column to 6px (has +6 from col spacing)
 
 from gi.repository import Gtk as gtk
 
@@ -31,30 +29,32 @@ from .conf import settings
 """
 
 _widgets is a data structure defining settings to automatically build the
-preferences widgets; it is a dict with setting_ID keys and
-    (setting_type[, type_args][, update_cb][, update_on_change][, *sensitive])
-values.
+preferences widgets; it is a setting_ID: data dict, where:
 
 setting_ID: ID used to identify the setting.
-setting_type: a string that indicates the type of setting (see list below).
-type_args: data that affects the behaviour of the setting; if the required
-           value in the list below is not specified, this is ignored.
-update_cb: a function that is passed the running Editor instance, setting_ID
-           and the new value of the setting when it is changed (None for types
-           with no value).  Returns True to indicate that updating the setting
-           has been handled (or should not be handled); otherwise, it is
-           automatically updated based on its type (does nothing for types with
-           no value).
+data: a dict with the following keys (all are optional except type and,
+      depending on the type, data):
 
-           Alternatively, update_cb can be the name of a method of Editor to
-           call that with setting_ID and the value (and handle its return value
-           in the same manner).  If this argument is None or not given, the
-           setting is just automatically updated.
-update_on_change: whether to call update_cb (and/or perform automatic setting
-                  update) when the widget is changed (otherwise only do so
-                  when the preferences is closed); defaults to
-                  conf.UPDATE_ON_CHANGE.
-sensitive: one or more (setting_ID, value) tuples, where the widget is only
+t: a string that indicates the type of setting (see list below).
+label: a string for the widget's label.  If it contains '_', it is treated as
+       using underline.
+tooltip: tooltip to show when hovering over the widget.
+data: data that affects the behaviour of the setting; if the required
+           value in the list below is not specified, this is ignored.
+cb: a function that is passed the running Editor instance, setting_ID and the
+    new value of the setting when it is changed (None for types with no value).
+    Returns True to indicate that updating the setting has been handled (or
+    should not be handled); otherwise, it is automatically updated based on its
+    type (does nothing for types with no value).
+
+    Alternatively, update_cb can be the name of a method of Editor to call that
+    with setting_ID and the value (and handle its return value in the same
+    manner).  If this argument is None or not given, the setting is just
+    automatically updated.
+on_change: whether to call update_cb (and/or perform automatic setting update)
+           when the widget is changed (otherwise only do so when the
+           preferences is closed); defaults to conf.UPDATE_ON_CHANGE.
+sensitive: a list of (setting_ID, value) tuples, where the widget is only
            sensitive if the widgets corresponding to each setting_ID have the
            corresponding value.
 
@@ -76,21 +76,71 @@ choice: shows a dropdown; takes a list of (string) values; value is the index
 
 """
 
+
+_default_widget_data = {'label': None, 'tooltip': None, 'data': None,
+                        'cb': None, 'on_change': conf.UPDATE_ON_CHANGE,
+                        'sensitive': ()}
+
 _cb = lambda e, i, v: True
 _widgets = {
     # interface
-    'sel_on_drag': ('bool', None, _cb),
-    'warnings': ('button', 'Re-enable all warnings', _cb),
+    'sel_on_drag': {
+        't': 'bool',
+        'label': '_Drag to select files',
+        'tooltip': 'Otherwise dragging moves or copies files, even if they ' \
+                   'are not already selected',
+        'cb': _cb
+    },
+    'warnings': {
+        't': 'button',
+        'data': '_Re-enable all warnings',
+        'cb': _cb
+    },
     # trash
-    'trash_enabled': ('bool', None, _cb, False),
-    'trash_location': ('dir', None, _cb, False, ('trash_enabled', True)),
-    'trash_size': ('int', (1, 1023, 1, ('KiB', 'MiB', 'GiB')), _cb, False,
-                   ('trash_enabled', True)),
-    # backend
-    'set_tmp_dir': ('bool',),
-    'tmp_dir': ('dir', None, None, True, ('set_tmp_dir', True)),
-    'simul_rw': ('choice', ('automatic', 'always', 'never')),
-    'block_size': ('int', (1, 1023, 1, ('B', 'KiB', 'MiB')))
+    'trash_enabled': {
+        't': 'bool',
+        'label': '_Enable trash',
+        'cb': _cb,
+        'on_change': False
+    },
+    'trash_location': {
+        't': 'dir',
+        'label': 'Trash _location:',
+        'cb': _cb,
+        'on_change': False,
+        'sensitive': [('trash_enabled', True)]
+    },
+    'trash_size': {
+        't': 'int',
+        'label': 'Maximum _size:',
+        'data': (1, 1023, 1, ('KiB', 'MiB', 'GiB')),
+        'cb': _cb,
+        'on_change': False,
+        'sensitive': [('trash_enabled', True)]
+    },
+    # advanced
+    'set_tmp_dir': {
+        't': 'bool',
+        'label': '_Set a specific directory to use for temporary files',
+        'tooltip': 'Otherwise the location is decided automatically'
+    },
+    'tmp_dir': {
+        't': 'dir',
+        'label': '_Directory to use:',
+        'sensitive': [('set_tmp_dir', True)]
+    },
+    'simul_rw': {
+        't': 'choice',
+        'label': '_Read and write data simultaneously:',
+        'tooltip': 'If automatic, do so when the source and destination ' \
+                   'files are on different disks',
+        'data': ('automatic', 'always', 'never')
+    },
+    'block_size': {
+        't': 'int',
+        'label': 'Read and write in _blocks of:',
+        'data': (1, 1023, 1, ('B', 'KiB', 'MiB'))
+    }
 }
 
 
@@ -98,7 +148,6 @@ def _update_widgets (editor, *ws, from_cb = False):
     """Call widget"""
     for setting_id, w, t, cb in ws:
         # get setting value
-        # TODO: get v from w based on t
         if t == 'button':
             v = None
         elif t == 'text':
@@ -133,8 +182,8 @@ def _cb_wrapper (w, *args):
     editor, setting_id, setting_type, cb = args[-1]
     _update_widgets(editor, (setting_id, w, setting_type, cb), from_cb = True)
 
-def _gen_widget (editor, setting_id, t, data = None, cb = None,
-                 update_on_change = conf.UPDATE_ON_CHANGE, *sensitive):
+def _gen_widget (editor, setting_id, t, label, tooltip, data, cb, on_change,
+                 sensitive):
     """Generate a setting's widget.
 
 Takes the elements of the data stored in the setting's _widgets entry as
@@ -192,13 +241,16 @@ arguments.
     signal = {'button': 'clicked', 'text': 'changed', 'bool': 'toggled',
               'dir': 'file-set', 'int': 'value-changed',
               'choice': 'changed'}[t]
-    if update_on_change:
+    if on_change:
         w.connect(signal, _cb_wrapper, (editor, setting_id, t, cb))
     try:
         real_w
     except NameError:
         real_w = w
-    return real_w, w, cb, update_on_change
+    # tooltip
+    if tooltip is not None:
+        real_w.set_tooltip_text(tooltip)
+    return real_w, w
 
 def gen_widgets (editor):
     """Generate widgets for all settings.
@@ -213,33 +265,38 @@ closed.
 
 """
     ws = {}
-    update_on_close = []
-    for setting_id, data in _widgets.items():
-        real_w, w, cb, update_on_change = _gen_widget(editor, setting_id,
-                                                      *data)
+    on_close = []
+    for setting_id, got_data in _widgets.items():
+        data = dict(_default_widget_data)
+        data.update(got_data)
+        real_w, w = _gen_widget(editor, setting_id, **data)
         ws[setting_id] = real_w
-        if not update_on_change:
-            update_on_close.append((setting_id, w, data[0], cb))
-    if update_on_close:
+        if not data['on_change']:
+            on_close.append((setting_id, w, data['t'], data['cb']))
+    if on_close:
         # call remaining callbacks on preferences close
-        cb = lambda: _update_widgets(editor, *update_on_close)
+        cb = lambda: _update_widgets(editor, *on_close)
     else:
         cb = lambda: None
     return ws, cb
 
 """
 
-_prefs is a dict of tabs, the keys their titles.  Each tab is a list containing
-headings and settings; a heading is a str object, and a setting is a
-(setting_ID[, label]) tuple.
+_prefs is a list of tabs, which are (title, items) tuples.  Titles may contain '_' to use underline.  Items is a list containing headings, standalone labels
+and settings.  A heading is (heading_text, None), a label is
+(label_text, use_markup) and a setting is the setting ID.
 
 """
 
-_prefs = {
-    'Interface': (('sel_on_drag',), ('warnings',)),
-    'Trash': (('trash_enabled',), ('trash_location',), ('trash_size',)),
-    'Backend': (('set_tmp_dir',), ('tmp_dir',), ('simul_rw',), ('block_size',))
-}
+_prefs = (
+    ('_Interface', ('sel_on_drag', 'warnings')),
+    ('_Trash', (('The trash directory is used to save files that are ' \
+                 'deleted from disk images.  Note that disabling the trash ' \
+                 'or reducing its size may <b>permanently delete</b> items ' \
+                 'to fit the new settings.', True),
+                'trash_enabled', 'trash_location', 'trash_size')),
+    ('_Advanced', ('set_tmp_dir', 'tmp_dir', 'simul_rw', 'block_size'))
+)
 
 
 class Preferences (gtk.Window):
@@ -272,34 +329,74 @@ quit
         bs.pack_end(b, False, False, 0)
         b.connect('clicked', self.quit)
         # create pages with widgets
-        for tab, items in _prefs.items():
+        for tab, items in _prefs:
             page = gtk.Grid()
             page.set_row_spacing(6)
+            page.set_column_spacing(6)
             page.set_border_width(12)
-            tabs.append_page(page, gtk.Label(tab))
+            l = gtk.Label(tab)
+            l.set_use_underline('_' in tab)
+            tabs.append_page(page, l)
             y = 0
             items = list(items) # might be modified
             for item in items:
-                if y == 0 and not isinstance(item, str):
-                    # if first item isn't a heading, use tab name
+                # if first item isn't a heading, show tab name as heading
+                if y == 0 and (isinstance(item, str) or item[1] is not None):
                     # add this item back to the list first
                     items.insert(1, item)
-                    item = tab
-                if isinstance(item, str):
-                    # heading
-                    l = gtk.Label('<b>{}</b>'.format(item))
-                    page.attach(l, 0, y, 2, 1)
-                    l.set_use_markup(True)
+                    item = (tab.replace('_', ''), None)
+                if not isinstance(item, str):
+                    text, markup = item
+                    if markup is None:
+                        # heading
+                        l = gtk.Label('<b>{}</b>'.format(text))
+                        page.attach(l, 0, y, 3, 1)
+                        l.set_use_markup(True)
+                        if y != 0:
+                            l.set_margin_top(6)
+                    else:
+                        # label
+                        l = gtk.Label(text)
+                        page.attach(l, 1, y, 2, 1)
+                        l.set_use_markup(markup)
+                        l.set_line_wrap(True)
                     l.set_alignment(0, .5)
-                    if y != 0:
-                        l.set_margin_top(6)
                 else:
                     # setting
-                    if len(item) == 2:
-                        # got a label
-                        print(item[1])
-                        # TODO; maybe y += 1
-                    page.attach(self._widgets[item[0]], 1, y, 1, 1)
+                    w = self._widgets[item]
+                    w_x = 1
+                    w_w = 2
+                    data = _widgets[item]
+                    try:
+                        label = data['label']
+                    except KeyError:
+                        pass
+                    else:
+                        # got a label; checkbox has own label
+                        if data['t'] == 'bool':
+                            w.set_label(label)
+                            w.set_use_underline('_' in label)
+                        else:
+                            l = gtk.Label(label)
+                            l.set_alignment(0, .5)
+                            l.set_use_underline('_' in label)
+                            if isinstance(w, gtk.Box):
+                                l.set_mnemonic_widget(w.get_children()[0])
+                            else:
+                                l.set_mnemonic_widget(w)
+                            page.attach(l, 1, y, 1, 1)
+                            w_x = 2
+                            w_w = 1
+                            # set widget's tooltip on label too
+                            try:
+                                tooltip = data['tooltip']
+                            except KeyError:
+                                pass
+                            else:
+                                l.set_tooltip_text(tooltip)
+                    page.attach(w, w_x, y, w_w, 1)
+                    w.set_hexpand(True)
+                    w.set_halign(gtk.Align.START)
                 y += 1
         self.show_all()
 

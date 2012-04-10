@@ -40,10 +40,10 @@ _defaults = {
     'trash_location': os.path.join(SHARE, 'trash'), # use, set
     'trash_size': (50, 1), # 50MiB # use, set
     # advanced
-    'set_tmp_dir': False,
-    'tmp_dir': HOME, # use, set
-    'simul_rw': 0, # use, set
-    'block_size': (1, 2) # 1MiB # use, set
+    'set_tmp_dir': False, # use
+    'tmp_dir': HOME, # use
+    'simul_rw': 0, # use
+    'block_size': (1, 2) # 1MiB # use
 }
 
 _types = {

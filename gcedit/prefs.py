@@ -17,9 +17,8 @@ gen_widgets
 
 # TODO:
 # [IMP] sensitivity
-# [IMP] filechooserbuttons choose files, not dirs
-# [BUG] filechooserbuttons shouldn't change on close (they become None)
-# [IMP] set page (grid) first column to 6px (has +6 from col spacing)
+
+import os
 
 from gi.repository import Gtk as gtk
 
@@ -155,7 +154,7 @@ def _update_widgets (editor, *ws, from_cb = False):
         elif t == 'bool':
             v = w.get_active()
         elif t == 'dir':
-            v = w.get_filename()
+            v = w.fn
         elif t == 'int':
             if hasattr(w, 'other'):
                 # has units
@@ -208,9 +207,10 @@ arguments.
         w = gtk.CheckButton()
         w.set_active(settings[setting_id])
     elif t == 'dir':
-        w = gtk.FileChooserButton('Choose a directory',
-                                  gtk.FileChooserAction.SELECT_FOLDER)
-        w.set_filename(settings[setting_id])
+        w = NonFailFileChooserButton(
+            gtk.FileChooserAction.SELECT_FOLDER, settings[setting_id],
+            'Choose a directory', _cb_wrapper, (editor, setting_id, t, cb)
+        )
     elif t == 'int':
         w = gtk.SpinButton.new_with_range(*data[:3])
         v = settings[setting_id]
@@ -239,9 +239,9 @@ arguments.
         w.set_active(settings[setting_id])
     # attach callback
     signal = {'button': 'clicked', 'text': 'changed', 'bool': 'toggled',
-              'dir': 'file-set', 'int': 'value-changed',
+              'dir': None, 'int': 'value-changed',
               'choice': 'changed'}[t]
-    if on_change:
+    if on_change and signal is not None:
         w.connect(signal, _cb_wrapper, (editor, setting_id, t, cb))
     try:
         real_w
@@ -299,6 +299,73 @@ _prefs = (
 )
 
 
+class NonFailFileChooserButton (gtk.Button):
+    """A FileChooserButton that doesn't fail.  Gtk.Button subclass.
+
+    CONSTRUCTOR
+
+NonFailFileChooserButton(action, fn[, title][, changed_cb, *cb_args])
+
+action: a Gtk.FileChooserAction.
+fn: initial file (or directory) path.
+title: title of Gtk.FileChooserDialog window.
+changed_cb: function to call with this instance then *cb_args when the stored
+            file path is changed by the user.
+
+    ATTRIBUTES
+
+action, title, changed_cb, cb_args: as given.
+fn: as given; changes to match the new path when the user chooses one (the
+    change is made before changed_cb is called).
+
+"""
+    def __init__ (self, action, fn, title = None, changed_cb = None, *cb_args):
+        self.action = action
+        self.fn = fn
+        self.title = title
+        self.changed_cb = changed_cb
+        self.cb_args = cb_args
+        # create button
+        gtk.Button.__init__(self)
+        self.update_label()
+        a = gtk.FileChooserAction
+        icon = gtk.STOCK_FILE if action in (a.OPEN, a.SAVE) else \
+               gtk.STOCK_DIRECTORY
+        img = gtk.Image.new_from_stock(icon, gtk.IconSize.BUTTON)
+        self.set_image(img)
+        self.connect('clicked', self.popup)
+
+    def update_label (self):
+        """Update the button label to the current path."""
+        self.set_label(os.path.basename(self.fn))
+
+    def popup (self, *args):
+        """Show the Gtk.FileChooserDialog window."""
+        # create dialogue
+        a = gtk.FileChooserAction
+        if self.action == a.SAVE:
+            ok_btn = gtk.STOCK_SAVE
+        else:
+            ok_btn = gtk.STOCK_OK
+        rt = gtk.ResponseType
+        buttons = (gtk.STOCK_CLOSE, rt.CLOSE, ok_btn, rt.OK)
+        d = gtk.FileChooserDialog(self.title, self.get_toplevel(),
+                                  self.action, buttons)
+        # run
+        d.set_filename(self.fn)
+        if self.action in (a.SAVE, a.CREATE_FOLDER):
+            d.set_current_name(os.path.basename(self.fn))
+        if d.run() == rt.OK:
+            fn = d.get_filename()
+            if fn != self.fn:
+                # filename changed
+                self.fn = fn
+                self.update_label()
+                if self.changed_cb is not None:
+                    self.changed_cb(self, *self.cb_args)
+        d.destroy()
+
+
 class Preferences (gtk.Window):
     """Preferences window (Gtk.Window subclass).
 
@@ -339,7 +406,9 @@ quit
             tabs.append_page(page, l)
             y = 0
             items = list(items) # might be modified
+            done_spacer = False
             for item in items:
+                do_spacer = not done_spacer
                 # if first item isn't a heading, show tab name as heading
                 if y == 0 and (isinstance(item, str) or item[1] is not None):
                     # add this item back to the list first
@@ -354,6 +423,7 @@ quit
                         l.set_use_markup(True)
                         if y != 0:
                             l.set_margin_top(6)
+                        do_spacer = False
                     else:
                         # label
                         l = gtk.Label(text)
@@ -397,6 +467,12 @@ quit
                     page.attach(w, w_x, y, w_w, 1)
                     w.set_hexpand(True)
                     w.set_halign(gtk.Align.START)
+                if do_spacer:
+                    # HACK: there's no way to set a single column's width?
+                    i = gtk.Box()
+                    page.attach(i, 0, y, 1, 1)
+                    i.set_border_width(3) # 2 * 3 + 6 (column spacing) = 12
+                    done_spacer = True
                 y += 1
         self.show_all()
 

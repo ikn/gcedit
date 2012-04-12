@@ -15,9 +15,6 @@ gen_widgets
 
 """
 
-# TODO:
-# [IMP] sensitivity
-
 import os
 
 from gi.repository import Gtk as gtk
@@ -31,8 +28,8 @@ _widgets is a data structure defining settings to automatically build the
 preferences widgets; it is a setting_ID: data dict, where:
 
 setting_ID: ID used to identify the setting.
-data: a dict with the following keys (all are optional except type and,
-      depending on the type, data):
+data: a dict with the following keys (all are optional except t and,
+      depending on t, data):
 
 t: a string that indicates the type of setting (see list below).
 label: a string for the widget's label.  If it contains '_', it is treated as
@@ -142,30 +139,80 @@ _widgets = {
     }
 }
 
+def _get_setting_value (setting_id, w):
+    """Get the current value of a setting.
 
-def _update_widgets (editor, *ws, from_cb = False):
-    """Call widget"""
-    for setting_id, w, t, cb in ws:
-        # get setting value
-        if t == 'button':
-            v = None
-        elif t == 'text':
-            v = w.get_text()
-        elif t == 'bool':
-            v = w.get_active()
-        elif t == 'dir':
-            v = w.fn
-        elif t == 'int':
-            if hasattr(w, 'other'):
-                # has units
-                units = w.other
-                if isinstance(w, gtk.ComboBox):
-                    w, units = units, w
-                v = (w.get_value(), units.get_active())
-            else:
-                v = w.get_value()
-        else: # t == 'choice'
-            v = w.get_active()
+Takes the setting_id and the widget.
+
+"""
+    t = _widgets[setting_id]['t']
+    if t == 'button':
+        v = None
+    elif t == 'text':
+        v = w.get_text()
+    elif t == 'bool':
+        v = w.get_active()
+    elif t == 'dir':
+        v = w.fn
+    elif t == 'int':
+        if hasattr(w, 'other'):
+            # has units
+            units = w.other
+            if isinstance(w, gtk.ComboBox):
+                w, units = units, w
+            v = (w.get_value(), units.get_active())
+        else:
+            v = w.get_value()
+    else: # t == 'choice'
+        v = w.get_active()
+    return v
+
+def _set_sensitivity (setting_id, data, widgets, values = None):
+    """Update the sensitivity of the widget for the given setting.
+
+_set_sensitivity(setting_id, data, widgets[, values])
+
+setting_id: the setting's ID.
+data: the setting's sensitivity data ('sensitive' value).
+widgets: a setting_id: widget dict.
+values: a setting_id: value dict of current setting values.  This will be
+        modified as more values are computed (if any).
+
+"""
+    # apparently default values in arguments are only created once and
+    # preserved between calls, so create default values here
+    if values is None:
+        values = {}
+    # check each required setting value until one doesn't match
+    sensitive = True
+    for id_wanted, v_wanted in data:
+        try:
+            v_got = values[id_wanted]
+        except KeyError:
+            v_got = _get_setting_value(id_wanted, widgets[id_wanted])
+            values[id_wanted] = v_got
+        if v_got != v_wanted:
+            sensitive = False
+            break
+    # set sensitivity
+    widgets[setting_id].set_sensitive(sensitive)
+
+def _update_widgets (editor, prefs, *ws):
+    """Call widget callback.
+
+_update_widgets(editor, prefs, *ws)
+
+editor: the running Editor instance.
+prefs: the running Preferences instance.
+ws: widgets, each (setting_id, widget, callback), where widget can be the
+    widget's value instead of the Gtk.Widget.
+
+"""
+    for setting_id, w, cb in ws:
+        if isinstance(w, gtk.Widget):
+            v = _get_setting_value(setting_id, w)
+        else:
+            v = w
         # call callback, if any
         do = True
         if callable(cb):
@@ -177,18 +224,31 @@ def _update_widgets (editor, *ws, from_cb = False):
             settings[setting_id] = v
 
 def _cb_wrapper (w, *args):
-    """Widget callback; calls _update_widgets with the needed arguments."""
-    editor, setting_id, setting_type, cb = args[-1]
-    _update_widgets(editor, (setting_id, w, setting_type, cb), from_cb = True)
+    """Widget callback; calls _update_widgets with the needed arguments.
 
-def _gen_widget (editor, setting_id, t, label, tooltip, data, cb, on_change,
-                 sensitive):
-    """Generate a setting's widget.
-
-Takes the elements of the data stored in the setting's _widgets entry as
-arguments.
+The user data argument passed to Gtk.Widget.connect should be
+(editor, prefs, setting_id, cb, on_change).
 
 """
+    editor, prefs, setting_id, cb, on_change = args[-1]
+    # update sensitivity
+    vs = {} # setting value cache
+    for id_wants in _widgets:
+        wanted = _widgets[id_wants].get('sensitive', ())
+        if setting_id in (s[0] for s in wanted):
+            _set_sensitivity(id_wants, wanted, prefs.widgets, vs)
+    if on_change:
+        _update_widgets(editor, prefs, (setting_id, vs.get(setting_id, w), cb))
+
+def _gen_widget (editor, prefs, setting_id, t, label, tooltip, data, cb,
+                 on_change, sensitive):
+    """Generate a setting's widget.
+
+Takes the editor, prefs, setting_id, then the elements of the data stored in
+the setting's _widgets entry as arguments.
+
+"""
+    cb_args = (editor, prefs, setting_id, cb, on_change)
     if t == 'button':
         # data is label
         if not isinstance(data, str):
@@ -209,7 +269,7 @@ arguments.
     elif t == 'dir':
         w = NonFailFileChooserButton(
             gtk.FileChooserAction.SELECT_FOLDER, settings[setting_id],
-            'Choose a directory', _cb_wrapper, (editor, setting_id, t, cb)
+            'Choose a directory', _cb_wrapper, cb_args
         )
     elif t == 'int':
         w = gtk.SpinButton.new_with_range(*data[:3])
@@ -221,7 +281,7 @@ arguments.
             for item in data[3]:
                 units.append_text(item)
             units.set_active(v[1])
-            units.connect('changed', _cb_wrapper, (editor, setting_id, t, cb))
+            units.connect('changed', _cb_wrapper, cb_args)
             w.other = units
             units.other = w
             # put in a container
@@ -241,8 +301,8 @@ arguments.
     signal = {'button': 'clicked', 'text': 'changed', 'bool': 'toggled',
               'dir': None, 'int': 'value-changed',
               'choice': 'changed'}[t]
-    if on_change and signal is not None:
-        w.connect(signal, _cb_wrapper, (editor, setting_id, t, cb))
+    if signal is not None:
+        w.connect(signal, _cb_wrapper, cb_args)
     try:
         real_w
     except NameError:
@@ -252,12 +312,13 @@ arguments.
         real_w.set_tooltip_text(tooltip)
     return real_w, w
 
-def gen_widgets (editor):
+def gen_widgets (editor, prefs):
     """Generate widgets for all settings.
 
-gen_widgets(editor) -> (widgets, cb)
+gen_widgets(editor, prefs) -> (widgets, cb)
 
 editor: the running Editor instance.
+prefs: the running Preferences instance.
 
 widgets: a setting_ID: widget dict for all settings.
 cb: a function to call to update some settings when the preferences window is
@@ -269,13 +330,18 @@ closed.
     for setting_id, got_data in _widgets.items():
         data = dict(_default_widget_data)
         data.update(got_data)
-        real_w, w = _gen_widget(editor, setting_id, **data)
+        real_w, w = _gen_widget(editor, prefs, setting_id, **data)
         ws[setting_id] = real_w
         if not data['on_change']:
-            on_close.append((setting_id, w, data['t'], data['cb']))
+            on_close.append((setting_id, w, data['cb']))
+    # set initial sensitivity
+    vs = {} # setting value cache
+    for id_wants in ws:
+        wanted = _widgets[id_wants].get('sensitive', ())
+        _set_sensitivity(id_wants, wanted, ws, vs)
     if on_close:
         # call remaining callbacks on preferences close
-        cb = lambda: _update_widgets(editor, *on_close)
+        cb = lambda: _update_widgets(editor, prefs, *on_close)
     else:
         cb = lambda: None
     return ws, cb
@@ -375,6 +441,10 @@ Takes the running Editor instance.
 
 quit
 
+    ATTRIBUTES
+
+widgets: setting_ID: widget dict of settings widgets.
+
 """
 
     def __init__ (self, editor):
@@ -383,7 +453,7 @@ quit
         self.set_border_width(12)
         self.set_title(conf.APPLICATION + ' Preferences')
         self.connect('delete-event', self.quit)
-        self._widgets, self._end_cb = gen_widgets(editor)
+        self.widgets, self._end_cb = gen_widgets(editor, self)
         # add outer stuff
         v = gtk.Box(False, 12)
         v.set_orientation(gtk.Orientation.VERTICAL)
@@ -433,7 +503,7 @@ quit
                     l.set_alignment(0, .5)
                 else:
                     # setting
-                    w = self._widgets[item]
+                    w = self.widgets[item]
                     w_x = 1
                     w_w = 2
                     data = _widgets[item]

@@ -27,6 +27,7 @@ UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})
 
+# TODO: use/set all
 _defaults = {
     # interface
     'win_size': (400, 450),

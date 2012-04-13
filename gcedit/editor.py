@@ -382,6 +382,10 @@ prefs: preferences window or None
                 guiutil.error(msg, self, v)
                 # don't try and do anything else, in case it breaks things
 
+    def set_sel_on_drag (self, value):
+        """Update value of select_on_drag of file manager."""
+        self.file_manager.set_rubber_banding(value)
+
     def open_prefs (self):
         """Open the preferences window."""
         if self.prefs is None:

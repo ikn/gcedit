@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 3.
+Release: 4-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -105,7 +105,8 @@ cache: whether to cache directory contents when requested.  There is no need to
        given backend (copy, delete, etc.); this is done automatically.
 drag_to_select: whether dragging across unselected files will select them
                 (otherwise it will drag them; in the first case, files can only
-                be dragged if they are selected first).
+                be dragged if they are selected first).  Alter this later using
+                Manager.set_rubber_banding (inherited from Gtk.TreeView).
 identifier: this is some (picklable) data that is passed to the copy method of
             the backend when a file is drag-and-dropped from a different
             Manager instance.  This can optionally be a function instead, that

@@ -37,16 +37,15 @@ label: a string for the widget's label.  If it contains '_', it is treated as
 tooltip: tooltip to show when hovering over the widget.
 data: data that affects the behaviour of the setting; if the required
            value in the list below is not specified, this is ignored.
-cb: a function that is passed the running Editor instance, setting_ID and the
-    new value of the setting when it is changed (None for types with no value).
-    Returns True to indicate that updating the setting has been handled (or
-    should not be handled); otherwise, it is automatically updated based on its
-    type (does nothing for types with no value).
+cb: a function that is passed the running Editor instance and the new value of
+    the setting when it is changed (None for types with no value).  Returns
+    True to indicate that updating the setting has been handled (or should not
+    be handled); otherwise, it is automatically updated based on its type (does
+    nothing for types with no value).
 
     Alternatively, update_cb can be the name of a method of Editor to call that
-    with setting_ID and the value (and handle its return value in the same
-    manner).  If this argument is None or not given, the setting is just
-    automatically updated.
+    with the value (and handle its return value in the same manner).  If the cb
+    argument is None or not given, the setting is just automatically updated.
 on_change: whether to call update_cb (and/or perform automatic setting update)
            when the widget is changed (otherwise only do so when the
            preferences is closed); defaults to conf.UPDATE_ON_CHANGE.
@@ -77,7 +76,7 @@ _default_widget_data = {'label': None, 'tooltip': None, 'data': None,
                         'cb': None, 'on_change': conf.UPDATE_ON_CHANGE,
                         'sensitive': ()}
 
-_cb = lambda e, i, v: True
+_cb = lambda e, v: True
 _widgets = {
     # interface
     'sel_on_drag': {
@@ -85,7 +84,7 @@ _widgets = {
         'label': '_Drag to select files',
         'tooltip': 'Otherwise dragging moves or copies files, even if they ' \
                    'are not already selected',
-        'cb': _cb
+        'cb': 'set_sel_on_drag'
     },
     'warnings': {
         't': 'button',
@@ -216,10 +215,10 @@ ws: widgets, each (setting_id, widget, callback), where widget can be the
         # call callback, if any
         do = True
         if callable(cb):
-            do = cb(editor, setting_id, v)
+            do = cb(editor, v)
         elif cb is not None:
             # cb is a method of editor
-            do = getattr(editor, cb)(setting_id, v)
+            do = getattr(editor, cb)(v)
         if do and v is not None:
             settings[setting_id] = v
 

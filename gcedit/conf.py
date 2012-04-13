@@ -33,7 +33,7 @@ _defaults = {
     'win_size': (400, 450),
     'win_max': False,
     'import_path': HOME, # use, set
-    'extract_path': HOME, # use, set
+    'extract_path': HOME,
     'sel_on_drag': True, # set
     'warnings': {}, # use, set
     # trash

@@ -18,6 +18,7 @@ from .ext.gcutil import tree_from_dir
 
 from . import guiutil
 from . import conf
+from .conf import settings
 
 
 class FSBackend:
@@ -190,11 +191,15 @@ Takes an argument indicating whether to import directories (else files).
             action = gtk.FileChooserAction.OPEN
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
         d = gtk.FileChooserDialog('Choose files', self.editor, action, buttons)
+        d.set_current_folder(settings['import_path'])
         d.set_select_multiple(True)
         response = d.run()
         fs = d.get_filenames()
+        import_path = d.get_current_folder()
         d.destroy()
         if response == rt.OK:
+            # remember dir
+            settings['import_path'] = import_path
             # import
             current_path = self.editor.file_manager.path
             try:

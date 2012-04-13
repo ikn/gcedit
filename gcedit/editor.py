@@ -239,13 +239,13 @@ prefs: preferences window or None
             d.destroy()
             return
         dest = d.get_filename()
+        # remember dir
+        settings['extract_path'] = d.get_current_folder()
         d.destroy()
-        # remember dir, get destination paths
+        # get full destination paths
         if len(files) == 1:
-            settings['extract_path'] = os.path.dirname(dest)
             dests = [dest]
         else:
-            settings['extract_path'] = dest
             dests = [os.path.join(dest, f[-1]) for f in files]
         # get dirs' trees and files' entries indices
         args = []

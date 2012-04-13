@@ -231,6 +231,7 @@ prefs: preferences window or None
             action = gtk.FileChooserAction.SELECT_FOLDER
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
         d = gtk.FileChooserDialog(label, self, action, buttons)
+        d.set_current_folder(settings['extract_path'])
         if len(files) == 1:
             # set name to that in the disk
             d.set_current_name(files[0][-1])
@@ -239,9 +240,12 @@ prefs: preferences window or None
             return
         dest = d.get_filename()
         d.destroy()
+        # remember dir, get destination paths
         if len(files) == 1:
+            settings['extract_path'] = os.path.dirname(dest)
             dests = [dest]
         else:
+            settings['extract_path'] = dest
             dests = [os.path.join(dest, f[-1]) for f in files]
         # get dirs' trees and files' entries indices
         args = []

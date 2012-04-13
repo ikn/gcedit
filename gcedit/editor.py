@@ -186,6 +186,12 @@ prefs: preferences window or None
         self.show_all()
         m.grab_focus()
 
+    def _get_bs (self):
+        """Get the value of the block_size setting."""
+        bs, exp = settings['block_size']
+        bs *= 1024 ** exp
+        return int(bs)
+
     def _state_cb (self, w, e):
         """Save changes to maximised state."""
         is_max = e.new_window_state & gdk.WindowState.MAXIMIZED
@@ -204,7 +210,8 @@ prefs: preferences window or None
     def _extract (self, q, files):
         """Extract files from the disk."""
         progress = lambda *args: q.put((False, args))
-        failed = self.fs.extract(*files, progress = progress)
+        failed = self.fs.extract(*files, block_size = self._get_bs(),
+                                 progress = progress)
         q.put((True, failed))
 
     def extract (self, *files):
@@ -301,7 +308,8 @@ prefs: preferences window or None
     def _write (self, q):
         """Perform a write."""
         try:
-            self.fs.write(progress = lambda *args: q.put(args))
+            tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
+            self.fs.write(self._get_bs(), tmp_dir, lambda *args: q.put(args))
         except Exception as e:
             if hasattr(e, 'handled') and e.handled is True:
                 # disk should still be in the same state

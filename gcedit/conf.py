@@ -35,16 +35,16 @@ _defaults = {
     'import_path': HOME,
     'extract_path': HOME,
     'sel_on_drag': True,
-    'warnings': {}, # use, set
+    'warnings': {}, # use
     # trash
     'trash_enabled': True, # use, set
     'trash_location': os.path.join(SHARE, 'trash'), # use, set
     'trash_size': (50, 1), # 50MiB # use, set
     # advanced
-    'set_tmp_dir': False, # use
-    'tmp_dir': HOME, # use
+    'set_tmp_dir': False,
+    'tmp_dir': HOME,
     'simul_rw': 0, # use
-    'block_size': (1, 2) # 1MiB # use
+    'block_size': (1, 2) # 1MiB
 }
 
 _types = {

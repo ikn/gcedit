@@ -25,6 +25,9 @@ tree_from_dir
 # - BNR support
 # - progress update every block in copying larger files (in extract, write/new files)
 # - pause/cancel in write, compress, extract
+# - when write and add files (and maybe other places), sort files by position
+#   on disk before adding (should be quicker, and else is sorted by filesize so
+#   appears to slow down towards end when doing loads of small files)
 
 import os
 from shutil import rmtree, copyfile, Error as shutil_error

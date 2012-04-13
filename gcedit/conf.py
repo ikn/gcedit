@@ -34,7 +34,7 @@ _defaults = {
     'win_max': False,
     'import_path': HOME,
     'extract_path': HOME,
-    'sel_on_drag': True, # set
+    'sel_on_drag': True,
     'warnings': {}, # use, set
     # trash
     'trash_enabled': True, # use, set
@@ -71,7 +71,10 @@ class _SettingsManager (dict):
     """A dict subclass for handling settings.
 
 Takes file to store settings in and a dict of default values for settings.  All
-possible settings are assumed to be in this dict.
+possible settings are assumed to be in this dict.  Setting a value may raise
+TypeError or ValueError if the value is invalid.
+
+To restore a setting to its default value, set it to None.
 
 """
 
@@ -95,10 +98,14 @@ possible settings are assumed to be in this dict.
         return v
 
     def __setitem__ (self, k, v):
-        v = _types[k](v)
-        if v == self[k]:
-            # no change
-            return
+        # restore to default if None
+        if v is None:
+            v = self.defaults[k]
+        else:
+            v = _types[k](v)
+            if v == self[k]:
+                # no change
+                return
         dict.__setitem__(self, k, v)
         try:
             with open(self.fn, 'w') as f:

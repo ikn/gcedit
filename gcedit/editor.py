@@ -386,6 +386,10 @@ prefs: preferences window or None
         """Update value of select_on_drag of file manager."""
         self.file_manager.set_rubber_banding(value)
 
+    def reset_warnings (self):
+        """Re-enable all disabled warnings."""
+        settings['warnings'] = None
+
     def open_prefs (self):
         """Open the preferences window."""
         if self.prefs is None:

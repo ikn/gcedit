@@ -38,14 +38,15 @@ tooltip: tooltip to show when hovering over the widget.
 data: data that affects the behaviour of the setting; if the required
            value in the list below is not specified, this is ignored.
 cb: a function that is passed the running Editor instance and the new value of
-    the setting when it is changed (None for types with no value).  Returns
-    True to indicate that updating the setting has been handled (or should not
-    be handled); otherwise, it is automatically updated based on its type (does
+    the setting when it is changed (only for types with value).  Returns True
+    to indicate that updating the setting has been handled (or should not be
+    handled); otherwise, it is automatically updated based on its type (does
     nothing for types with no value).
 
     Alternatively, update_cb can be the name of a method of Editor to call that
-    with the value (and handle its return value in the same manner).  If the cb
-    argument is None or not given, the setting is just automatically updated.
+    with the value (if the type has one) (and handle its return value in the
+    same manner).  If the cb argument is None or not given, the setting is just
+    automatically updated.
 on_change: whether to call update_cb (and/or perform automatic setting update)
            when the widget is changed (otherwise only do so when the
            preferences is closed); defaults to conf.UPDATE_ON_CHANGE.
@@ -89,7 +90,7 @@ _widgets = {
     'warnings': {
         't': 'button',
         'data': '_Re-enable all warnings',
-        'cb': _cb
+        'cb': 'reset_warnings'
     },
     # trash
     'trash_enabled': {
@@ -215,10 +216,16 @@ ws: widgets, each (setting_id, widget, callback), where widget can be the
         # call callback, if any
         do = True
         if callable(cb):
-            do = cb(editor, v)
+            if v is None:
+                do = cb(editor)
+            else:
+                do = cb(editor, v)
         elif cb is not None:
             # cb is a method of editor
-            do = getattr(editor, cb)(v)
+            if v is None:
+                do = getattr(editor, cb)()
+            else:
+                do = getattr(editor, cb)(v)
         if do and v is not None:
             settings[setting_id] = v
 

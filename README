@@ -1,4 +1,4 @@
-GCEdit 0.1.1-dev.
+GCEdit 0.1.1.
 
 A GameCube disk editor.
 
@@ -45,3 +45,7 @@ by default).  Alternatively, you can run in-place without installing by
 
     ./configure
     ./run_gcedit
+
+    FILES
+
+GCEdit creates the ~/.config/gcedit for configuration.

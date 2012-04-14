@@ -361,13 +361,15 @@ and settings.  A heading is (heading_text, None), a label is
 """
 
 _prefs = (
-    ('_Interface', ('sel_on_drag', 'warnings')),
-    ('_Trash', (('The trash directory is used to save files that are ' \
-                 'deleted from disk images.  Note that disabling the trash ' \
-                 'or reducing its size may <b>permanently delete</b> items ' \
-                 'to fit the new settings.', True),
-                'trash_enabled', 'trash_location', 'trash_size')),
-    ('_Advanced', ('set_tmp_dir', 'tmp_dir', 'simul_rw', 'block_size'))
+    #('_Interface', ('sel_on_drag', 'warnings')),
+    ('_Interface', ('sel_on_drag',)),
+    #('_Trash', (('The trash directory is used to save files that are ' \
+                 #'deleted from disk images.  Note that disabling the trash ' \
+                 #'or reducing its size may <b>permanently delete</b> items ' \
+                 #'to fit the new settings.', True),
+                #'trash_enabled', 'trash_location', 'trash_size')),
+    #('_Advanced', ('set_tmp_dir', 'tmp_dir', 'simul_rw', 'block_size'))
+    ('_Advanced', ('set_tmp_dir', 'tmp_dir', 'block_size'))
 )
 
 

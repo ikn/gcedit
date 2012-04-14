@@ -12,14 +12,19 @@ settings: dict-like object to handle settings.
 """
 
 import os
+import platform
 import json
 
 from gi.repository import Gtk as gtk
 
-# TODO: different values on Windows
-HOME = os.path.expanduser('~')
-CONF = os.path.join(HOME, '.config', 'gcedit')
-SHARE = os.path.join(HOME, '.local', 'gcedit')
+if platform.system() == 'Windows':
+    HOME = os.environ['USERPROFILE']
+    SHARE = os.path.join(os.environ['APPDATA'], 'gcedit')
+    CONF = os.path.join(SHARE, 'conf')
+else:
+    HOME = os.path.expanduser('~')
+    SHARE = os.path.join(HOME, '.local', 'share', 'gcedit')
+    CONF = os.path.join(HOME, '.config', 'gcedit')
 
 APPLICATION = 'GCEdit'
 IDENTIFIER = 'gcedit'

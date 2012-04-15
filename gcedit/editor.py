@@ -12,6 +12,8 @@ Editor
 """
 
 # TODO:
+# [ENH] dialogues that are model for the editor shouldn't be for the prefs
+# [ENH] include game name in window title (need BNR support)
 # [BUG] on import dir, can rename two invalid-named files to same name
 # [ENH] icon
 # [ENH] 'do this for all remaining conflicts' for move_conflict
@@ -36,8 +38,6 @@ Editor
 #   - option for open_files to edit instead of extract
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
 # [FEA] display file size
-
-# NOTE: os.stat().st_dev gives path's device ID
 
 import os
 from time import sleep
@@ -67,9 +67,11 @@ Takes a gcutil.GCFS instance.
 
     METHODS
 
-update_hist_btns
+hist_update
 extract
 write
+set_sel_on_drag
+reset_warnings
 open_prefs
 quit
 
@@ -84,7 +86,6 @@ prefs: preferences window or None
 """
 
     def __init__ (self, fs):
-        #print(conf.gen_widgets(self))
         self.fs = fs
         self.fs_backend = FSBackend(fs, self)
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
@@ -98,8 +99,7 @@ prefs: preferences window or None
         if settings['win_max']:
             self.maximize()
         self.set_border_width(12)
-        # TODO: [ENH] include game name (need BNR support) [http://developer.gnome.org/hig-book/stable/windows-primary.html.en#primary-window-titles]
-        self.set_title(conf.APPLICATION)
+        self._update_title()
         self.connect('delete-event', self.quit)
         self.connect('size-allocate', self._size_cb)
         self.connect('window-state-event', self._state_cb)
@@ -186,26 +186,17 @@ prefs: preferences window or None
         self.show_all()
         m.grab_focus()
 
-    def _get_bs (self):
-        """Get the value of the block_size setting."""
-        bs, exp = settings['block_size']
-        bs *= 1024 ** exp
-        return int(bs)
+    def _update_title (self):
+        """Set the window title based on the current state."""
+        fn = os.path.basename(self.fs.fn)
+        changed = '*' if self.fs_backend.can_undo() else ''
+        self.set_title('{}{} - {}'.format(changed, fn, conf.APPLICATION))
 
-    def _state_cb (self, w, e):
-        """Save changes to maximised state."""
-        is_max = e.new_window_state & gdk.WindowState.MAXIMIZED
-        settings['win_max'] = bool(is_max)
-
-    def _size_cb (self, w, size):
-        """Save changes to window size."""
-        if not settings['win_max']:
-            settings['win_size'] = (size.width, size.height)
-
-    def update_hist_btns (self):
-        """Update undo/redo buttons' sensitivity."""
+    def hist_update (self):
+        """Update stuff when the history changes."""
         self.buttons[0].set_sensitive(self.fs_backend.can_undo())
         self.buttons[1].set_sensitive(self.fs_backend.can_redo())
+        self._update_title()
 
     def _extract (self, q, files):
         """Extract files from the disk."""
@@ -374,11 +365,12 @@ prefs: preferences window or None
             d.bar.set_text(None)
             d.set_item('All items complete')
             d.finish()
-            d.run()
-            d.destroy()
             # tree is different, so have to get rid of history
             self.fs_backend.reset()
             self.file_manager.refresh()
+            # wait for user to close dialogue
+            d.run()
+            d.destroy()
         else:
             d.destroy()
             # show error
@@ -389,6 +381,22 @@ prefs: preferences window or None
                 v = guiutil.text_viewer(traceback, gtk.WrapMode.WORD_CHAR)
                 guiutil.error(msg, self, v)
                 # don't try and do anything else, in case it breaks things
+
+    def _get_bs (self):
+        """Get the value of the block_size setting."""
+        bs, exp = settings['block_size']
+        bs *= 1024 ** exp
+        return int(bs)
+
+    def _state_cb (self, w, e):
+        """Save changes to maximised state."""
+        is_max = e.new_window_state & gdk.WindowState.MAXIMIZED
+        settings['win_max'] = bool(is_max)
+
+    def _size_cb (self, w, size):
+        """Save changes to window size."""
+        if not settings['win_max']:
+            settings['win_size'] = (size.width, size.height)
 
     def set_sel_on_drag (self, value):
         """Update value of select_on_drag of file manager."""

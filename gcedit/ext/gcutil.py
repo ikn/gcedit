@@ -28,6 +28,7 @@ tree_from_dir
 # - when write and add files (and maybe other places), sort files by position
 #   on disk before adding (should be quicker, and else is sorted by filesize so
 #   appears to slow down towards end when doing loads of small files)
+# - simultaneous r/w (os.stat().st_dev gives path's device ID)
 
 import os
 from shutil import rmtree, copyfile, Error as shutil_error
@@ -232,6 +233,7 @@ compress
 
     ATTRIBUTES
 
+fn: as given.
 fs_start: position in the image at which the filesystem starts.
 fst_size: image's filesystem table (includes string table) size in bytes.
 num_entries: number of entries in the filesystem.

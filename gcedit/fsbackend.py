@@ -54,7 +54,7 @@ fs, editor: the arguments given to the constructor.
         """Forget all history."""
         self._hist_pos = 0
         self._hist = []
-        self.editor.update_hist_btns()
+        self.editor.hist_update()
 
     def get_tree (self, path, return_parent = False):
         """Get the tree for the given path.
@@ -135,7 +135,7 @@ is its entry in the tree.
             for path, f in data:
                 self.delete(path, hist = False)
         self.editor.file_manager.refresh()
-        self.editor.update_hist_btns()
+        self.editor.hist_update()
 
     def redo (self):
         """Redo the next action."""
@@ -161,7 +161,7 @@ is its entry in the tree.
                     # file
                     tree[None].append((name, f))
         self.editor.file_manager.refresh()
-        self.editor.update_hist_btns()
+        self.editor.hist_update()
 
     def can_undo (self):
         """Check whether there's anything to undo."""
@@ -176,7 +176,7 @@ is its entry in the tree.
         self._hist = self._hist[:self._hist_pos]
         self._hist.append(data)
         self._hist_pos += 1
-        self.editor.update_hist_btns()
+        self.editor.hist_update()
 
     def do_import (self, dirs):
         """Open an import dialogue.
@@ -329,17 +329,10 @@ Takes an argument indicating whether to import directories (else files).
                 p_new = guiutil.printable_path(new)
                 if new[-1] in current_items:
                     # exists
-                    # same dir means rename or same file, so skip (rename will go
-                    # back to renaming on fail)
-                    if old[:-1] == new[:-1] and not foreign:
-                        this_failed = True
-                        break
-                    else:
-                        action = guiutil.move_conflict(old[-1], p_new,
-                                                       self.editor)
+                    action = guiutil.move_conflict(old[-1], p_new, self.editor)
                 elif guiutil.invalid_name(new[-1]):
-                    action = guiutil.move_conflict(old[-1], p_new,
-                                                   self.editor, True)
+                    action = guiutil.move_conflict(old[-1], p_new, self.editor,
+                                                   True)
                 else:
                     break
                 # handle action

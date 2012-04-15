@@ -7,4 +7,3 @@
 script=run_gcedit
 tmp_script=."$script".tmp
 sed "s:^_LIB_PREFIX.*$:_LIB_PREFIX = '$1':" < "$script" > "$tmp_script"
-chmod +x "$script"

@@ -29,6 +29,7 @@ from gi.repository import Gtk as gtk, Pango as pango
 from .ext.gcutil import valid_name
 
 from . import conf
+from .conf import settings
 
 def printable_path (path):
     """Get a printable version of a list-style path."""
@@ -73,11 +74,11 @@ text_viewer(text, wrap_mode = Gtk.WrapMode.WORD) -> widget
     return w
 
 def question (title, msg, options, parent = None, default = None,
-              warning = False, return_dialogue = False):
+              warning = False, ask_again = None, return_dialogue = False):
     """Show a dialogue asking a question.
 
-question(title, msg, options[, parent][, default], warning = False,
-         return_dialogue = False) -> response
+question(title, msg, options[, parent][, default], warning = False[,
+         ask_again], return_dialogue = False) -> response
 
 title: dialogue title text.
 msg: text to display.
@@ -87,13 +88,17 @@ parent: dialogue parent.
 default: the index of the option in the list that should be selected by default
          (pressing enter normally).
 warning: whether this is a warning dialogue (instead of just a question).
+ask_again: show a 'Don't ask again' checkbox.  This is
+           (setting_key, match_response), where, if the checkbox is ticked and
+           the response is match_response, the setting_key key of the 'warning'
+           setting is set to False.  This argument is ignored if
+           return_dialogue is True.
 return_dialogue: whether to return the created dialogue instead of running it.
 
 response: The index of the clicked button in the list, or a number less than 0
           if the dialogue was closed.
 
 """
-    # TODO: [ENH] option to show 'don't ask again' checkbox; return its value too
     mt = gtk.MessageType.WARNING if warning else gtk.MessageType.QUESTION
     d = gtk.MessageDialog(parent, gtk.DialogFlags.DESTROY_WITH_PARENT,
                           mt, gtk.ButtonsType.NONE, msg)
@@ -105,7 +110,19 @@ response: The index of the clicked button in the list, or a number less than 0
     if return_dialogue:
         return d
     else:
+        if ask_again is not None:
+            # add checkbox
+            c = gtk.CheckButton('Don\'t ask again')
+            d.get_message_area().pack_start(c, False, False, 0)
+            c.show()
         response = d.run()
+        if ask_again is not None:
+            # handle checkbox value
+            setting_key, match_response = ask_again
+            if c.get_active() and response == match_response:
+                warnings = settings['warnings']
+                warnings[setting_key] = False
+                settings['warnings'] = warnings
         d.destroy()
         return response
 

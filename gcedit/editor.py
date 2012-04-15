@@ -12,7 +12,6 @@ Editor
 """
 
 # TODO:
-# [ENH] dialogues that are model for the editor shouldn't be for the prefs
 # [ENH] include game name in window title (need BNR support)
 # [BUG] on import dir, can rename two invalid-named files to same name
 # [ENH] icon
@@ -322,18 +321,21 @@ prefs: preferences window or None
             # no need to write
             return
         elif self.fs.disk_changed():
-            msg = 'The contents of the disk have been changed by another ' \
-                  'program since it was loaded.  Are you sure you want to ' \
-                  'continue?'
-            if guiutil.question('Confirm Write', msg, confirm_buttons, self,
-                                warning = True) != 1:
-                return
+            if settings['warnings']['changed_write']:
+                msg = 'The contents of the disk have been changed by ' \
+                      'another program since it was loaded.  Are you sure ' \
+                      'you want to continue?'
+                ask_again = ('changed_write', 1)
+                if guiutil.question('Confirm Write', msg, confirm_buttons,
+                                    self, None, True, ask_again) != 1:
+                    return
         # ask for confirmation
-        msg = 'Once your changes have been written to the disk, they ' \
-                'cannot be undone.  Are you sure you want to continue?'
-        if guiutil.question('Confirm Write', msg, confirm_buttons, self,
-                            warning = True) != 1:
-            return
+        if settings['warnings']['write']:
+            msg = 'Once your changes have been written to the disk, they ' \
+                    'cannot be undone.  Are you sure you want to continue?'
+            if guiutil.question('Confirm Write', msg, confirm_buttons, self,
+                                None, True, ('write', 1)) != 1:
+                return
         # show progress dialogue
         d = guiutil.Progress('Writing to disk', parent = self)
         d.show()
@@ -422,8 +424,9 @@ prefs: preferences window or None
             # confirm
             msg = 'The changes you\'ve made will be lost if you quit.  Are ' \
                   'you sure you want to continue?'
-            if guiutil.question('Confirm Quit', msg,
-                                (gtk.STOCK_CANCEL, '_Quit Anyway'), self,
-                                warning = True) != 1:
-                return True
+            if settings['warnings']['quit_with_changes']:
+                if guiutil.question('Confirm Quit', msg,
+                                    (gtk.STOCK_CANCEL, '_Quit Anyway'), self,
+                                    None, True, ('quit_with_changes', 1)) != 1:
+                    return True
         gtk.main_quit()

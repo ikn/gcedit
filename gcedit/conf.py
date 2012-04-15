@@ -14,6 +14,7 @@ settings: dict-like object to handle settings.
 import os
 import platform
 import json
+from collections import defaultdict
 
 from gi.repository import Gtk as gtk
 
@@ -32,6 +33,12 @@ UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})
 
+def default_true_dict (x = {}):
+    """A wrapper to act as a 'type' for a defaultdict defaulting to True."""
+    d = defaultdict(lambda: True)
+    d.update(x)
+    return d
+
 # TODO: use/set all
 _defaults = {
     # interface
@@ -40,7 +47,7 @@ _defaults = {
     'import_path': HOME,
     'extract_path': HOME,
     'sel_on_drag': True,
-    'warnings': {}, # use
+    'warnings': default_true_dict(),
     # trash
     'trash_enabled': True, # use, set
     'trash_location': os.path.join(SHARE, 'trash'), # use, set
@@ -59,7 +66,7 @@ _types = {
     'import_path': str,
     'extract_path': str,
     'sel_on_drag': bool,
-    'warnings': dict,
+    'warnings': default_true_dict,
     # trash
     'trash_enabled': bool,
     'trash_location': str,

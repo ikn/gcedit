@@ -12,6 +12,7 @@ Editor
 """
 
 # TODO:
+# [ENH] 'automatically close' option on progress window
 # [ENH] include game name in window title (need BNR support)
 # [BUG] on import dir, can rename two invalid-named files to same name
 # [ENH] icon
@@ -48,7 +49,7 @@ except ImportError:
 from queue import Queue
 
 from gi.repository import Gtk as gtk, Gdk as gdk
-from .ext import fsmanage
+from .ext import fsmanage, gcutil
 
 from .fsbackend import FSBackend
 from .prefs import Preferences
@@ -86,6 +87,7 @@ prefs: preferences window or None
 
     def __init__ (self, fs):
         self.fs = fs
+        self.update_bs()
         self.fs_backend = FSBackend(fs, self)
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
         m = fsmanage.Manager(self.fs_backend, identifier = ident,
@@ -200,8 +202,7 @@ prefs: preferences window or None
     def _extract (self, q, files):
         """Extract files from the disk."""
         progress = lambda *args: q.put((False, args))
-        failed = self.fs.extract(*files, block_size = self._get_bs(),
-                                 progress = progress)
+        failed = self.fs.extract(files, progress = progress)
         q.put((True, failed))
 
     def extract (self, *files):
@@ -289,7 +290,7 @@ prefs: preferences window or None
             guiutil.error(msg, self, v)
         else:
             d.bar.set_fraction(1)
-            d.bar.set_text(None)
+            d.bar.set_text('Completed')
             d.set_item('All items complete')
             d.finish()
             d.run()
@@ -299,7 +300,7 @@ prefs: preferences window or None
         """Perform a write."""
         try:
             tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
-            self.fs.write(self._get_bs(), tmp_dir, lambda *args: q.put(args))
+            self.fs.write(tmp_dir, lambda *args: q.put(args))
         except Exception as e:
             if hasattr(e, 'handled') and e.handled is True:
                 # disk should still be in the same state
@@ -364,7 +365,7 @@ prefs: preferences window or None
         t.join()
         if msg is None:
             d.bar.set_fraction(1)
-            d.bar.set_text(None)
+            d.bar.set_text('Completed')
             d.set_item('All items complete')
             d.finish()
             # tree is different, so have to get rid of history
@@ -384,12 +385,6 @@ prefs: preferences window or None
                 guiutil.error(msg, self, v)
                 # don't try and do anything else, in case it breaks things
 
-    def _get_bs (self):
-        """Get the value of the block_size setting."""
-        bs, exp = settings['block_size']
-        bs *= 1024 ** exp
-        return int(bs)
-
     def _state_cb (self, w, e):
         """Save changes to maximised state."""
         is_max = e.new_window_state & gdk.WindowState.MAXIMIZED
@@ -407,6 +402,15 @@ prefs: preferences window or None
     def reset_warnings (self):
         """Re-enable all disabled warnings."""
         settings['warnings'] = None
+
+    def update_bs (self, value = None):
+        """Update the gcutil module's BLOCK_SIZE setting."""
+        if value is None:
+            bs, exp = settings['block_size']
+        else:
+            bs, exp = value
+        bs *= 1024 ** exp
+        gcutil.BLOCK_SIZE = int(bs)
 
     def open_prefs (self):
         """Open the preferences window."""

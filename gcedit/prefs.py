@@ -135,7 +135,8 @@ _widgets = {
     'block_size': {
         't': 'int',
         'label': 'Read and write in _blocks of:',
-        'data': (1, 1023, 1, ('B', 'KiB', 'MiB'))
+        'data': (1, 1023, 1, ('B', 'KiB', 'MiB')),
+        'cb': 'update_bs'
     }
 }
 

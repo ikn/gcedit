@@ -14,7 +14,6 @@ settings: dict-like object to handle settings.
 import os
 import platform
 import json
-from collections import defaultdict
 
 from gi.repository import Gtk as gtk
 
@@ -33,12 +32,6 @@ UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})
 
-def default_true_dict (x = {}):
-    """A wrapper to act as a 'type' for a defaultdict defaulting to True."""
-    d = defaultdict(lambda: True)
-    d.update(x)
-    return d
-
 _defaults = {
     # interface
     'win_size': (400, 450),
@@ -47,7 +40,7 @@ _defaults = {
     'extract_path': HOME,
     'sel_on_drag': True,
     'autoclose_progress': False,
-    'warnings': default_true_dict(),
+    'disabled_warnings': set(),
     # trash
     'trash_enabled': True,
     'trash_location': os.path.join(SHARE, 'trash'),
@@ -67,7 +60,7 @@ _types = {
     'extract_path': str,
     'autoclose_progress': bool,
     'sel_on_drag': bool,
-    'warnings': default_true_dict,
+    'disabled_warnings': set,
     # trash
     'trash_enabled': bool,
     'trash_location': str,
@@ -78,6 +71,16 @@ _types = {
     'threaded_copy': int,
     'block_size': list
 }
+
+
+class JSONEncoder (json.JSONEncoder):
+    """Extended json.JSONEncoder with support for sets."""
+
+    def default (self, o):
+        if isinstance(o, set):
+            return list(o)
+        else:
+            return json.JSONEncoder.default(o)
 
 
 class _SettingsManager (dict):
@@ -122,7 +125,7 @@ To restore a setting to its default value, set it to None.
         dict.__setitem__(self, k, v)
         try:
             with open(self.fn, 'w') as f:
-                json.dump(self, f, indent = 4)
+                json.dump(self, f, indent = 4, cls = JSONEncoder)
         except IOError:
             pass
 

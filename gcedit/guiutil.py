@@ -90,8 +90,8 @@ default: the index of the option in the list that should be selected by default
 warning: whether this is a warning dialogue (instead of just a question).
 ask_again: show a 'Don't ask again' checkbox.  This is
            (setting_key, match_response), where, if the checkbox is ticked and
-           the response is match_response, the setting_key key of the 'warning'
-           setting is set to False.  This argument is ignored if
+           the response is match_response, setting_key is added to the
+           'disabled_warnings' setting set.  This argument is ignored if
            return_dialogue is True.
 return_dialogue: whether to return the created dialogue instead of running it.
 
@@ -120,9 +120,9 @@ response: The index of the clicked button in the list, or a number less than 0
             # handle checkbox value
             setting_key, match_response = ask_again
             if c.get_active() and response == match_response:
-                warnings = settings['warnings']
-                warnings[setting_key] = False
-                settings['warnings'] = warnings
+                warnings = settings['disabled_warnings']
+                warnings.add(setting_key)
+                settings['disabled_warnings'] = warnings
         d.destroy()
         return response
 

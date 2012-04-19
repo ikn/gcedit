@@ -322,7 +322,7 @@ prefs: preferences window or None
             # no need to write
             return
         elif self.fs.disk_changed():
-            if settings['warnings']['changed_write']:
+            if 'changed_write' not in settings['disabled_warnings']:
                 msg = 'The contents of the disk have been changed by ' \
                       'another program since it was loaded.  Are you sure ' \
                       'you want to continue?'
@@ -331,7 +331,7 @@ prefs: preferences window or None
                                     self, None, True, ask_again) != 1:
                     return
         # ask for confirmation
-        if settings['warnings']['write']:
+        if 'write' not in settings['disabled_warnings']:
             msg = 'Once your changes have been written to the disk, they ' \
                     'cannot be undone.  Are you sure you want to continue?'
             if guiutil.question('Confirm Write', msg, confirm_buttons, self,
@@ -405,7 +405,7 @@ prefs: preferences window or None
 
     def reset_warnings (self):
         """Re-enable all disabled warnings."""
-        settings['warnings'] = None
+        settings['disabled_warnings'] = None
 
     def update_threaded (self, value = None):
         """Update the gcutil module's THREADED setting."""
@@ -439,7 +439,7 @@ prefs: preferences window or None
             # confirm
             msg = 'The changes you\'ve made will be lost if you quit.  Are ' \
                   'you sure you want to continue?'
-            if settings['warnings']['quit_with_changes']:
+            if 'quit_with_changes' not in settings['disabled_warnings']:
                 if guiutil.question('Confirm Quit', msg,
                                     (gtk.STOCK_CANCEL, '_Quit Anyway'), self,
                                     None, True, ('quit_with_changes', 1)) != 1:

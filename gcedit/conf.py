@@ -46,8 +46,8 @@ _defaults = {
     'win_max': False,
     'import_path': HOME,
     'extract_path': HOME,
-    'autoclose_progress': False,
     'sel_on_drag': True,
+    'autoclose_progress': False,
     'warnings': default_true_dict(),
     # trash
     'trash_enabled': True, # use, set

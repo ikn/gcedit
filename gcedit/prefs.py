@@ -87,6 +87,10 @@ _widgets = {
                    'are not already selected',
         'cb': 'set_sel_on_drag'
     },
+    'autoclose_progress': {
+        't': 'bool',
+        'label': 'Automatically close _progress dialogues when finished'
+    },
     'warnings': {
         't': 'button',
         'data': '_Re-enable all warnings',
@@ -362,7 +366,7 @@ and settings.  A heading is (heading_text, None), a label is
 """
 
 _prefs = (
-    ('_Interface', ('sel_on_drag', 'warnings')),
+    ('_Interface', ('sel_on_drag', 'autoclose_progress', 'warnings')),
     ('_Trash', (('The trash directory is used to save files that are ' \
                  'deleted from disk images.  Note that disabling the trash ' \
                  'or reducing its size may <b>permanently delete</b> items ' \

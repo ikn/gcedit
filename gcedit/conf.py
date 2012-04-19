@@ -46,6 +46,7 @@ _defaults = {
     'win_max': False,
     'import_path': HOME,
     'extract_path': HOME,
+    'autoclose_progress': False,
     'sel_on_drag': True,
     'warnings': default_true_dict(),
     # trash
@@ -65,6 +66,7 @@ _types = {
     'win_max': bool,
     'import_path': str,
     'extract_path': str,
+    'autoclose_progress': bool,
     'sel_on_drag': bool,
     'warnings': default_true_dict,
     # trash

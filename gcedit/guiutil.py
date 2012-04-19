@@ -112,7 +112,7 @@ response: The index of the clicked button in the list, or a number less than 0
     else:
         if ask_again is not None:
             # add checkbox
-            c = gtk.CheckButton('Don\'t ask again')
+            c = gtk.CheckButton.new_with_mnemonic('_Don\'t ask again')
             d.get_message_area().pack_start(c, False, False, 0)
             c.show()
         response = d.run()
@@ -319,12 +319,14 @@ Act directly on the bar attribute to control the progress bar itself.
 
     CONSTRUCTOR
 
-Progress(title[, cancel][, pause][, parent])
+Progress(title[, cancel][, pause][, parent], autoclose = False)
 
 title: dialogue title.
 cancel: response for the cancel button (else don't show a cancel button).
 pause: response for the pause button (else don't show a pause button).
 parent: parent widget.
+autoclose: the initial value of the 'automatically close when finished'
+           checkbox.
 
     METHODS
 
@@ -335,9 +337,11 @@ finish
 
 bar: Gtk.ProgressBar instance.
 item: current item that's being processed, or None.
+autoclose: the checkbox.
 
 """
-    def __init__ (self, title, cancel = None, pause = None, parent = None):
+    def __init__ (self, title, cancel = None, pause = None, parent = None,
+                  autoclose = False):
         self.item = None
         # create dialogue
         flags = gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT
@@ -357,19 +361,27 @@ item: current item that's being processed, or None.
         # add widgets
         v = self.vbox
         v.set_spacing(6)
+        # heading
         head = escape(title)
         head = '<span weight="bold" size="larger">{}\n</span>'.format(head)
         head = gtk.Label(head)
         head.set_use_markup(True)
         head.set_alignment(0, .5)
         v.pack_start(head, False, False, 0)
+        # bar
         self.bar = gtk.ProgressBar()
         v.pack_start(self.bar, False, False, 0)
         self.bar.set_show_text(True)
+        # current item
         self._item = i = gtk.Label()
         i.set_alignment(0, .5)
         i.set_ellipsize(pango.EllipsizeMode.END) # to avoid dialogue resizing
         i.show()
+        # checkbox
+        text = '_automatically close when finished'
+        self.autoclose = c = gtk.CheckButton.new_with_mnemonic(text)
+        v.pack_end(c, False, False, 0)
+        c.set_active(autoclose)
         v.show_all()
 
     def set_item (self, item = None):
@@ -390,7 +402,14 @@ If no argument is given, the current item text is removed from the dialogue.
         self.item = item
 
     def finish (self):
-        """Allow the dialogue to be closed."""
+        """Allow the dialogue to be closed.
+
+Returns whether the autoclose checkbox is active.
+
+If the return value is False, you should call Progress.run.  If the checkbox is
+then ticked, the response returned from this call will be 0.
+
+"""
         # remove old buttons
         a = self.get_action_area()
         for b in a.get_children():
@@ -400,3 +419,9 @@ If no argument is given, the current item text is removed from the dialogue.
         self.set_default_response(gtk.ResponseType.CLOSE)
         self.set_deletable(True)
         self.disconnect(self._nodel_id)
+        # handle autoclose
+        autoclose = self.autoclose.get_active()
+        if not autoclose:
+            f = lambda *args: self.response(0)
+            self.autoclose.connect('toggled', f)
+        return autoclose

@@ -254,7 +254,8 @@ prefs: preferences window or None
                 f = self.fs_backend.get_file(f)[1][1]
             args.append((f, d))
         # show progress dialogue
-        d = guiutil.Progress('Extracting files', parent = self)
+        d = guiutil.Progress('Extracting files', parent = self,
+                             autoclose = settings['autoclose_progress'])
         d.show()
         # start write in another thread
         q = Queue()
@@ -292,8 +293,11 @@ prefs: preferences window or None
             d.bar.set_fraction(1)
             d.bar.set_text('Completed')
             d.set_item('All items complete')
-            d.finish()
-            d.run()
+            autoclose = d.finish()
+            settings['autoclose_progress'] = autoclose
+            if not autoclose:
+                if d.run() == 0:
+                    settings['autoclose_progress'] = True
             d.destroy()
 
     def _write (self, q):
@@ -338,7 +342,8 @@ prefs: preferences window or None
                                 None, True, ('write', 1)) != 1:
                 return
         # show progress dialogue
-        d = guiutil.Progress('Writing to disk', parent = self)
+        d = guiutil.Progress('Writing to disk', parent = self,
+                             autoclose = settings['autoclose_progress'])
         d.show()
         # start write in another thread
         q = Queue()
@@ -367,12 +372,15 @@ prefs: preferences window or None
             d.bar.set_fraction(1)
             d.bar.set_text('Completed')
             d.set_item('All items complete')
-            d.finish()
+            autoclose = d.finish()
+            settings['autoclose_progress'] = autoclose
             # tree is different, so have to get rid of history
             self.fs_backend.reset()
             self.file_manager.refresh()
             # wait for user to close dialogue
-            d.run()
+            if not autoclose:
+                if d.run() == 0:
+                    settings['autoclose_progress'] = True
             d.destroy()
         else:
             d.destroy()

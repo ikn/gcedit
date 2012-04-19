@@ -12,17 +12,12 @@ Editor
 """
 
 # TODO:
-# [ENH] 'automatically close' option on progress window
-# [ENH] include game name in window title (need BNR support)
 # [BUG] on import dir, can rename two invalid-named files to same name
+# [ENH] include game name in window title (need BNR support)
 # [ENH] icon
-# [ENH] 'do this for all remaining conflicts' for move_conflict
-# [ENH] dialogues should use primary text (brief summary - have no title)
-# [ENH] in overwrite with copy/import, have the deletion in the same history action
-#   - history action can be list of actions
-#   - need to add copies/imports and deletes to this list in the right order
-# [ENH] remember last import/extract paths (separately)
+# [FEA] display file size
 # [FEA] can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
+# [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
 # [FEA] menus:
 #   - switch disk image (go back to initial screen)
 #   - buttons
@@ -36,8 +31,6 @@ Editor
 #   - in context menu, buttons
 #   - on open, check if can decode to text; if not, have hex editor
 #   - option for open_files to edit instead of extract
-# [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
-# [FEA] display file size
 
 import os
 from time import sleep
@@ -72,6 +65,8 @@ extract
 write
 set_sel_on_drag
 reset_warnings
+update_threaded
+update_bs
 open_prefs
 quit
 
@@ -87,6 +82,7 @@ prefs: preferences window or None
 
     def __init__ (self, fs):
         self.fs = fs
+        self.update_threaded()
         self.update_bs()
         self.fs_backend = FSBackend(fs, self)
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
@@ -410,6 +406,13 @@ prefs: preferences window or None
     def reset_warnings (self):
         """Re-enable all disabled warnings."""
         settings['warnings'] = None
+
+    def update_threaded (self, value = None):
+        """Update the gcutil module's THREADED setting."""
+        if value is None:
+            gcutil.THREADED = settings['threaded_copy']
+        else:
+            gcutil.THREADED = value
 
     def update_bs (self, value = None):
         """Update the gcutil module's BLOCK_SIZE setting."""

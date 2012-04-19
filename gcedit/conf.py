@@ -39,7 +39,6 @@ def default_true_dict (x = {}):
     d.update(x)
     return d
 
-# TODO: use/set all
 _defaults = {
     # interface
     'win_size': (400, 450),
@@ -50,13 +49,13 @@ _defaults = {
     'autoclose_progress': False,
     'warnings': default_true_dict(),
     # trash
-    'trash_enabled': True, # use, set
-    'trash_location': os.path.join(SHARE, 'trash'), # use, set
-    'trash_size': (50, 1), # 50MiB # use, set
+    'trash_enabled': True,
+    'trash_location': os.path.join(SHARE, 'trash'),
+    'trash_size': (50, 1), # 50MiB
     # advanced
     'set_tmp_dir': False,
     'tmp_dir': HOME,
-    'simul_rw': 0, # use
+    'threaded_copy': True,
     'block_size': (1, 2) # 1MiB
 }
 
@@ -76,7 +75,7 @@ _types = {
     # advanced
     'set_tmp_dir': bool,
     'tmp_dir': str,
-    'simul_rw': int,
+    'threaded_copy': int,
     'block_size': list
 }
 

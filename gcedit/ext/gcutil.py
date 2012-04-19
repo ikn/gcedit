@@ -30,12 +30,10 @@ BLOCK_SIZE = 0x100000: the maximum amount of data, in bytes, to read and write
 
 [NOT IMPLEMENTED]
 
-THREADED = None: whether to use threads to read and write data simultaneously.
-                 Possible values are:
-    True: always have one thread reading and one writing.
-    False: just use one thread.
-    None: have as many threads as possible where each is reading from or
-          writing to a different physical disk.
+THREADED = True: whether to use threads to read and write data simultaneously.
+                 If True, have as many threads as possible where each is
+                 reading from or writing to a different physical disk; if
+                 False, always have just one thread.
 PAUSED_WAIT = .5: in functions that take a progress function, if the action is
                   paused, the function waits this many seconds between
                   subsequent calls to the progress function.
@@ -47,10 +45,10 @@ PAUSED_WAIT = .5: in functions that take a progress function, if the action is
 # - BNR support
 # - pause/cancel in copy (return value on cancel?)
 # - remaining time estimation
+# - threaded copy
 # - when write and add files (and maybe other places), sort files by position
 #   on disk before adding (should be quicker, and else is sorted by filesize so
 #   appears to slow down towards end when doing loads of small files)
-# - threaded
 
 import os
 from os.path import getsize, exists, dirname, basename

@@ -121,7 +121,7 @@ _widgets = {
     # advanced
     'set_tmp_dir': {
         't': 'bool',
-        'label': '_Set a specific directory to use for temporary files',
+        'label': 'Set a specific directory to use for _temporary files',
         'tooltip': 'Otherwise the location is decided automatically'
     },
     'tmp_dir': {
@@ -129,12 +129,12 @@ _widgets = {
         'label': '_Directory to use:',
         'sensitive': [('set_tmp_dir', True)]
     },
-    'simul_rw': {
-        't': 'choice',
-        'label': '_Read and write data simultaneously:',
-        'tooltip': 'If automatic, do so when the source and destination ' \
-                   'files are on different disks',
-        'data': ('automatic', 'always', 'never')
+    'threaded_copy': {
+        't': 'bool',
+        'label': 'Read and write data _simultaneously',
+        'tooltip': 'If selected, read from/write to files on different ' \
+                   'disks simultaneously',
+        'cb': 'update_threaded'
     },
     'block_size': {
         't': 'int',
@@ -367,12 +367,12 @@ and settings.  A heading is (heading_text, None), a label is
 
 _prefs = (
     ('_Interface', ('sel_on_drag', 'autoclose_progress', 'warnings')),
-    ('_Trash', (('The trash directory is used to save files that are ' \
+    ('T_rash', (('The trash directory is used to save files that are ' \
                  'deleted from disk images.  Note that disabling the trash ' \
                  'or reducing its size may <b>permanently delete</b> items ' \
                  'to fit the new settings.', True),
                 'trash_enabled', 'trash_location', 'trash_size')),
-    ('_Advanced', ('set_tmp_dir', 'tmp_dir', 'simul_rw', 'block_size'))
+    ('_Advanced', ('set_tmp_dir', 'tmp_dir', 'threaded_copy', 'block_size'))
 )
 
 

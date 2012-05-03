@@ -16,6 +16,7 @@ gen_widgets
 """
 
 import os
+from html import escape
 
 from gi.repository import Gtk as gtk
 
@@ -82,37 +83,37 @@ _widgets = {
     # interface
     'sel_on_drag': {
         't': 'bool',
-        'label': '_Drag to select files',
-        'tooltip': 'Otherwise dragging moves or copies files, even if they ' \
-                   'are not already selected',
+        'label': _('_Drag to select files'),
+        'tooltip': _('Otherwise dragging moves or copies files, even if ' \
+                     'they are not already selected'),
         'cb': 'set_sel_on_drag'
     },
     'autoclose_progress': {
         't': 'bool',
-        'label': 'Automatically close _progress dialogues when finished'
+        'label': _('Automatically close _progress dialogues when finished')
     },
     'disabled_warnings': {
         't': 'button',
-        'data': '_Re-enable all warnings',
+        'data': _('_Re-enable all warnings'),
         'cb': 'reset_warnings'
     },
     # trash
     'trash_enabled': {
         't': 'bool',
-        'label': '_Enable trash',
+        'label': _('_Enable trash'),
         'cb': _cb,
         'on_change': False
     },
     'trash_location': {
         't': 'dir',
-        'label': 'Trash _location:',
+        'label': _('Trash _location:'),
         'cb': _cb,
         'on_change': False,
         'sensitive': [('trash_enabled', True)]
     },
     'trash_size': {
         't': 'int',
-        'label': 'Maximum _size:',
+        'label': _('Maximum _size:'),
         'data': (1, 1023, 1, ('KiB', 'MiB', 'GiB')),
         'cb': _cb,
         'on_change': False,
@@ -121,24 +122,24 @@ _widgets = {
     # advanced
     'set_tmp_dir': {
         't': 'bool',
-        'label': 'Set a specific directory to use for _temporary files',
-        'tooltip': 'Otherwise the location is decided automatically'
+        'label': _('Set a specific directory to use for _temporary files'),
+        'tooltip': _('Otherwise the location is decided automatically')
     },
     'tmp_dir': {
         't': 'dir',
-        'label': '_Directory to use:',
+        'label': _('_Directory to use:'),
         'sensitive': [('set_tmp_dir', True)]
     },
     'threaded_copy': {
         't': 'bool',
-        'label': 'Read and write data _simultaneously',
-        'tooltip': 'If selected, read from/write to files on different ' \
-                   'disks simultaneously',
+        'label': _('Read and write data _simultaneously'),
+        'tooltip': _('If selected, read from/write to files on different ' \
+                     'disks simultaneously'),
         'cb': 'update_threaded'
     },
     'block_size': {
         't': 'int',
-        'label': 'Read and write in _blocks of:',
+        'label': _('Read and write in _blocks of:'),
         'data': (1, 1023, 1, ('B', 'KiB', 'MiB')),
         'cb': 'update_bs'
     }
@@ -280,7 +281,7 @@ the setting's _widgets entry as arguments.
     elif t == 'dir':
         w = NonFailFileChooserButton(
             gtk.FileChooserAction.SELECT_FOLDER, settings[setting_id],
-            'Choose a directory', _cb_wrapper, cb_args
+            _('Choose a directory'), _cb_wrapper, cb_args
         )
     elif t == 'int':
         w = gtk.SpinButton.new_with_range(*data[:3])
@@ -366,13 +367,14 @@ and settings.  A heading is (heading_text, None), a label is
 """
 
 _prefs = (
-    ('_Interface', ('sel_on_drag', 'autoclose_progress', 'disabled_warnings')),
-    ('T_rash', (('The trash directory is used to save files that are ' \
-                 'deleted from disk images.  Note that disabling the trash ' \
-                 'or reducing its size may <b>permanently delete</b> items ' \
-                 'to fit the new settings.', True),
-                'trash_enabled', 'trash_location', 'trash_size')),
-    ('_Advanced', ('set_tmp_dir', 'tmp_dir', 'threaded_copy', 'block_size'))
+    (_('_Interface'), ('sel_on_drag', 'autoclose_progress',
+                       'disabled_warnings')),
+    (_('T_rash'), ((_('The trash directory is used to save files that are ' \
+                      'deleted from disk images.  Note that disabling the ' \
+                      'trash or reducing its size may <b>permanently ' \
+                      'delete</b> items to fit the new settings.'), True),
+                   'trash_enabled', 'trash_location', 'trash_size')),
+    (_('_Advanced'), ('set_tmp_dir', 'tmp_dir', 'threaded_copy', 'block_size'))
 )
 
 
@@ -462,7 +464,7 @@ widgets: setting_ID: widget dict of settings widgets.
         gtk.Window.__init__(self)
         self.set_resizable(False)
         self.set_border_width(12)
-        self.set_title(conf.APPLICATION + ' Preferences')
+        self.set_title(conf.APPLICATION + ' ' + _('Preferences'))
         self.connect('delete-event', self.quit)
         self.widgets, self._end_cb = gen_widgets(editor, self)
         # add outer stuff
@@ -499,7 +501,7 @@ widgets: setting_ID: widget dict of settings widgets.
                     text, markup = item
                     if markup is None:
                         # heading
-                        l = gtk.Label('<b>{}</b>'.format(text))
+                        l = gtk.Label('<b>{}</b>'.format(escape(text)))
                         page.attach(l, 0, y, 3, 1)
                         l.set_use_markup(True)
                         if y != 0:

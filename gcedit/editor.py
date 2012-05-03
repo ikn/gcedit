@@ -111,20 +111,20 @@ prefs: preferences window or None
         self.buttons = btns = []
         f = lambda widget, cb, *args: cb(*args)
         for btn_data in (
-            (gtk.STOCK_UNDO, 'Undo the last change', self.fs_backend.undo),
-            (gtk.STOCK_REDO, 'Redo the next change', self.fs_backend.redo),
+            (gtk.STOCK_UNDO, _('Undo the last change'), self.fs_backend.undo),
+            (gtk.STOCK_REDO, _('Redo the next change'), self.fs_backend.redo),
             None,
-            (('_Import Files', gtk.STOCK_HARDDISK),
-             'Import files from outside', self.fs_backend.do_import, False),
-            (('I_mport Folders', gtk.STOCK_HARDDISK),
-             'Import folders from outside', self.fs_backend.do_import, True),
-            (('_Extract', gtk.STOCK_EXECUTE), 'Extract the selected files',
+            ((_('_Import Files'), gtk.STOCK_HARDDISK),
+             _('Import files from outside'), self.fs_backend.do_import, False),
+            ((_('I_mport Folders'), gtk.STOCK_HARDDISK),
+             _('Import folders from outside'), self.fs_backend.do_import, True),
+            (('_Extract', gtk.STOCK_EXECUTE), _('Extract the selected files'),
              self.extract),
-            (('_Write', gtk.STOCK_SAVE), 'Write changes to the disk image',
+            (('_Write', gtk.STOCK_SAVE), _('Write changes to the disk image'),
              self.write),
-            (gtk.STOCK_PREFERENCES, 'Open the preferences window',
+            (gtk.STOCK_PREFERENCES, _('Open the preferences window'),
              self.open_prefs),
-            (gtk.STOCK_QUIT, 'Quit the application', self.quit)
+            (gtk.STOCK_QUIT, _('Quit the application'), self.quit)
         ):
             if btn_data is None:
                 for b in fsmanage.buttons(m):
@@ -209,7 +209,8 @@ prefs: preferences window or None
             files = self.file_manager.get_selected_files()
             if not files:
                 # nothing to do
-                msg = 'No files selected: to extract, select some files first.'
+                msg = _('No files selected: to extract, select some files ' \
+                        'first.')
                 guiutil.error(msg, self)
                 return
             path = self.file_manager.path
@@ -218,11 +219,11 @@ prefs: preferences window or None
         rt = gtk.ResponseType
         if len(files) == 1:
             # ask for filename to extract to
-            label = 'Choose where to extract to'
+            label = _('Choose where to extract to')
             action = gtk.FileChooserAction.SAVE
         else:
             # ask for directory to extract all files to
-            label = 'Choose a directory to extract all items to'
+            label = _('Choose a directory to extract all items to')
             action = gtk.FileChooserAction.SELECT_FOLDER
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
         d = gtk.FileChooserDialog(label, self, action, buttons)
@@ -251,7 +252,7 @@ prefs: preferences window or None
                 f = self.fs_backend.get_file(f)[1][1]
             args.append((f, d))
         # show progress dialogue
-        d = guiutil.Progress('Extracting files', parent = self,
+        d = guiutil.Progress(_('Extracting files'), parent = self,
                              autoclose = settings['autoclose_progress'])
         d.show()
         # start write in another thread
@@ -274,22 +275,23 @@ prefs: preferences window or None
                 d.bar.set_fraction(done / total)
                 done = guiutil.printable_filesize(done)
                 total = guiutil.printable_filesize(total)
-                d.bar.set_text('Completed {} of {}'.format(done, total))
-                d.set_item('Extracting file: ' + name)
+                # NOTE: eg. 'Completed 5MiB of 34MiB'
+                d.bar.set_text(_('Completed {} of {}').format(done, total))
+                d.set_item(_('Extracting file: {}').format(name))
         t.join()
         if failed:
             d.destroy()
             # display failed list
             v = guiutil.text_viewer('\n'.join(dest for f, dest in failed),
                                     gtk.WrapMode.NONE)
-            msg = 'Couldn\'t extract to the following locations.  Maybe the ' \
-                  'files already exist, or you don\'t have permission to ' \
-                  'write here.'
+            msg = _('Couldn\'t extract to the following locations.  Maybe ' \
+                    'the files already exist, or you don\'t have permission ' \
+                    'to write here.')
             guiutil.error(msg, self, v)
         else:
             d.bar.set_fraction(1)
-            d.bar.set_text('Completed')
-            d.set_item('All items complete')
+            d.bar.set_text(_('Completed'))
+            d.set_item(_('All items complete'))
             autoclose = d.finish()
             settings['autoclose_progress'] = autoclose
             if not autoclose:
@@ -305,41 +307,43 @@ prefs: preferences window or None
         except Exception as e:
             if hasattr(e, 'handled') and e.handled is True:
                 # disk should still be in the same state
-                q.put(('Couldn\'t write: {}.'.format(e.args[0]), None))
+                # NOTE: {} is the error message
+                q.put((_('Couldn\'t write: {}.').format(e.args[0]), None))
             else:
                 # not good: show traceback
-                msg = 'Something may have gone horribly wrong, and the ' \
+                msg = _('Something may have gone horribly wrong, and the ' \
                         'disk image might have ended up in an ' \
                         'inconsistent state.  Here\'s some debug ' \
-                        'information.'
+                        'information.')
                 q.put((msg, format_exc().strip()))
         else:
             q.put((None, None))
 
     def write (self):
         """Write changes to the disk."""
-        confirm_buttons = (gtk.STOCK_CANCEL, '_Write Anyway')
+        confirm_buttons = (gtk.STOCK_CANCEL, _('_Write Anyway'))
         if not self.fs.changed():
             # no need to write
             return
         elif self.fs.disk_changed():
             if 'changed_write' not in settings['disabled_warnings']:
-                msg = 'The contents of the disk have been changed by ' \
-                      'another program since it was loaded.  Are you sure ' \
-                      'you want to continue?'
+                msg = _('The contents of the disk have been changed by ' \
+                        'another program since it was loaded.  Are you sure ' \
+                        'you want to continue?')
                 ask_again = ('changed_write', 1)
-                if guiutil.question('Confirm Write', msg, confirm_buttons,
+                # NOTE: confirmation dialogue title
+                if guiutil.question(_('Confirm Write'), msg, confirm_buttons,
                                     self, None, True, ask_again) != 1:
                     return
         # ask for confirmation
         if 'write' not in settings['disabled_warnings']:
-            msg = 'Once your changes have been written to the disk, they ' \
-                    'cannot be undone.  Are you sure you want to continue?'
-            if guiutil.question('Confirm Write', msg, confirm_buttons, self,
+            msg = _('Once your changes have been written to the disk, they ' \
+                    'cannot be undone.  Are you sure you want to continue?')
+            if guiutil.question(_('Confirm Write'), msg, confirm_buttons, self,
                                 None, True, ('write', 1)) != 1:
                 return
         # show progress dialogue
-        d = guiutil.Progress('Writing to disk', parent = self,
+        d = guiutil.Progress(_('Writing to disk'), parent = self,
                              autoclose = settings['autoclose_progress'])
         d.show()
         # start write in another thread
@@ -358,8 +362,8 @@ prefs: preferences window or None
                 d.bar.set_fraction(done / total)
                 done = guiutil.printable_filesize(done)
                 total = guiutil.printable_filesize(total)
-                d.bar.set_text('Completed {} of {}'.format(done, total))
-                d.set_item('Copying file: ' + name)
+                d.bar.set_text(_('Completed {} of {}').format(done, total))
+                d.set_item(_('Copying file: ') + name)
             else:
                 # finished
                 msg, traceback = got
@@ -367,8 +371,8 @@ prefs: preferences window or None
         t.join()
         if msg is None:
             d.bar.set_fraction(1)
-            d.bar.set_text('Completed')
-            d.set_item('All items complete')
+            d.bar.set_text(_('Completed'))
+            d.set_item(_('All items complete'))
             autoclose = d.finish()
             settings['autoclose_progress'] = autoclose
             # tree is different, so have to get rid of history
@@ -438,11 +442,12 @@ prefs: preferences window or None
             return True
         if self.fs_backend.can_undo() or self.fs_backend.can_redo():
             # confirm
-            msg = 'The changes you\'ve made will be lost if you quit.  Are ' \
-                  'you sure you want to continue?'
+            msg = _('The changes you\'ve made will be lost if you quit.  ' \
+                    'Are you sure you want to continue?')
             if 'quit_with_changes' not in settings['disabled_warnings']:
-                if guiutil.question('Confirm Quit', msg,
-                                    (gtk.STOCK_CANCEL, '_Quit Anyway'), self,
+                # NOTE: confirmation dialogue title
+                if guiutil.question(_('Confirm Quit'), msg,
+                                    (gtk.STOCK_CANCEL, _('_Quit Anyway')), self,
                                     None, True, ('quit_with_changes', 1)) != 1:
                     return True
         gtk.main_quit()

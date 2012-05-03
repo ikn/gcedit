@@ -38,18 +38,19 @@ def printable_path (path):
 def printable_filesize (size):
     """Get a printable version of a filesize in bytes."""
     for factor, suffix in (
-        (0, ''),
-        (1, 'Ki'),
-        (2, 'Mi'),
-        (3, 'Gi'),
-        (4, 'Ti')
+        # NOTE: unit for bytes
+        (0, _('B')),
+        (1, _('KiB')),
+        (2, _('MiB')),
+        (3, _('GiB')),
+        (4, _('TiB'))
     ):
         if size < 1024 ** (factor + 1):
             break
     size /= (1024 ** factor)
     # 3 significant figures but always show up to units
     dp = max(2 - int(log10(max(size, 1))), 0)
-    return ('{:.' + str(dp) + 'f}{}B').format(size, suffix)
+    return ('{:.' + str(dp) + 'f}{}').format(size, suffix)
 
 def text_viewer (text, wrap_mode = gtk.WrapMode.WORD):
     """Get a read-only Gtk.TextView widget in a Gtk.ScrolledWindow.
@@ -112,7 +113,7 @@ response: The index of the clicked button in the list, or a number less than 0
     else:
         if ask_again is not None:
             # add checkbox
-            c = gtk.CheckButton.new_with_mnemonic('_Don\'t ask again')
+            c = gtk.CheckButton.new_with_mnemonic(_('_Don\'t ask again'))
             d.get_message_area().pack_start(c, False, False, 0)
             c.show()
         response = d.run()
@@ -238,14 +239,15 @@ action: True to overwrite (not for an invalid name), False to cancel the move,
     msg_area = d.get_message_area()
     msg_area.get_children()[0].set_alignment(0, .5)
     # add error message
-    err = gtk.Label('<i>Error: invalid filename.</i>')
+    err = gtk.Label('<i>{}</i>'.format(escape(_('Error: invalid filename.'))))
     err.set_use_markup(True)
     err.set_alignment(0, .5)
     msg_area.pack_start(err, False, False, 0)
     # add entry
     h = gtk.Box(False, 6)
     msg_area.pack_start(h, False, False, 0)
-    h.pack_start(gtk.Label('New name:'), False, False, 0)
+    # NOTE: name as in filename
+    h.pack_start(gtk.Label(_('New name:')), False, False, 0)
     e = gtk.Entry()
     h.pack_start(e, False, False, 0)
     e.connect('changed', set_sensitive)
@@ -275,11 +277,11 @@ action: True to overwrite (not for an invalid name), False to cancel the move,
 def _invalid_name_details_expander ():
     """Get a Gtk.Expander with invalid name details."""
     e = gtk.Expander()
-    e.set_label('_Details')
+    e.set_label(_('_Details'))
     e.set_use_underline(True)
-    l = gtk.Label('It must be possible to encode file and directory names ' \
-                  'using the shift-JIS encoding, and \'/\' and null bytes ' \
-                  '(\'\\0\') are not allowed.')
+    l = gtk.Label(_('It must be possible to encode file and directory names ' \
+                    'using the shift-JIS encoding, and \'/\' and null bytes ' \
+                    '(\'\\0\') are not allowed.'))
     e.add(l)
     l.set_line_wrap(True)
     l.show()
@@ -296,11 +298,13 @@ parent: dialogue parent.
 """
     widgets = []
     if len(paths) == 1:
-        msg = 'Couldn\'t create \'{}\' because its name is invalid.'
+        # NOTE: name as in file/directory name
+        msg = _('Couldn\'t create \'{}\' because its name is invalid.')
         msg = msg.format(paths)
     else:
-        msg = 'The following items couldn\'t be created because their names ' \
-              'are invalid:'
+        # NOTE: name as in file/directory name
+        msg = _('The following items couldn\'t be created because their ' \
+                'names are invalid:')
         widgets.append(text_viewer('\n'.join(paths), gtk.WrapMode.NONE))
     # details
     e = _invalid_name_details_expander()
@@ -352,7 +356,7 @@ autoclose: the checkbox.
         if cancel:
             buttons += [gtk.STOCK_CANCEL, 0]
         if pause:
-            buttons += ['_Pause', 1]
+            buttons += [_('_Pause'), 1]
         gtk.Dialog.__init__(self, title, parent, flags, buttons)
         if pause is not None:
             self.set_default_response(pause)
@@ -381,7 +385,7 @@ autoclose: the checkbox.
         i.set_ellipsize(pango.EllipsizeMode.END) # to avoid dialogue resizing
         i.show()
         # checkbox
-        text = '_automatically close when finished'
+        text = _('_automatically close when finished')
         self.autoclose = c = gtk.CheckButton.new_with_mnemonic(text)
         v.pack_end(c, False, False, 0)
         c.set_active(autoclose)

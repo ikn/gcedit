@@ -197,7 +197,7 @@ Takes an argument indicating whether to import directories (else files).
         else:
             action = gtk.FileChooserAction.OPEN
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
-        d = gtk.FileChooserDialog('Choose files', self.editor, action, buttons)
+        d = gtk.FileChooserDialog(_('Choose files'), self.editor, action, buttons)
         d.set_current_folder(settings['import_path'])
         d.set_select_multiple(True)
         response = d.run()
@@ -213,7 +213,7 @@ Takes an argument indicating whether to import directories (else files).
                 current = self.get_tree(current_path)
             except ValueError:
                 d.destroy()
-                guiutil.error('Can\'t import to a non-existent directory.')
+                guiutil.error(_('Can\'t import to a non-existent directory.'))
                 return
             current_names = [name for name, i in current[None]]
             current_names += [x[0] for x in current if x is not None]
@@ -273,7 +273,7 @@ Takes an argument indicating whether to import directories (else files).
             tree = self.get_tree(path)
         except ValueError:
             # doesn't exist: show error
-            guiutil.error('Directory doesn\'t exist.', self.editor)
+            guiutil.error(_('Directory doesn\'t exist.'), self.editor)
             items = []
         else:
             # dirs
@@ -300,8 +300,8 @@ Takes an argument indicating whether to import directories (else files).
                 if this_data[2] != id(self.editor):
                     # different Editor
                     foreign = True
-                    guiutil.error('Drag-and-drop between instances is not ' \
-                                  'supported yet.')
+                    guiutil.error(_('Drag-and-drop between instances is not ' \
+                                  'supported yet.'))
                     #print(this_data, old, new)
                     continue
             # get destination
@@ -309,7 +309,8 @@ Takes an argument indicating whether to import directories (else files).
                 dest = self.get_tree(new[:-1])
             except ValueError:
                 if not said_nodest:
-                    guiutil.error('Can\'t copy to a non-existent directory.')
+                    guiutil.error(_('Can\'t copy to a non-existent ' \
+                                    'directory.'))
                     said_nodest = True
                 failed.append(old)
                 cannot_copy.append(guiutil.printable_path(old))
@@ -362,7 +363,7 @@ Takes an argument indicating whether to import directories (else files).
         if cannot_copy:
             # show error for files that couldn't be copied
             v = guiutil.text_viewer('\n'.join(cannot_copy), gtk.WrapMode.NONE)
-            guiutil.error('Couldn\'t copy some items:', self.editor, v)
+            guiutil.error(_('Couldn\'t copy some items:'), self.editor, v)
         # add to history
         if hist:
             succeeded = [x for x in data if x[0] not in failed]
@@ -409,16 +410,16 @@ Takes an argument indicating whether to import directories (else files).
         try:
             dest = self.get_tree(dest)
         except ValueError:
-            guiutil.error('Can\'t create a directory in a non-existent ' \
-                          'directory.')
+            guiutil.error(_('Can\'t create a directory in a non-existent ' \
+                          'directory.'))
             return False
         current_items = [k[0] for k in dest if k is not None]
         current_items += [name for name, i in dest[None]]
         if name in current_items:
             # already exists: show error
             path = guiutil.printable_path(path)
-            msg = 'Directory \'{}\' already exists.'.format(path, self.editor)
-            guiutil.error(msg)
+            msg = _('Directory \'{}\' already exists.')
+            guiutil.error(msg.format(path, self.editor))
             return False
         elif guiutil.invalid_name(name):
             guiutil.invalid_name_dialogue((guiutil.printable_path(path),),

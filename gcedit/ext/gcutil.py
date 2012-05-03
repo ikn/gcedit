@@ -57,6 +57,11 @@ from copy import deepcopy
 from shutil import rmtree
 import tempfile
 
+try:
+    from gettext import gettext as _
+except ImportError:
+    _ = lambda s: s
+
 CODEC = 'shift-jis'
 BLOCK_SIZE = 0x100000
 THREADED = None
@@ -258,7 +263,6 @@ failed: a list of indices in the given files list for copies that failed.
                     if not p.strip(sep):
                         # ...no parent exists, somehow
                         # it'll just fail later, so location doesn't matter
-                        print(f)
                         locations[f] = -1
                         break
                 else:
@@ -897,7 +901,7 @@ It's probably a good idea to back up first...
                     fn = old_i
                     start = fn
                     if not os.path.isfile(fn):
-                        err = '\'{}\' is not a valid file'
+                        err = _('\'{}\' is not a valid file')
                         e = ValueError(err.format(fn))
                         e.handled = True
                         raise e
@@ -973,7 +977,7 @@ It's probably a good idea to back up first...
                     old_files.append((start, i, old_i, size))
                 failed = copy(to_copy, progress, names)
                 if failed:
-                    msg = 'couldn\'t read from and write to the disk image'
+                    msg = _('couldn\'t read from and write to the disk image')
                     error(msg, f)
         # sort existing files by position
         old_files.sort()
@@ -1006,7 +1010,7 @@ It's probably a good idea to back up first...
             # extract
             failed = self.extract(to_extract, True)
             if failed:
-                msg = 'couldn\'t extract to a temporary file ({})'
+                msg = _('couldn\'t extract to a temporary file ({})')
                 error(msg.format(failed[0][1]))
 
         # copy new files to the image
@@ -1076,8 +1080,8 @@ It's probably a good idea to back up first...
                     entries[i] = (False, str_start, start, size)
                 failed = copy(to_copy, progress, to_copy_names)
                 if failed:
-                    msg = 'either couldn\'t read from \'{}\' or couldn\'t ' \
-                          'write to the disk image'
+                    msg = _('either couldn\'t read from \'{}\' or couldn\'t ' \
+                            'write to the disk image')
                     error(msg.format(to_copy[failed[0]][0][0]), f)
 
         # clean up temp dir

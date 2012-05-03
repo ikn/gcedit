@@ -27,7 +27,7 @@ else:
     SHARE = join_path(HOME, '.local', 'share', 'gcedit')
     CONF = join_path(HOME, '.config', 'gcedit')
 
-APPLICATION = 'GCEdit'
+APPLICATION = _('GCEdit')
 IDENTIFIER = 'gcedit'
 UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02

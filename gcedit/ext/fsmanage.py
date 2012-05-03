@@ -30,6 +30,11 @@ buttons
 from pickle import dumps, loads
 from base64 import encodebytes, decodebytes
 
+try:
+    from gettext import gettext as _
+except ImportError:
+    _ = lambda s: s
+
 from gi.repository import Gtk as gtk, Gdk as gdk
 from gi.repository.GLib import idle_add
 
@@ -179,7 +184,7 @@ buttons: the buttons attribute of a Buttons instance.
         r.set_property('foreground-set', True)
         r.connect('edited', self._done_rename)
         r.connect('editing-canceled', self._cancel_rename)
-        self.append_column(gtk.TreeViewColumn('Name', r, text = COL_NAME,
+        self.append_column(gtk.TreeViewColumn(_('Name'), r, text = COL_NAME,
                                               foreground = COL_COLOUR,
                                               editable = COL_EDITABLE))
         # sorting
@@ -252,26 +257,27 @@ buttons: the buttons attribute of a Buttons instance.
         # compile a list of actions to show in the menu
         actions = []
         if not self.read_only:
-            actions.append((gtk.STOCK_NEW, 'Create directory', self._new_dir))
+            actions.append((gtk.STOCK_NEW, _('Create directory'),
+                            self._new_dir))
             # only show paste if clipboard has something in it
             if self._clipboard is not None:
-                actions.append((gtk.STOCK_PASTE, 'Paste cut or copied files',
-                                self._paste))
+                actions.append((gtk.STOCK_PASTE,
+                                _('Paste cut or copied files'), self._paste))
             actions.append(None)
-        actions.append((gtk.STOCK_SELECT_ALL, 'Select all files',
+        actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
                         self.get_selection().select_all))
         # only show up if not in root directory
         if self.path:
-            actions.append((gtk.STOCK_GO_UP, 'Go to parent directory',
+            actions.append((gtk.STOCK_GO_UP, _('Go to parent directory'),
                             self.up))
         # only show back if have history
         if self._hist_pos != 0:
-            actions.append((gtk.STOCK_GO_BACK, 'Go to the previous directory',
-                            self.back))
+            actions.append((gtk.STOCK_GO_BACK,
+                            _('Go to the previous directory'), self.back))
         # only show forwards if have forwards history
         if self._hist_pos != len(self._history) - 1:
             actions.append((gtk.STOCK_GO_FORWARD,
-                            'Go to the next directory in history',
+                            _('Go to the next directory in history'),
                             self.forwards))
         # show menu
         if actions:
@@ -293,41 +299,42 @@ buttons: the buttons attribute of a Buttons instance.
                 f = (self.backend.open_files,) + item_paths
             else:
                 f = (self._open, None, paths[0])
-            actions = [(gtk.STOCK_OPEN, 'Open all selected files') + f, None]
+            actions = [(gtk.STOCK_OPEN, _('Open all selected files')) + f,
+                       None]
         else:
             actions = []
         if not self.read_only:
             actions += [
-                (gtk.STOCK_CUT, 'Prepare to move selected files', self._copy,
-                 paths, True),
-                (gtk.STOCK_COPY, 'Prepare to copy selected files',
-                         self._copy, paths)
+                (gtk.STOCK_CUT, _('Prepare to move selected files'),
+                 self._copy, paths, True),
+                (gtk.STOCK_COPY, _('Prepare to copy selected files'),
+                 self._copy, paths)
             ]
             # only show paste if clipboard has something in it
             if self._clipboard is not None:
-                actions.append((gtk.STOCK_PASTE, 'Paste cut or copied files',
-                                self._paste))
+                actions.append((gtk.STOCK_PASTE,
+                                _('Paste cut or copied files'), self._paste))
             actions += [
-                (gtk.STOCK_DELETE, 'Delete selected files',
+                (gtk.STOCK_DELETE, _('Delete selected files'),
                  self._delete) + item_paths,
-                ('_Rename', 'Rename selected files', self._rename, paths),
-                (gtk.STOCK_NEW, 'Create directory', self._new_dir),
+                ('_Rename', _('Rename selected files'), self._rename, paths),
+                (gtk.STOCK_NEW, _('Create directory'), self._new_dir),
                 None
             ]
-        actions.append((gtk.STOCK_SELECT_ALL, 'Select all files',
+        actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
                         self.get_selection().select_all))
         # only show up if not in root directory
         if current_path:
-            actions.append((gtk.STOCK_GO_UP, 'Go to parent directory',
+            actions.append((gtk.STOCK_GO_UP, _('Go to parent directory'),
                             self.up))
         # only show back if have history
         if self._hist_pos != 0:
-            actions.append((gtk.STOCK_GO_BACK, 'Go to the previous directory',
-                            self.back))
+            actions.append((gtk.STOCK_GO_BACK,
+                            _('Go to the previous directory'), self.back))
         # only show forwards if have forwards history
         if self._hist_pos != len(self._history) - 1:
             actions.append((gtk.STOCK_GO_FORWARD,
-                            'Go to the next directory in history',
+                            _('Go to the next directory in history'),
                             self.forwards))
         # show menu
         if actions:
@@ -890,7 +897,8 @@ path: the current path shown (in list form).
         root_b.show()
         self._root_i = root_i = gtk.ImageMenuItem(root_icon)
         root_i.set_use_stock(True)
-        root_i.get_child().set_text('root')
+        # NOTE: as in root directory of the filesystem
+        root_i.get_child().set_text(_('root'))
         root_i.connect('activate', self._breadcrumb_scrollback, 0)
         # remove button labels
         for b in (mode_b, root_b, ok_b):
@@ -1094,14 +1102,14 @@ button_list: a list of Gtk.Button instances: back, forward, up, new, in that
     m.buttons = buttons = []
     # widgets
     button_data = [
-        (gtk.STOCK_GO_BACK, 'Go to the previous directory', m.back),
-        (gtk.STOCK_GO_FORWARD, 'Go to the next directory in history',
+        (gtk.STOCK_GO_BACK, _('Go to the previous directory'), m.back),
+        (gtk.STOCK_GO_FORWARD, _('Go to the next directory in history'),
          m.forwards),
-        (gtk.STOCK_GO_UP, 'Go to parent directory', m.up)
+        (gtk.STOCK_GO_UP, _('Go to parent directory'), m.up)
     ]
     # only show new if not read-only
     if not m.read_only:
-        button_data.append((gtk.STOCK_NEW, 'Create directory', m._new_dir))
+        button_data.append((gtk.STOCK_NEW, _('Create directory'), m._new_dir))
     # create and add buttons
     f = lambda widget, cb, *args: cb(*args)
     for name, tooltip, cb, *cb_args in button_data:

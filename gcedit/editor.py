@@ -15,6 +15,7 @@ Editor
 # [BUG] on import dir, can rename two invalid-named files to same name
 # [ENH] include game name in window title (need BNR support)
 # [ENH] icon
+# [FEA] pause/cancel in write/extract
 # [FEA] display file size
 # [FEA] can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write

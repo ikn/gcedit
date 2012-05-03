@@ -215,10 +215,13 @@ action: True to overwrite (not for an invalid name), False to cancel the move,
 
 """
     # get dialogue
-    msg = 'The file \'{}\' cannot be moved to \'{}\' because {}.'
-    reason = 'the destination name is invalid' if invalid else \
-             'the destination file exists'
-    msg = msg.format(fn_from, f_to, reason)
+    if invalid:
+        msg = _('The file \'{}\' cannot be moved to \'{}\' because the ' \
+                'destination name is invalid.')
+    else:
+        msg = _('The file \'{}\' cannot be moved to \'{}\' because the ' \
+                'destination file exists.')
+    msg = msg.format(fn_from, f_to)
     buttons = ['_Rename', gtk.STOCK_CANCEL]
     if not invalid:
         buttons.append('_Overwrite')
@@ -319,11 +322,11 @@ Act directly on the bar attribute to control the progress bar itself.
 
     CONSTRUCTOR
 
-Progress(title[, cancel][, pause][, parent], autoclose = False)
+Progress(title, cancel = False, pause = False[, parent], autoclose = False)
 
 title: dialogue title.
-cancel: response for the cancel button (else don't show a cancel button).
-pause: response for the pause button (else don't show a pause button).
+cancel: whether to show a cancel button; its response is 0.
+pause: whether to show a pause button; its response is 1.
 parent: parent widget.
 autoclose: the initial value of the 'automatically close when finished'
            checkbox.
@@ -340,16 +343,16 @@ item: current item that's being processed, or None.
 autoclose: the checkbox.
 
 """
-    def __init__ (self, title, cancel = None, pause = None, parent = None,
+    def __init__ (self, title, cancel = False, pause = False, parent = None,
                   autoclose = False):
         self.item = None
         # create dialogue
         flags = gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT
         buttons = []
-        if cancel is not None:
-            buttons += [gtk.STOCK_CANCEL, cancel]
-        if pause is not None:
-            buttons += ['_Pause', pause]
+        if cancel:
+            buttons += [gtk.STOCK_CANCEL, 0]
+        if pause:
+            buttons += ['_Pause', 1]
         gtk.Dialog.__init__(self, title, parent, flags, buttons)
         if pause is not None:
             self.set_default_response(pause)

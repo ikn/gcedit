@@ -27,6 +27,9 @@ CODEC = 'shift_jis': the string encoding to use for filenames in the disk
                      got a disk that uses something else.)
 BLOCK_SIZE = 0x100000: the maximum amount of data, in bytes, to read and write
                        at a time (0x100000 is 1MiB).
+PAUSED_WAIT = .1: in functions that take a progress function, if the action is
+                  paused, the function waits this many seconds between
+                  subsequent calls to the progress function.
 
 [NOT IMPLEMENTED]
 
@@ -34,9 +37,6 @@ THREADED = True: whether to use threads to read and write data simultaneously.
                  If True, have as many threads as possible where each is
                  reading from or writing to a different physical disk; if
                  False, always have just one thread.
-PAUSED_WAIT = .5: in functions that take a progress function, if the action is
-                  paused, the function waits this many seconds between
-                  subsequent calls to the progress function.
 
 """
 
@@ -52,6 +52,7 @@ PAUSED_WAIT = .5: in functions that take a progress function, if the action is
 
 import os
 from os.path import getsize, exists, dirname, basename
+from time import sleep
 from copy import deepcopy
 from shutil import rmtree
 import tempfile
@@ -200,11 +201,11 @@ progress: a function to periodically pass the current progress to.  It takes 3
           passed function may never be called - if, for example, all you are
           doing is creating directories or deleting files.
 
-          [NOT IMPLEMENTED]
           You can pause the copy by returning 1.  This function will then call
-          progress periodically until the return value is no longer 1.  The
-          progress function is only called between every block/file copied -
-          this gives an idea of how quickly a running copy can be paused.
+          progress periodically until the return value is no longer 1 (for
+          these calls, the arguments are undefined).  The progress function is
+          only called between every block/file copied - this gives an idea of
+          how quickly a running copy can be paused.
 
           [NOT IMPLEMENTED]
           You can try to cancel the copy by returning 2.  If it can still be
@@ -222,7 +223,7 @@ failed: a list of indices in the given files list for copies that failed.
 
 """
     string = (bytes, str)
-    if progress is None and isinstance(names, int):
+    if progress is not None and isinstance(names, int):
         # fill out names
         names = [basename(f[names][0]) for f in files]
     # make every src/dest a list
@@ -312,8 +313,17 @@ failed: a list of indices in the given files list for copies that failed.
                 done = 0
                 while size:
                     if progress is not None and total_done >= progress_update:
-                        progress(total_done, total_size, names[i])
+                        # update progress
+                        result = progress(total_done, total_size, names[i])
+                        while result == 1:
+                            # paused
+                            sleep(PAUSED_WAIT)
+                            result = progress(None, None, None)
+                        if result == 2:
+                            # cancel
+                            pass
                         progress_update += BLOCK_SIZE
+                    # read and write the next block
                     amount = min(size, BLOCK_SIZE)
                     if same:
                         src_f.seek(src_start + done)

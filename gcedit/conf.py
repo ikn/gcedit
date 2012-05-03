@@ -11,20 +11,21 @@ settings: dict-like object to handle settings.
 
 """
 
+from platform import system
 import os
-import platform
+from os.path import join as join_path
 import json
 
 from gi.repository import Gtk as gtk
 
-if platform.system() == 'Windows':
+if system() == 'Windows':
     HOME = os.environ['USERPROFILE']
-    SHARE = os.path.join(os.environ['APPDATA'], 'gcedit')
-    CONF = os.path.join(SHARE, 'conf')
+    SHARE = join_path(os.environ['APPDATA'], 'gcedit')
+    CONF = join_path(SHARE, 'conf')
 else:
     HOME = os.path.expanduser('~')
-    SHARE = os.path.join(HOME, '.local', 'share', 'gcedit')
-    CONF = os.path.join(HOME, '.config', 'gcedit')
+    SHARE = join_path(HOME, '.local', 'share', 'gcedit')
+    CONF = join_path(HOME, '.config', 'gcedit')
 
 APPLICATION = 'GCEdit'
 IDENTIFIER = 'gcedit'
@@ -43,7 +44,7 @@ _defaults = {
     'disabled_warnings': set(),
     # trash
     'trash_enabled': True,
-    'trash_location': os.path.join(SHARE, 'trash'),
+    'trash_location': join_path(SHARE, 'trash'),
     'trash_size': (50, 1), # 50MiB
     # advanced
     'set_tmp_dir': False,

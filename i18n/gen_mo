@@ -1,0 +1,19 @@
+#! /bin/bash
+
+# generate MO files from the present translated PO files
+
+# takes 'src' dir, defaulting to the parent dir of this file
+
+if [ -z "$1" ]; then
+    src_dir="`dirname "$0"`/.."
+else
+    src_dir="$1"
+fi
+po_dir="`dirname "$0"`/po"
+for po_file in "$po_dir"/*.po; do
+    lang=`basename "$po_file"`
+    lang="${lang/\.po/}"
+    locale_dir="$src_dir/gcedit/locale/$lang/LC_MESSAGES"
+    mkdir -p "$locale_dir"
+    msgfmt -o "$locale_dir/gcedit.mo" "$po_file"
+done

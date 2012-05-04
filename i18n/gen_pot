@@ -1,6 +1,6 @@
 #! /bin/bash
 
-# generate the POT file for translations
+# generate the POT file for translations and update PO files
 
 # takes 'src' dir, defaulting to the parent dir of this file
 
@@ -10,6 +10,7 @@ else
     src_dir="$1"
 fi
 po_dir="`dirname "$0"`/po"
+# generate POT
 version=`head -n1 "$src_dir/README" | sed "s/GCEdit \(.*\)\./\1/"`
 find "$src_dir" -regex ".*\.py" -print0 | xargs -0 xgettext -cNOTE -LPython \
     -o "$po_dir/messages.pot.tmp" "$src_dir/run_gcedit"
@@ -17,8 +18,16 @@ find "$src_dir" -regex ".*\.py" -print0 | xargs -0 xgettext -cNOTE -LPython \
 echo "# Template for GCEdit translations.
 # This file is distributed under the new BSD license.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
 msgid \"\"
 msgstr \"\"
 \"Project-Id-Version: $version\n\"" > "$po_dir/messages.pot"
 tail -n+10 "$po_dir/messages.pot.tmp" >> "$po_dir/messages.pot"
 rm "$po_dir/messages.pot.tmp"
+# update PO
+for po in "$po_dir/"*.po; do
+    msgmerge -N "$po" "$po_dir/messages.pot" -o "$po.tmp"
+    rm "$po"
+    mv "$po.tmp" "$po"
+done

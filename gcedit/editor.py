@@ -115,12 +115,14 @@ prefs: preferences window or None
             (gtk.STOCK_REDO, _('Redo the next change'), self.fs_backend.redo),
             None,
             ((_('_Import Files'), gtk.STOCK_HARDDISK),
+              # NOTE: tooltip on the 'Import Files' button
              _('Import files from outside'), self.fs_backend.do_import, False),
             ((_('I_mport Folders'), gtk.STOCK_HARDDISK),
+              # NOTE: tooltip on the 'Import Folders' button
              _('Import folders from outside'), self.fs_backend.do_import, True),
-            (('_Extract', gtk.STOCK_EXECUTE), _('Extract the selected files'),
+            ((_('_Extract'), gtk.STOCK_EXECUTE), _('Extract the selected files'),
              self.extract),
-            (('_Write', gtk.STOCK_SAVE), _('Write changes to the disk image'),
+            ((_('_Write'), gtk.STOCK_SAVE), _('Write changes to the disk image'),
              self.write),
             (gtk.STOCK_PREFERENCES, _('Open the preferences window'),
              self.open_prefs),
@@ -219,10 +221,12 @@ prefs: preferences window or None
         rt = gtk.ResponseType
         if len(files) == 1:
             # ask for filename to extract to
+            # NOTE: title for a file chooser dialogue
             label = _('Choose where to extract to')
             action = gtk.FileChooserAction.SAVE
         else:
             # ask for directory to extract all files to
+            # NOTE: title for a file chooser dialogue
             label = _('Choose a directory to extract all items to')
             action = gtk.FileChooserAction.SELECT_FOLDER
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)

@@ -58,8 +58,8 @@ from shutil import rmtree
 import tempfile
 
 try:
-    from gettext import gettext as _
-except ImportError:
+    _
+except NameError:
     _ = lambda s: s
 
 CODEC = 'shift-jis'

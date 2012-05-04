@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: 0.1.2-dev\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2012-05-04 16:51+0100\n"
+"POT-Creation-Date: 2012-05-04 22:36+0100\n"
 "PO-Revision-Date: 2012-05-04 16:03+0100\n"
 "Last-Translator: André 'Espyo' Silva\n"
 "Language: pt-PT\n"
@@ -14,123 +14,123 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 
 #. NOTE: the title for a file open dialogue
-#: ../run_gcedit:38
+#: i18n/../run_gcedit:51
 msgid "Open disk image"
 msgstr "Abrir imagem de disco"
 
 #. NOTE: the title for a file open dialogue
-#: ../gcedit/fsbackend.py:201
+#: i18n/../gcedit/fsbackend.py:201
 msgid "Choose files"
 msgstr "Escolha os ficheiros"
 
-#: ../gcedit/fsbackend.py:217
+#: i18n/../gcedit/fsbackend.py:217
 msgid "Can't import to a non-existent directory."
 msgstr "É impossível importar para uma directoria inexistente."
 
-#: ../gcedit/fsbackend.py:277
+#: i18n/../gcedit/fsbackend.py:277
 msgid "Directory doesn't exist."
 msgstr "Directoria inexistente."
 
-#: ../gcedit/fsbackend.py:304
+#: i18n/../gcedit/fsbackend.py:304
 msgid "Drag-and-drop between instances is not supported yet."
 msgstr "Ainda não é possível arrastar-e-largar entre instâncias."
 
-#: ../gcedit/fsbackend.py:313
+#: i18n/../gcedit/fsbackend.py:313
 msgid "Can't copy to a non-existent directory."
 msgstr "É impossível copiar para uma directoria inexistente."
 
-#: ../gcedit/fsbackend.py:367
+#: i18n/../gcedit/fsbackend.py:367
 msgid "Couldn't copy some items:"
 msgstr "Foi impossível copiar alguns itens:"
 
-#: ../gcedit/fsbackend.py:414
+#: i18n/../gcedit/fsbackend.py:414
 msgid "Can't create a directory in a non-existent directory."
 msgstr "É impossível criar uma directoria numa directoria inexistente."
 
-#: ../gcedit/fsbackend.py:422
+#: i18n/../gcedit/fsbackend.py:422
 msgid "Directory '{}' already exists."
 msgstr "A directoria '{}' já existe."
 
-#: ../gcedit/editor.py:114
+#: i18n/../gcedit/editor.py:114
 msgid "Undo the last change"
 msgstr "Anular a última alteração"
 
-#: ../gcedit/editor.py:115
+#: i18n/../gcedit/editor.py:115
 msgid "Redo the next change"
 msgstr "Refazer a próxima alteração"
 
-#: ../gcedit/editor.py:117
+#: i18n/../gcedit/editor.py:117
 msgid "_Import Files"
 msgstr "_Importar Ficheiros"
 
 #. NOTE: tooltip on the 'Import Files' button
-#: ../gcedit/editor.py:119
+#: i18n/../gcedit/editor.py:119
 msgid "Import files from outside"
 msgstr "Importa ficheiros externos"
 
-#: ../gcedit/editor.py:120
+#: i18n/../gcedit/editor.py:120
 msgid "I_mport Folders"
 msgstr "I_mportar Pastas"
 
 #. NOTE: tooltip on the 'Import Folders' button
-#: ../gcedit/editor.py:122
+#: i18n/../gcedit/editor.py:122
 msgid "Import folders from outside"
 msgstr "Importa pastas externas"
 
-#: ../gcedit/editor.py:123
+#: i18n/../gcedit/editor.py:123
 msgid "_Extract"
 msgstr ""
 
-#: ../gcedit/editor.py:123
+#: i18n/../gcedit/editor.py:123
 msgid "Extract the selected files"
 msgstr "Extrai os ficheiros seleccionados"
 
-#: ../gcedit/editor.py:125
+#: i18n/../gcedit/editor.py:125
 msgid "_Write"
 msgstr ""
 
-#: ../gcedit/editor.py:125
+#: i18n/../gcedit/editor.py:125
 msgid "Write changes to the disk image"
 msgstr "Guarda alterações feitas à imagem do disco"
 
-#: ../gcedit/editor.py:127
+#: i18n/../gcedit/editor.py:127
 msgid "Open the preferences window"
 msgstr "Abre a janela de preferências"
 
-#: ../gcedit/editor.py:129
+#: i18n/../gcedit/editor.py:129
 msgid "Quit the application"
 msgstr "Sai da aplicação"
 
-#: ../gcedit/editor.py:214
+#: i18n/../gcedit/editor.py:214
 msgid "No files selected: to extract, select some files first."
 msgstr ""
 "Nenhum ficheiro seleccionado: para extrair, seleccione alguns ficheiros "
 "primeiro."
 
 #. NOTE: title for a file chooser dialogue
-#: ../gcedit/editor.py:225
+#: i18n/../gcedit/editor.py:225
 msgid "Choose where to extract to"
 msgstr "Escolha o local para onde extrair"
 
 #. NOTE: title for a file chooser dialogue
-#: ../gcedit/editor.py:230
+#: i18n/../gcedit/editor.py:230
 msgid "Choose a directory to extract all items to"
 msgstr "Escolha uma directoria para onde extrair todos os items"
 
-#: ../gcedit/editor.py:259
+#: i18n/../gcedit/editor.py:259
 msgid "Extracting files"
 msgstr "A extrair ficheiros"
 
 #. NOTE: eg. 'Completed 5MiB of 34MiB'
-#: ../gcedit/editor.py:283 ../gcedit/editor.py:369
+#: i18n/../gcedit/editor.py:283 i18n/../gcedit/editor.py:369
 msgid "Completed {} of {}"
 msgstr "{} de {} completos"
 
-#: ../gcedit/editor.py:284
+#: i18n/../gcedit/editor.py:284
 msgid "Extracting file: {}"
 msgstr "A extrair o ficheiro: {}"
 
-#: ../gcedit/editor.py:291
+#: i18n/../gcedit/editor.py:291
 msgid ""
 "Couldn't extract to the following locations.  Maybe the files already exist, "
 "or you don't have permission to write here."
@@ -138,20 +138,20 @@ msgstr ""
 "Foi impossível extrair para os seguintes locais. Talvez os ficheiros já "
 "existam, ou talvez não tenha permissão para escrever aqui."
 
-#: ../gcedit/editor.py:297 ../gcedit/editor.py:378
+#: i18n/../gcedit/editor.py:297 i18n/../gcedit/editor.py:378
 msgid "Completed"
 msgstr "Completo"
 
-#: ../gcedit/editor.py:298 ../gcedit/editor.py:379
+#: i18n/../gcedit/editor.py:298 i18n/../gcedit/editor.py:379
 msgid "All items complete"
 msgstr "Todos os itens completos"
 
 #. NOTE: {} is the error message
-#: ../gcedit/editor.py:315
+#: i18n/../gcedit/editor.py:315
 msgid "Couldn't write: {}."
 msgstr "Foi impossível escrever: {}."
 
-#: ../gcedit/editor.py:318
+#: i18n/../gcedit/editor.py:318
 msgid ""
 "Something may have gone horribly wrong, and the disk image might have ended "
 "up in an inconsistent state.  Here's some debug information."
@@ -159,11 +159,11 @@ msgstr ""
 "Algo pode ter corrido horrivelmente mal, e a imagem do disco pode estar num "
 "estado inconcistente. Aqui estão alguns dados de depuração."
 
-#: ../gcedit/editor.py:328
+#: i18n/../gcedit/editor.py:328
 msgid "_Write Anyway"
 msgstr "_Escrever na mesma"
 
-#: ../gcedit/editor.py:334
+#: i18n/../gcedit/editor.py:334
 msgid ""
 "The contents of the disk have been changed by another program since it was "
 "loaded.  Are you sure you want to continue?"
@@ -172,11 +172,11 @@ msgstr ""
 "aberto. Tem a certeza que deseja continuar?"
 
 #. NOTE: confirmation dialogue title
-#: ../gcedit/editor.py:339 ../gcedit/editor.py:346
+#: i18n/../gcedit/editor.py:339 i18n/../gcedit/editor.py:346
 msgid "Confirm Write"
 msgstr "Confirmar escrita"
 
-#: ../gcedit/editor.py:344
+#: i18n/../gcedit/editor.py:344
 msgid ""
 "Once your changes have been written to the disk, they cannot be undone.  Are "
 "you sure you want to continue?"
@@ -184,15 +184,15 @@ msgstr ""
 "Assim que as alterações forem escritas no disco, não poderão ser anuladas. "
 "Tem a certeza que deseja continuar?"
 
-#: ../gcedit/editor.py:350
+#: i18n/../gcedit/editor.py:350
 msgid "Writing to disk"
 msgstr "A escrever no disco"
 
-#: ../gcedit/editor.py:370
+#: i18n/../gcedit/editor.py:370
 msgid "Copying file: "
 msgstr "A copiar o ficheiro: "
 
-#: ../gcedit/editor.py:449
+#: i18n/../gcedit/editor.py:449
 msgid ""
 "The changes you've made will be lost if you quit.  Are you sure you want to "
 "continue?"
@@ -201,96 +201,96 @@ msgstr ""
 "continuar?"
 
 #. NOTE: confirmation dialogue title
-#: ../gcedit/editor.py:453
+#: i18n/../gcedit/editor.py:453
 msgid "Confirm Quit"
 msgstr "Confirmar saída"
 
-#: ../gcedit/editor.py:454
+#: i18n/../gcedit/editor.py:454
 msgid "_Quit Anyway"
 msgstr "_Sair na mesma"
 
-#: ../gcedit/conf.py:30
+#: i18n/../gcedit/conf.py:30
 msgid "GCEdit"
 msgstr "GCEdit"
 
-#: ../gcedit/ext/fsmanage.py:187
+#: i18n/../gcedit/ext/fsmanage.py:187
 msgid "Name"
 msgstr "Nome"
 
-#: ../gcedit/ext/fsmanage.py:260 ../gcedit/ext/fsmanage.py:321
-#: ../gcedit/ext/fsmanage.py:1112
+#: i18n/../gcedit/ext/fsmanage.py:260 i18n/../gcedit/ext/fsmanage.py:321
+#: i18n/../gcedit/ext/fsmanage.py:1112
 msgid "Create directory"
 msgstr "Cria uma directoria"
 
-#: ../gcedit/ext/fsmanage.py:265 ../gcedit/ext/fsmanage.py:316
+#: i18n/../gcedit/ext/fsmanage.py:265 i18n/../gcedit/ext/fsmanage.py:316
 msgid "Paste cut or copied files"
 msgstr "Cola ficheiros cortados ou colados"
 
-#: ../gcedit/ext/fsmanage.py:267 ../gcedit/ext/fsmanage.py:324
+#: i18n/../gcedit/ext/fsmanage.py:267 i18n/../gcedit/ext/fsmanage.py:324
 msgid "Select all files"
 msgstr "Selecciona todos os ficheiros"
 
-#: ../gcedit/ext/fsmanage.py:271 ../gcedit/ext/fsmanage.py:328
-#: ../gcedit/ext/fsmanage.py:1108
+#: i18n/../gcedit/ext/fsmanage.py:271 i18n/../gcedit/ext/fsmanage.py:328
+#: i18n/../gcedit/ext/fsmanage.py:1108
 msgid "Go to parent directory"
 msgstr "Sobe para a directoria acima"
 
-#: ../gcedit/ext/fsmanage.py:276 ../gcedit/ext/fsmanage.py:333
-#: ../gcedit/ext/fsmanage.py:1105
+#: i18n/../gcedit/ext/fsmanage.py:276 i18n/../gcedit/ext/fsmanage.py:333
+#: i18n/../gcedit/ext/fsmanage.py:1105
 msgid "Go to the previous directory"
 msgstr "Vai para a directoria anterior"
 
-#: ../gcedit/ext/fsmanage.py:280 ../gcedit/ext/fsmanage.py:337
-#: ../gcedit/ext/fsmanage.py:1106
+#: i18n/../gcedit/ext/fsmanage.py:280 i18n/../gcedit/ext/fsmanage.py:337
+#: i18n/../gcedit/ext/fsmanage.py:1106
 msgid "Go to the next directory in history"
 msgstr "Vai para a próxima directoria no histórico"
 
-#: ../gcedit/ext/fsmanage.py:302
+#: i18n/../gcedit/ext/fsmanage.py:302
 msgid "Open all selected files"
 msgstr "Abre todos os ficheiros seleccionados"
 
-#: ../gcedit/ext/fsmanage.py:308
+#: i18n/../gcedit/ext/fsmanage.py:308
 msgid "Prepare to move selected files"
 msgstr "Prepara para mover os ficheiros seleccionados"
 
-#: ../gcedit/ext/fsmanage.py:310
+#: i18n/../gcedit/ext/fsmanage.py:310
 msgid "Prepare to copy selected files"
 msgstr "Prepara para copiar os ficheiros seleccionados"
 
-#: ../gcedit/ext/fsmanage.py:318
+#: i18n/../gcedit/ext/fsmanage.py:318
 msgid "Delete selected files"
 msgstr "Apaga os ficheiros seleccionados"
 
-#: ../gcedit/ext/fsmanage.py:320
+#: i18n/../gcedit/ext/fsmanage.py:320
 msgid "Rename selected files"
 msgstr "Muda o nome aos ficheiros seleccionados"
 
 #. NOTE: as in root directory of the filesystem
-#: ../gcedit/ext/fsmanage.py:901
+#: i18n/../gcedit/ext/fsmanage.py:901
 msgid "root"
 msgstr "raiz"
 
-#: ../gcedit/ext/gcutil.py:904
+#: i18n/../gcedit/ext/gcutil.py:904
 msgid "'{}' is not a valid file"
 msgstr "'{}' não é um ficheiro válido"
 
-#: ../gcedit/ext/gcutil.py:980
+#: i18n/../gcedit/ext/gcutil.py:980
 msgid "couldn't read from and write to the disk image"
 msgstr "foi impossível ler e escrever a imagem de disco"
 
-#: ../gcedit/ext/gcutil.py:1013
+#: i18n/../gcedit/ext/gcutil.py:1013
 msgid "couldn't extract to a temporary file ({})"
 msgstr "foi impossível extrair para um ficheiro temporário ({})"
 
-#: ../gcedit/ext/gcutil.py:1083
+#: i18n/../gcedit/ext/gcutil.py:1083
 msgid "either couldn't read from '{}' or couldn't write to the disk image"
 msgstr "foi impossível ou ler de '{}' ou escrever para a imagem de disco"
 
-#: ../gcedit/prefs.py:86
+#: i18n/../gcedit/prefs.py:86
 msgid "_Drag to select files"
 msgstr "_Arrastar para seleccionar ficheiros"
 
-#: ../gcedit/prefs.py:87
+#: i18n/../gcedit/prefs.py:87
 msgid ""
 "Otherwise dragging moves or copies files, even if they are not already "
 "selected"
@@ -298,65 +298,65 @@ msgstr ""
 "Caso contrário, arrastar move ou copia ficheiros, mesmo que já não estejam "
 "seleccionados"
 
-#: ../gcedit/prefs.py:93
+#: i18n/../gcedit/prefs.py:93
 msgid "Automatically close _progress dialogues when finished"
 msgstr "Fechar diálogos de _progresso automaticamente quando terminar"
 
-#: ../gcedit/prefs.py:97
+#: i18n/../gcedit/prefs.py:97
 msgid "_Re-enable all warnings"
 msgstr "_Re-activar todos os avisos"
 
-#: ../gcedit/prefs.py:103
+#: i18n/../gcedit/prefs.py:103
 msgid "_Enable trash"
 msgstr "Ligar _caixote do lixo"
 
-#: ../gcedit/prefs.py:109
+#: i18n/../gcedit/prefs.py:109
 msgid "Trash _location:"
 msgstr "_Local do caixote:"
 
-#: ../gcedit/prefs.py:116
+#: i18n/../gcedit/prefs.py:116
 msgid "Maximum _size:"
 msgstr "_Tamanho máximo:"
 
-#: ../gcedit/prefs.py:125
+#: i18n/../gcedit/prefs.py:125
 msgid "Set a specific directory to use for _temporary files"
 msgstr "Indica uma directoria específica para os ficheiros t_emporários"
 
-#: ../gcedit/prefs.py:126
+#: i18n/../gcedit/prefs.py:126
 msgid "Otherwise the location is decided automatically"
 msgstr "Caso contrário, a directoria é escolhida automaticamente"
 
-#: ../gcedit/prefs.py:130
+#: i18n/../gcedit/prefs.py:130
 msgid "_Directory to use:"
 msgstr "_Directoria a usar:"
 
-#: ../gcedit/prefs.py:135
+#: i18n/../gcedit/prefs.py:135
 msgid "Read and write data _simultaneously"
 msgstr "Ler e escrever dados _simultaneamente"
 
-#: ../gcedit/prefs.py:136
+#: i18n/../gcedit/prefs.py:136
 msgid "If selected, read from/write to files on different disks simultaneously"
 msgstr ""
 "Se seleccionado, as operações de escrita e leitura em discos diferentes "
 "serão feitas simultaneamente"
 
-#: ../gcedit/prefs.py:142
+#: i18n/../gcedit/prefs.py:142
 msgid "Read and write in _blocks of:"
 msgstr "Ler e escrever em _blocos de:"
 
-#: ../gcedit/prefs.py:284
+#: i18n/../gcedit/prefs.py:284
 msgid "Choose a directory"
 msgstr "Escolha uma directoria"
 
-#: ../gcedit/prefs.py:370
+#: i18n/../gcedit/prefs.py:370
 msgid "_Interface"
 msgstr "_Interface"
 
-#: ../gcedit/prefs.py:372
+#: i18n/../gcedit/prefs.py:372
 msgid "T_rash"
 msgstr "Li_xo"
 
-#: ../gcedit/prefs.py:372
+#: i18n/../gcedit/prefs.py:372
 msgid ""
 "The trash directory is used to save files that are deleted from disk "
 "images.  Note that disabling the trash or reducing its size may "
@@ -367,40 +367,40 @@ msgstr ""
 "tamanho poderá <b>apagar itens permanentemente</b> em função das novas "
 "configurações."
 
-#: ../gcedit/prefs.py:377
+#: i18n/../gcedit/prefs.py:377
 msgid "_Advanced"
-msgstr "_Avançadas"
+msgstr "A_vançadas"
 
-#: ../gcedit/prefs.py:467
+#: i18n/../gcedit/prefs.py:467
 msgid "Preferences"
 msgstr "Preferências"
 
 #. NOTE: unit for bytes
-#: ../gcedit/guiutil.py:42
+#: i18n/../gcedit/guiutil.py:42
 msgid "B"
 msgstr ""
 
-#: ../gcedit/guiutil.py:43
+#: i18n/../gcedit/guiutil.py:43
 msgid "KiB"
 msgstr ""
 
-#: ../gcedit/guiutil.py:44
+#: i18n/../gcedit/guiutil.py:44
 msgid "MiB"
 msgstr ""
 
-#: ../gcedit/guiutil.py:45
+#: i18n/../gcedit/guiutil.py:45
 msgid "GiB"
 msgstr ""
 
-#: ../gcedit/guiutil.py:46
+#: i18n/../gcedit/guiutil.py:46
 msgid "TiB"
 msgstr ""
 
-#: ../gcedit/guiutil.py:116
+#: i18n/../gcedit/guiutil.py:116
 msgid "_Don't ask again"
 msgstr "_Não perguntar novamente"
 
-#: ../gcedit/guiutil.py:220
+#: i18n/../gcedit/guiutil.py:220
 msgid ""
 "The file '{}' cannot be moved to '{}' because the destination name is "
 "invalid."
@@ -408,27 +408,27 @@ msgstr ""
 "O ficheiro '{}' não pode ser movido para '{}' porque o nome de destino é "
 "inválido."
 
-#: ../gcedit/guiutil.py:223
+#: i18n/../gcedit/guiutil.py:223
 msgid ""
 "The file '{}' cannot be moved to '{}' because the destination file exists."
 msgstr ""
 "O ficheiro '{}' não pode ser movido para '{}' porque o ficheiro de destino "
 "existe."
 
-#: ../gcedit/guiutil.py:242
+#: i18n/../gcedit/guiutil.py:242
 msgid "Error: invalid filename."
 msgstr "Erro: nome de ficheiro inválido."
 
 #. NOTE: name as in filename
-#: ../gcedit/guiutil.py:250
+#: i18n/../gcedit/guiutil.py:250
 msgid "New name:"
 msgstr "Novo nome:"
 
-#: ../gcedit/guiutil.py:280
+#: i18n/../gcedit/guiutil.py:280
 msgid "_Details"
 msgstr "_Detalhes"
 
-#: ../gcedit/guiutil.py:282
+#: i18n/../gcedit/guiutil.py:282
 msgid ""
 "It must be possible to encode file and directory names using the shift-JIS "
 "encoding, and '/' and null bytes ('\\0') are not allowed."
@@ -437,22 +437,22 @@ msgstr ""
 "o método shift-JIS, e '/' e os bytes nulos ('\\0') não são permitidos."
 
 #. NOTE: name as in file/directory name
-#: ../gcedit/guiutil.py:302
+#: i18n/../gcedit/guiutil.py:302
 msgid "Couldn't create '{}' because its name is invalid."
 msgstr "Foi impossível criar '{}' porque o nome é inválido."
 
 #. NOTE: name as in file/directory name
-#: ../gcedit/guiutil.py:306
+#: i18n/../gcedit/guiutil.py:306
 msgid ""
 "The following items couldn't be created because their names are invalid:"
 msgstr ""
 "Os seguintes itens não puderam ser criados porque os seus nomes são "
 "inválidos:"
 
-#: ../gcedit/guiutil.py:359
+#: i18n/../gcedit/guiutil.py:359
 msgid "_Pause"
 msgstr "_Pausar"
 
-#: ../gcedit/guiutil.py:388
-msgid "_automatically close when finished"
-msgstr "fechar _automaticamente quando terminar"
+#: i18n/../gcedit/guiutil.py:388
+msgid "_Automatically close when finished"
+msgstr "Fechar _automaticamente quando terminar"

@@ -15,7 +15,20 @@
 # BTI: http://www.amnoid.de/gc/bti.txt
 
 import sys
+from platform import system
+from os import path
 from distutils import sysconfig
+from gettext import install
+
+# get locale dir: should be gcedit/locale
+if not hasattr(sys, 'frozen'):
+    # under this file's dir
+    src_dir = __file__
+else:
+    # or, if frozen, under the executable's dir
+    src_dir = sys.executable
+locale_dir = path.join(path.dirname(src_dir), 'gcedit', 'locale')
+install('gcedit', locale_dir, names = ('ngettext',))
 
 _LIB_PREFIX = '/usr/local'
 sys.path.append(sysconfig.get_python_lib(prefix = _LIB_PREFIX))

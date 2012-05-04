@@ -31,8 +31,8 @@ from pickle import dumps, loads
 from base64 import encodebytes, decodebytes
 
 try:
-    from gettext import gettext as _
-except ImportError:
+    _
+except NameError:
     _ = lambda s: s
 
 from gi.repository import Gtk as gtk, Gdk as gdk

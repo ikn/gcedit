@@ -332,7 +332,7 @@ title: dialogue title.
 cancel: whether to show a cancel button; its response is 0.
 pause: whether to show a pause button; its response is 1.
 parent: parent widget.
-autoclose: the initial value of the 'automatically close when finished'
+autoclose: the initial value of the 'Automatically close when finished'
            checkbox.
 
     METHODS
@@ -385,7 +385,7 @@ autoclose: the checkbox.
         i.set_ellipsize(pango.EllipsizeMode.END) # to avoid dialogue resizing
         i.show()
         # checkbox
-        text = _('_automatically close when finished')
+        text = _('_Automatically close when finished')
         self.autoclose = c = gtk.CheckButton.new_with_mnemonic(text)
         v.pack_end(c, False, False, 0)
         c.set_active(autoclose)

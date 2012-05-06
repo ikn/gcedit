@@ -49,6 +49,7 @@ THREADED = True: whether to use threads to read and write data simultaneously.
 # - when write and add files (and maybe other places), sort files by position
 #   on disk before adding (should be quicker, and else is sorted by filesize so
 #   appears to slow down towards end when doing loads of small files)
+# - handle not being able to access self.fn
 
 import os
 from os.path import getsize, exists, dirname, basename
@@ -65,7 +66,7 @@ except NameError:
 CODEC = 'shift-jis'
 BLOCK_SIZE = 0x100000
 THREADED = None
-PAUSED_WAIT = .5
+PAUSED_WAIT = .1
 
 _decode = lambda b: b.decode(CODEC)
 _encode = lambda s: s.encode(CODEC)
@@ -208,7 +209,7 @@ progress: a function to periodically pass the current progress to.  It takes 3
 
           You can pause the copy by returning 1.  This function will then call
           progress periodically until the return value is no longer 1 (for
-          these calls, the arguments are undefined).  The progress function is
+          these calls, the arguments are all None).  The progress function is
           only called between every block/file copied - this gives an idea of
           how quickly a running copy can be paused.
 
@@ -824,8 +825,7 @@ Directories are extracted recursively.
             x += 1
         return x * 4
 
-    def write (self, tmp_dir = None, progress = None,
-               paused_check_interval = .5):
+    def write (self, tmp_dir = None, progress = None):
         """Write the current tree to the image.
 
 write([tmp_dir][, progress])

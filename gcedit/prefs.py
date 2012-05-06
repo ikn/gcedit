@@ -15,6 +15,9 @@ gen_widgets
 
 """
 
+# TODO:
+# [ENH] close on escape
+
 import os
 from html import escape
 

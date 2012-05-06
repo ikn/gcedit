@@ -198,11 +198,143 @@ prefs: preferences window or None
         self.buttons[1].set_sensitive(self.fs_backend.can_redo())
         self._update_title()
 
-    def _extract (self, q, files):
-        """Extract files from the disk."""
-        progress = lambda *args: q.put((False, args))
-        failed = self.fs.extract(files, progress = progress)
-        q.put((True, failed))
+    def _run_with_progress_backend (self, q, method, progress, args, kwargs):
+        """Wrapper that calls a backend function with a progress method.
+
+_run_with_progress_backend(q, method, progress, args, kwargs)
+
+q: a queue to put things on.
+method: the method of the GCFS instance to call.
+progress: the progress callback to pass to the method.
+args, kwargs: arguments to the method, excluding the progress argument.
+
+"""
+        try:
+            rtn = getattr(self.fs, method)(*args, progress = progress,
+                                           **kwargs)
+        except Exception as e:
+            if hasattr(e, 'handled') and e.handled is True:
+                # disk should still be in the same state
+                # NOTE: {} is an error message
+                msg = _('Couldn\'t write: {}.').format(e.args[0])
+                q.put(('handled_err', msg))
+            else:
+                # not good: show traceback
+                msg = _('Something may have gone horribly wrong, and the ' \
+                        'disk image might have ended up in an ' \
+                        'inconsistent state.  Here\'s some debug ' \
+                        'information.')
+                q.put(('unhandled_err', (msg, format_exc().strip())))
+        else:
+            q.put(('end', rtn))
+
+    def _run_with_progress (self, method, title, item_text, failed = None,
+                            *args, **kwargs):
+        """Run a backend function with a progress window.
+
+_run_with_progress(method, title, item_text[, failed], *args, **kwargs)
+    -> (rtn, err)
+
+method: the method of the GCFS instance to call.
+title: the window title.
+item_text: format for the text displayed for each item; with an item returned
+           by the method, this function displays item_text.format(item).
+failed: an (optional) function that takes the return value of the method and
+        returns whether it has failed (in which case, this function returns
+        immediately instead of leaving the progress window open for the user to
+        close it).
+args, kwargs: arguments passed to the method, excluding the progress argument.
+
+rtn: the method's return value, or None if it raised an exception.
+err: whether the method raised an exception (to make it possible to distingish
+     between it raising an exception and it returning None).
+
+"""
+        # create callbacks
+        q = Queue()
+        status = [False, False]
+
+        def progress (*args):
+            if args[0] is not None:
+                q.put(('progress', args))
+            if status[1]:
+                # canceled
+                return 2
+            elif status[0]:
+                # paused
+                return 1
+
+        def pause_cb (*args):
+            status[0] = True
+
+        def unpause_cb (*args):
+            status[0] = False
+
+        def cancel_cb (*args):
+            status[1] = True
+
+        # create dialogue
+        d = guiutil.Progress(title, None, pause_cb, unpause_cb, self,
+                             autoclose = settings['autoclose_progress'])
+        d.show()
+        # start write in another thread
+        t = Thread(target = self._run_with_progress_backend,
+                   args = (q, method, progress, args, kwargs))
+        t.start()
+        err_msg = None
+        while True:
+            while q.empty():
+                while gtk.events_pending():
+                    gtk.main_iteration()
+                sleep(conf.SLEEP_INTERVAL)
+            action, data = q.get()
+            if action == 'progress':
+                # update progress bar
+                done, total, name = data
+                d.bar.set_fraction(done / total)
+                done = guiutil.printable_filesize(done)
+                total = guiutil.printable_filesize(total)
+                # NOTE: eg. 'Completed 5MiB of 34MiB'
+                d.bar.set_text(_('Completed {} of {}').format(done, total))
+                d.set_item(item_text.format(name))
+            elif action == 'handled_err':
+                err_msg = data
+                err_handled = True
+                break
+            elif action == 'unhandled_err':
+                err_msg, traceback = data
+                err_handled = False
+                break
+            else: # action == 'end'
+                # finished
+                rtn = data
+                break
+        t.join()
+        # save autoclose setting
+        settings['autoclose_progress'] = d.autoclose.get_active()
+        if err_msg is not None:
+            d.destroy()
+            # show error
+            if err_handled:
+                guiutil.error(err_msg, self)
+            else:
+                v = guiutil.text_viewer(traceback, gtk.WrapMode.WORD_CHAR)
+                guiutil.error(err_msg, self, v)
+                # don't try and do anything else, in case it breaks things
+            rtn = None
+        elif failed is not None and failed(rtn):
+            d.destroy()
+        else:
+            d.bar.set_fraction(1)
+            d.bar.set_text(_('Completed'))
+            d.set_item(_('All items complete'))
+            autoclose = d.finish()
+            # wait for user to close dialogue
+            if not autoclose:
+                if d.run() == 0:
+                    settings['autoclose_progress'] = True
+            d.destroy()
+        return (rtn, err_msg is not None)
 
     def extract (self, *files):
         """Extract the files at the given paths, else the selected files."""
@@ -256,35 +388,10 @@ prefs: preferences window or None
                 f = self.fs_backend.get_file(f)[1][1]
             args.append((f, d))
         # show progress dialogue
-        d = guiutil.Progress(_('Extracting files'), parent = self,
-                             autoclose = settings['autoclose_progress'])
-        d.show()
-        # start write in another thread
-        q = Queue()
-        t = Thread(target = self._extract, args = (q, args))
-        t.start()
-        while True:
-            while q.empty():
-                while gtk.events_pending():
-                    gtk.main_iteration()
-                sleep(conf.SLEEP_INTERVAL)
-            finished, data = q.get()
-            if finished:
-                # finished
-                failed = data
-                break
-            else:
-                # update progress bar
-                done, total, name = data
-                d.bar.set_fraction(done / total)
-                done = guiutil.printable_filesize(done)
-                total = guiutil.printable_filesize(total)
-                # NOTE: eg. 'Completed 5MiB of 34MiB'
-                d.bar.set_text(_('Completed {} of {}').format(done, total))
-                d.set_item(_('Extracting file: {}').format(name))
-        t.join()
+        failed, err = self._run_with_progress('extract', _('Extracting files'),
+                                              _('Extracting file: {}'), bool,
+                                              args)
         if failed:
-            d.destroy()
             # display failed list
             v = guiutil.text_viewer('\n'.join(dest for f, dest in failed),
                                     gtk.WrapMode.NONE)
@@ -292,36 +399,6 @@ prefs: preferences window or None
                     'the files already exist, or you don\'t have permission ' \
                     'to write here.')
             guiutil.error(msg, self, v)
-        else:
-            d.bar.set_fraction(1)
-            d.bar.set_text(_('Completed'))
-            d.set_item(_('All items complete'))
-            autoclose = d.finish()
-            settings['autoclose_progress'] = autoclose
-            if not autoclose:
-                if d.run() == 0:
-                    settings['autoclose_progress'] = True
-            d.destroy()
-
-    def _write (self, q):
-        """Perform a write."""
-        try:
-            tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
-            self.fs.write(tmp_dir, lambda *args: q.put(args))
-        except Exception as e:
-            if hasattr(e, 'handled') and e.handled is True:
-                # disk should still be in the same state
-                # NOTE: {} is the error message
-                q.put((_('Couldn\'t write: {}.').format(e.args[0]), None))
-            else:
-                # not good: show traceback
-                msg = _('Something may have gone horribly wrong, and the ' \
-                        'disk image might have ended up in an ' \
-                        'inconsistent state.  Here\'s some debug ' \
-                        'information.')
-                q.put((msg, format_exc().strip()))
-        else:
-            q.put((None, None))
 
     def write (self):
         """Write changes to the disk."""
@@ -347,56 +424,14 @@ prefs: preferences window or None
                                 None, True, ('write', 1)) != 1:
                 return
         # show progress dialogue
-        d = guiutil.Progress(_('Writing to disk'), parent = self,
-                             autoclose = settings['autoclose_progress'])
-        d.show()
-        # start write in another thread
-        q = Queue()
-        t = Thread(target = self._write, args = (q,))
-        t.start()
-        while True:
-            while q.empty():
-                while gtk.events_pending():
-                    gtk.main_iteration()
-                sleep(conf.SLEEP_INTERVAL)
-            got = q.get()
-            if len(got) == 3:
-                # update progress bar
-                done, total, name = got
-                d.bar.set_fraction(done / total)
-                done = guiutil.printable_filesize(done)
-                total = guiutil.printable_filesize(total)
-                d.bar.set_text(_('Completed {} of {}').format(done, total))
-                d.set_item(_('Copying file: ') + name)
-            else:
-                # finished
-                msg, traceback = got
-                break
-        t.join()
-        if msg is None:
-            d.bar.set_fraction(1)
-            d.bar.set_text(_('Completed'))
-            d.set_item(_('All items complete'))
-            autoclose = d.finish()
-            settings['autoclose_progress'] = autoclose
+        tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
+        rtn, err = self._run_with_progress('write', _('Writing to disk'),
+                                           _('Copying file: {}'), None,
+                                           tmp_dir)
+        if not err:
             # tree is different, so have to get rid of history
             self.fs_backend.reset()
             self.file_manager.refresh()
-            # wait for user to close dialogue
-            if not autoclose:
-                if d.run() == 0:
-                    settings['autoclose_progress'] = True
-            d.destroy()
-        else:
-            d.destroy()
-            # show error
-            if traceback is None:
-                guiutil.error(msg, self)
-                refresh = False
-            else:
-                v = guiutil.text_viewer(traceback, gtk.WrapMode.WORD_CHAR)
-                guiutil.error(msg, self, v)
-                # don't try and do anything else, in case it breaks things
 
     def _state_cb (self, w, e):
         """Save changes to maximised state."""

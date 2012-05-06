@@ -326,11 +326,13 @@ Act directly on the bar attribute to control the progress bar itself.
 
     CONSTRUCTOR
 
-Progress(title, cancel = False, pause = False[, parent], autoclose = False)
+Progress(title[, cancel][, pause, unpause][, parent], autoclose = False)
 
 title: dialogue title.
-cancel: whether to show a cancel button; its response is 0.
-pause: whether to show a pause button; its response is 1.
+cancel: if a cancel button should be shown, a callback for when it is clicked.
+pause: if a pause button should be shown, a callback for when it is clicked.
+unpause: when the pause button is clicked, it is replaced by a continue button,
+         and this is its callback.
 parent: parent widget.
 autoclose: the initial value of the 'Automatically close when finished'
            checkbox.
@@ -347,19 +349,33 @@ item: current item that's being processed, or None.
 autoclose: the checkbox.
 
 """
-    def __init__ (self, title, cancel = False, pause = False, parent = None,
-                  autoclose = False):
+    def __init__ (self, title, cancel = None, pause = None, unpause = None,
+                  parent = None, autoclose = False):
         self.item = None
         # create dialogue
         flags = gtk.DialogFlags.MODAL | gtk.DialogFlags.DESTROY_WITH_PARENT
         buttons = []
-        if cancel:
+        if cancel is not None:
             buttons += [gtk.STOCK_CANCEL, 0]
-        if pause:
+        if pause is not None:
             buttons += [_('_Pause'), 1]
         gtk.Dialog.__init__(self, title, parent, flags, buttons)
         if pause is not None:
-            self.set_default_response(pause)
+            self.set_default_response(1)
+        # callbacks
+        bs = self.get_action_area().get_children()
+        if cancel is not None:
+            bs[0].connect('clicked', cancel)
+        if pause is not None:
+            self._pause = pause
+            self._unpause = unpause
+            b = bs[cancel is not None]
+            b.connect('clicked', self._toggle_paused)
+            self._pause_icon = gtk.Image.new_from_stock(gtk.STOCK_MEDIA_PAUSE,
+                                                        gtk.IconSize.BUTTON)
+            self._unpause_icon = gtk.Image.new_from_stock(gtk.STOCK_MEDIA_PLAY,
+                                                          gtk.IconSize.BUTTON)
+            b.set_image(self._pause_icon)
         # some properties
         self.set_border_width(12)
         self.set_default_size(400, 0)
@@ -390,6 +406,18 @@ autoclose: the checkbox.
         v.pack_end(c, False, False, 0)
         c.set_active(autoclose)
         v.show_all()
+
+    def _toggle_paused (self, b):
+        if b.get_label() == _('_Pause'):
+            # currently not paused
+            b.set_label(_('_Continue'))
+            b.set_image(self._unpause_icon)
+            self._pause(b)
+        else:
+            # already paused
+            b.set_label(_('_Pause'))
+            b.set_image(self._pause_icon)
+            self._unpause(b)
 
     def set_item (self, item = None):
         """Set the text that displays the current item being progressed.

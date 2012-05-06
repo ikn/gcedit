@@ -1,9 +1,10 @@
 0.1.2:
+ * pause button when writing/extracting
  * internationalisation
  * Portuguese translation
  * more error handling while working (writing/extracting)
+ * option to automatically close progress windows when finished
  * an option in warnings to stop them from being shown again, and a button in
    the preferences window to re-enable them all
- * option to automatically close progress windows when finished
  * editor window title indicates the disk image filename and whether it has
    unsaved changes

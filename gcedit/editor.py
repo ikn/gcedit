@@ -116,10 +116,10 @@ prefs: preferences window or None
             (gtk.STOCK_REDO, _('Redo the next change'), self.fs_backend.redo),
             None,
             ((_('_Import Files'), gtk.STOCK_HARDDISK),
-              # NOTE: tooltip on the 'Import Files' button
+             # NOTE: tooltip on the 'Import Files' button
              _('Import files from outside'), self.fs_backend.do_import, False),
             ((_('I_mport Directories'), gtk.STOCK_HARDDISK),
-              # NOTE: tooltip on the 'Import Directories' button
+             # NOTE: tooltip on the 'Import Directories' button
              _('Import directories from outside'), self.fs_backend.do_import,
              True),
             ((_('_Extract'), gtk.STOCK_EXECUTE),
@@ -272,8 +272,6 @@ err: whether the method raised an exception (to make it possible to distingish
                     err = _('Cannot cancel: files have been overwritten.')
                     err = gtk.Label('<i>{}</i>'.format(escape(err)))
                     err.set_use_markup(True)
-                    err.set_line_wrap(True)
-                    err.set_alignment(0, .5)
                     bb = d.get_action_area()
                     bs = bb.get_children()
                     bb.pack_start(err, True, True, 0)
@@ -305,6 +303,8 @@ err: whether the method raised an exception (to make it possible to distingish
         # start write in another thread
         t = Thread(target = self._run_with_progress_backend,
                    args = (q, method, progress, args, kwargs))
+        from time import time
+        t0 = time()
         t.start()
         err_msg = None
         while True:
@@ -336,6 +336,7 @@ err: whether the method raised an exception (to make it possible to distingish
                 rtn = data
                 break
         t.join()
+        print(time() - t0)
         # save autoclose setting
         settings['autoclose_progress'] = d.autoclose.get_active()
         if err_msg is not None:
@@ -460,7 +461,7 @@ err: whether the method raised an exception (to make it possible to distingish
         rtn, err = self._run_with_progress('write', _('Writing to disk'),
                                            _('Copying file: {}'), None,
                                            tmp_dir)
-        if not err:
+        if not rtn and not err:
             # tree is different, so have to get rid of history
             self.fs_backend.reset()
             self.file_manager.refresh()

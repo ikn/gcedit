@@ -43,12 +43,8 @@ THREADED = True: whether to use threads to read and write data simultaneously.
 # TODO:
 # - decompress function
 # - BNR support
-# - cancel in copy (return value on cancel?)
 # - remaining time estimation
 # - threaded copy
-# - when write and add files (and maybe other places), sort files by position
-#   on disk before adding (should be quicker, and else is sorted by filesize so
-#   appears to slow down towards end when doing loads of small files)
 # - handle not being able to access self.fn
 
 import os
@@ -1032,7 +1028,9 @@ be imported in the same call to this function.
             free.sort(reverse = True)
             # take the largest file
             nf_clean = []
+            total_clean = 0
             nf_dirty = []
+            total_dirty = 0
             for size, i in new_files:
                 # and put it in the smallest possible gap
                 gap_i = -1
@@ -1063,7 +1061,15 @@ be imported in the same call to this function.
                        f_start + f_size > start:
                         clean = False
                         break
-                (nf_clean if clean else nf_dirty).append((start, i))
+                if clean:
+                    total_clean += size
+                    nf_clean.append((start, i))
+                else:
+                    total_dirty += size
+                    nf_dirty.append((start, i))
+            # sort by start for the potential speedup of not seeking as much
+            nf_clean.sort()
+            nf_dirty.sort()
             # actually copy
             with open(self.fn, 'r+b') as f:
                 # if we will be seeking beyond the image end, expand the file
@@ -1071,6 +1077,10 @@ be imported in the same call to this function.
                 last_start = max(start for start, i in nf_clean + nf_dirty)
                 if end < last_start:
                     f.truncate(last_start)
+                # split up the progress function
+                total = total_clean + total_dirty
+                p_clean = lambda d, t, n: progress(d, total, n)
+                p_dirty = lambda d, t, n: progress(d + total_clean, total, n)
                 # perform the copy
                 fn = self.fn
                 for clean in (True, False):
@@ -1082,8 +1092,8 @@ be imported in the same call to this function.
                                         (fn, f, start)))
                         to_copy_names.append(names[i])
                         entries[i] = (False, str_start, start, size)
-                    failed = copy(to_copy, progress, to_copy_names,
-                                  can_cancel = clean)
+                    failed = copy(to_copy, p_clean if clean else p_dirty,
+                                  to_copy_names, can_cancel = clean)
                     if failed is True:
                         # cancelled
                         cleanup()

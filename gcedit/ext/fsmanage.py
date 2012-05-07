@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 4.
+Release: 5-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -35,7 +35,7 @@ try:
 except NameError:
     _ = lambda s: s
 
-from gi.repository import Gtk as gtk, Gdk as gdk
+from gi.repository import Gtk as gtk, Gdk as gdk, Pango as pango
 from gi.repository.GLib import idle_add
 
 to_str = lambda o: encodebytes(dumps(o)).decode()
@@ -182,6 +182,7 @@ buttons: the buttons attribute of a Buttons instance.
                                               stock_id = COL_ICON))
         r = gtk.CellRendererText()
         r.set_property('foreground-set', True)
+        r.set_property('ellipsize', pango.EllipsizeMode.END)
         r.connect('edited', self._done_rename)
         r.connect('editing-canceled', self._cancel_rename)
         self.append_column(gtk.TreeViewColumn(_('Name'), r, text = COL_NAME,

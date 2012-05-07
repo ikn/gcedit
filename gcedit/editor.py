@@ -41,6 +41,7 @@ try:
 except ImportError:
     from dummy_threading import Thread
 from queue import Queue
+from html import escape
 
 from gi.repository import Gtk as gtk, Gdk as gdk
 from .ext import fsmanage, gcutil
@@ -117,13 +118,14 @@ prefs: preferences window or None
             ((_('_Import Files'), gtk.STOCK_HARDDISK),
               # NOTE: tooltip on the 'Import Files' button
              _('Import files from outside'), self.fs_backend.do_import, False),
-            ((_('I_mport Folders'), gtk.STOCK_HARDDISK),
-              # NOTE: tooltip on the 'Import Folders' button
-             _('Import folders from outside'), self.fs_backend.do_import, True),
-            ((_('_Extract'), gtk.STOCK_EXECUTE), _('Extract the selected files'),
-             self.extract),
-            ((_('_Write'), gtk.STOCK_SAVE), _('Write changes to the disk image'),
-             self.write),
+            ((_('I_mport Directories'), gtk.STOCK_HARDDISK),
+              # NOTE: tooltip on the 'Import Directories' button
+             _('Import directories from outside'), self.fs_backend.do_import,
+             True),
+            ((_('_Extract'), gtk.STOCK_EXECUTE),
+             _('Extract the selected files'), self.extract),
+            ((_('_Write'), gtk.STOCK_SAVE),
+             _('Write changes to the disk image'), self.write),
             (gtk.STOCK_PREFERENCES, _('Open the preferences window'),
              self.open_prefs),
             (gtk.STOCK_QUIT, _('Quit the application'), self.quit)
@@ -252,30 +254,53 @@ err: whether the method raised an exception (to make it possible to distingish
 """
         # create callbacks
         q = Queue()
-        status = [False, False]
+        status = {'paused': False, 'cancelled': False, 'cancel_btn': None}
 
         def progress (*args):
             if args[0] is not None:
                 q.put(('progress', args))
-            if status[1]:
-                # canceled
+            if status['cancelled'] == 1:
+                # cancelled
+                status['cancelled'] = 2
                 return 2
-            elif status[0]:
-                # paused
-                return 1
+            else:
+                if status['cancelled'] == 2:
+                    # cancel attempted, but unsuccessful
+                    status['cancelled'] = False
+                    status['cancel_btn'].set_sensitive(False)
+                    # do silly stuff
+                    err = _('Cannot cancel: files have been overwritten.')
+                    err = gtk.Label('<i>{}</i>'.format(escape(err)))
+                    err.set_use_markup(True)
+                    err.set_line_wrap(True)
+                    err.set_alignment(0, .5)
+                    bb = d.get_action_area()
+                    bs = bb.get_children()
+                    bb.pack_start(err, True, True, 0)
+                    for b in bs:
+                        bb.remove(b)
+                    for b in reversed(bs):
+                        bb.pack_end(b, False, False, 0)
+                    err.show()
+                if status['paused']:
+                    # paused
+                    return 1
 
-        def pause_cb (*args):
-            status[0] = True
+        def pause_cb (b):
+            status['paused'] = True
 
-        def unpause_cb (*args):
-            status[0] = False
+        def unpause_cb (b):
+            status['paused'] = False
 
-        def cancel_cb (*args):
-            status[1] = True
+        def cancel_cb (b):
+            status['cancelled'] = 1
+            status['cancel_btn'] = b
+            d.set_item(_('Cancelling...'))
 
         # create dialogue
-        d = guiutil.Progress(title, None, pause_cb, unpause_cb, self,
+        d = guiutil.Progress(title, cancel_cb, pause_cb, unpause_cb, self,
                              autoclose = settings['autoclose_progress'])
+        d.set_item(_('Preparing...'))
         d.show()
         # start write in another thread
         t = Thread(target = self._run_with_progress_backend,
@@ -296,7 +321,8 @@ err: whether the method raised an exception (to make it possible to distingish
                 total = guiutil.printable_filesize(total)
                 # NOTE: eg. 'Completed 5MiB of 34MiB'
                 d.bar.set_text(_('Completed {} of {}').format(done, total))
-                d.set_item(item_text.format(name))
+                if not status['cancelled']:
+                    d.set_item(item_text.format(name))
             elif action == 'handled_err':
                 err_msg = data
                 err_handled = True
@@ -325,9 +351,14 @@ err: whether the method raised an exception (to make it possible to distingish
         elif failed is not None and failed(rtn):
             d.destroy()
         else:
-            d.bar.set_fraction(1)
-            d.bar.set_text(_('Completed'))
-            d.set_item(_('All items complete'))
+            if rtn is True:
+                # cancelled
+                d.set_item(_('Cancelled.'))
+            else:
+                # completed
+                d.bar.set_fraction(1)
+                d.bar.set_text(_('Completed'))
+                d.set_item(_('All items complete.'))
             autoclose = d.finish()
             # wait for user to close dialogue
             if not autoclose:
@@ -388,10 +419,11 @@ err: whether the method raised an exception (to make it possible to distingish
                 f = self.fs_backend.get_file(f)[1][1]
             args.append((f, d))
         # show progress dialogue
+        failed_cb = lambda rtn: rtn and rtn is not True
         failed, err = self._run_with_progress('extract', _('Extracting files'),
-                                              _('Extracting file: {}'), bool,
-                                              args)
-        if failed:
+                                              _('Extracting file: {}'),
+                                              failed_cb, args)
+        if failed and failed is not True:
             # display failed list
             v = guiutil.text_viewer('\n'.join(dest for f, dest in failed),
                                     gtk.WrapMode.NONE)

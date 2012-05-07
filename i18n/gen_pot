@@ -12,8 +12,8 @@ fi
 po_dir="`dirname "$0"`/po"
 # generate POT
 version=`head -n1 "$src_dir/README" | sed "s/GCEdit \(.*\)\./\1/"`
-find "$src_dir" -regex ".*\.py" -print0 | xargs -0 xgettext -cNOTE -LPython \
-    -o "$po_dir/messages.pot.tmp" "$src_dir/run_gcedit"
+find "$src_dir/gcedit" -regex ".*\.py" -print0 | xargs -0 xgettext -cNOTE \
+    -LPython -o "$po_dir/messages.pot.tmp" "$src_dir/run_gcedit"
 # xgettext options to put info in output don't seem to work...
 echo "# Template for GCEdit translations.
 # This file is distributed under the new BSD license.
@@ -27,7 +27,7 @@ tail -n+10 "$po_dir/messages.pot.tmp" >> "$po_dir/messages.pot"
 rm "$po_dir/messages.pot.tmp"
 # update PO
 for po in "$po_dir/"*.po; do
-    msgmerge -N "$po" "$po_dir/messages.pot" -o "$po.tmp"
+    msgmerge "$po" "$po_dir/messages.pot" -o "$po.tmp"
     rm "$po"
     mv "$po.tmp" "$po"
 done

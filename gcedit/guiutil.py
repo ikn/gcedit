@@ -363,19 +363,18 @@ autoclose: the checkbox.
         if pause is not None:
             self.set_default_response(1)
         # callbacks
-        bs = self.get_action_area().get_children()
-        if cancel is not None:
-            bs[0].connect('clicked', cancel)
-        if pause is not None:
-            self._pause = pause
-            self._unpause = unpause
-            b = bs[cancel is not None]
-            b.connect('clicked', self._toggle_paused)
-            self._pause_icon = gtk.Image.new_from_stock(gtk.STOCK_MEDIA_PAUSE,
-                                                        gtk.IconSize.BUTTON)
-            self._unpause_icon = gtk.Image.new_from_stock(gtk.STOCK_MEDIA_PLAY,
-                                                          gtk.IconSize.BUTTON)
-            b.set_image(self._pause_icon)
+        for b in self.get_action_area().get_children():
+            if b.get_label() == gtk.STOCK_CANCEL:
+                b.connect('clicked', cancel)
+            else: # b.get_label() == _('_Pause')
+                self._pause = pause
+                self._unpause = unpause
+                b.connect('clicked', self._toggle_paused)
+                self._pause_icon = gtk.Image.new_from_stock(
+                    gtk.STOCK_MEDIA_PAUSE, gtk.IconSize.BUTTON)
+                self._unpause_icon = gtk.Image.new_from_stock(
+                    gtk.STOCK_MEDIA_PLAY, gtk.IconSize.BUTTON)
+                b.set_image(self._pause_icon)
         # some properties
         self.set_border_width(12)
         self.set_default_size(400, 0)

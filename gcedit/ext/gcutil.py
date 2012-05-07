@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 7.
+Release: 8-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -43,7 +43,7 @@ THREADED = True: whether to use threads to read and write data simultaneously.
 # TODO:
 # - decompress function
 # - BNR support
-# - pause/cancel in copy (return value on cancel?)
+# - cancel in copy (return value on cancel?)
 # - remaining time estimation
 # - threaded copy
 # - when write and add files (and maybe other places), sort files by position
@@ -181,10 +181,11 @@ size: if converting from an int, pad it to this size in bytes by prepending by
     f.seek(pos)
     f.write(data)
 
-def copy (files, progress = None, names = None, overwrite = True):
+def copy (files, progress = None, names = None, overwrite = True,
+          can_cancel = False):
     """Copy a file to a file object.
 
-copy(files[, progress, names], overwrite = True) -> failed
+copy(files[, progress, names], overwrite = True, can_cancel = False) -> failed
 
 files: a list of (source, dest) tuples to copy from source to dest.  source is
        (filename, file, start, size) and dest is (filename, file, start),
@@ -213,10 +214,10 @@ progress: a function to periodically pass the current progress to.  It takes 3
           only called between every block/file copied - this gives an idea of
           how quickly a running copy can be paused.
 
-          [NOT IMPLEMENTED]
           You can try to cancel the copy by returning 2.  If it can still be
-          safely canceled, some cleanup will be performed and the function
-          will return.
+          safely cancelled, some cleanup will be performed and the function
+          will return True.  If the progress function is called again, you may
+          assume that the copy cannot be cancelled.
 names: a list filenames corresponding to elements of the files list to pass to
        progress as the third argument, or 0 or 1 to use the names of the src or
        dest files respectively.
@@ -224,8 +225,12 @@ overwrite: whether to overwrite any destination files that exist (if False and
            a file exists, it will be in the failed list).  Of course, this only
            makes sense for files where only the filename and not the open file
            is given.
+can_cancel: whether cancelling this copy operation (by returning 2 from the
+            progress function) is allowed.
 
-failed: a list of indices in the given files list for copies that failed.
+failed: a list of indices in the given files list for copies that failed.  Or,
+        if this function is cancelled (see the progress and can_cancel
+        arguments), the return value is True.
 
 """
     string = (bytes, str)
@@ -324,9 +329,9 @@ failed: a list of indices in the given files list for copies that failed.
                             # paused
                             sleep(PAUSED_WAIT)
                             result = progress(None, None, None)
-                        if result == 2:
+                        if result == 2 and can_cancel:
                             # cancel
-                            pass
+                            return True
                         progress_update += BLOCK_SIZE
                     # read and write the next block
                     amount = min(size, BLOCK_SIZE)
@@ -636,43 +641,6 @@ Each file is a (name, start, size) tuple.
         return [('boot.bin', 0x0, 0x440), ('bi2.bin', 0x440, 0x2000),
                 ('appldr.bin', 0x2440, 0x2440 + appldr_size)]
 
-    def _extract (self, f, start, size, dest, overwrite = False):
-        """Copy data from the disk image to a file.
-
-_extract(f, start, size, dest, overwrite = False) -> success
-
-f: the disk image opened in binary mode.
-start: position to start reading from.
-size: amount of data to read.
-dest: file to extract to; may also be a file object to write to (open in binary
-      mode).
-overwrite: whether to overwrite the file if it exists (if False and the file
-           exists, success will be False).
-
-success: whether the file could be created.
-
-"""
-        if not overwrite and exists(dest):
-            return False
-        f.seek(start)
-        try:
-            if isinstance(dest, (str, bytes)):
-                f_dest = open(dest, 'wb')
-            else:
-                f_dest = dest
-            # copy data
-            while size > 0:
-                amount = min(size, BLOCK_SIZE)
-                data = f.read(amount)
-                size -= amount
-                f_dest.write(data)
-            if isinstance(dest, (str, bytes)):
-                f_dest.close()
-        except IOError:
-            return False
-        else:
-            return True
-
     def extract_extra_files (self, files, overwrite = False):
         """Extract files from the image that aren't in the filesystem.
 
@@ -737,6 +705,10 @@ failed: a list of files and directories that could not be created.  This is in
       case where the target path's parent directory doesn't exist)
     - an imported file in a given tree could not be read
     - an imported file in a given tree is being extracted back out to itself
+
+       Or, if this function is cancelled (through the progress function), the
+       return value is True; in this case, the destinations of files that have
+       already been extracted are not removed.
 
 Like the entries attribute itself, this method does not take into account
 modifications made to the tree attribute that have not been written to the
@@ -815,7 +787,10 @@ Directories are extracted recursively.
                         to_copy_names.append(i)
                     failed_pool.append((orig_i, dest))
             # extract files
-            failed = copy(to_copy, progress, to_copy_names, overwrite)
+            failed = copy(to_copy, progress, to_copy_names, overwrite, True)
+            if failed is True:
+                # cancelled
+                return True
         return [failed_pool[i] for i in failed]
 
     def _align_4B (self, x):
@@ -828,14 +803,16 @@ Directories are extracted recursively.
     def write (self, tmp_dir = None, progress = None):
         """Write the current tree to the image.
 
-write([tmp_dir][, progress])
+write([tmp_dir][, progress]) -> cancelled
 
 tmp_dir: a directory to store temporary files in for some operations.
 progress: a function to call to indicate progress.  See the same argument to
           the write method for details.  If this function is successfully
-          canceled, the disk and this GCFS instance (including the tree
+          cancelled, the disk and this GCFS instance (including the tree
           attribute) will be left unaltered (for all intents and purposes,
           anyway).
+
+cancelled: whether the write was cancelled (through the progress function).
 
 This function looks at the current state of the tree and amends the filesystem
 in the GameCube image to be the same, copying files from the real filesystem as
@@ -848,13 +825,13 @@ intents and purposes, anyway).  Exceptions without this setting should be
 treated with care: both the disk image and the data in this instance might be
 broken.
 
+It's probably a good idea to back up first...
+
 Note on internals: files may be moved within the disk by replacing their
 entries index with (index, new_start) before writing.  If you do this, you must
 guarantee the move will not overwrite any other files and that new_start is
 4-byte-aligned.  This is only supported in this method.  New files should not
 be imported in the same call to this function.
-
-It's probably a good idea to back up first...
 
 """
         old_entries = self.entries
@@ -936,7 +913,16 @@ It's probably a good idea to back up first...
         # str_start is now the string table size
         data_start = self.fs_start + (1 + len(entries)) * 0xc + str_start
 
-        def error (msg, f = None, cls = IOError):
+        def cleanup_tmp_dir ():
+            # delete temp dir
+            if tmp_dir is not None:
+                try:
+                    rmtree(tmp_dir)
+                except OSError:
+                    pass
+
+        def cleanup ():
+            cleanup_tmp_dir()
             # return disk image to original size if expanded
             if truncated:
                 if f is None:
@@ -944,12 +930,9 @@ It's probably a good idea to back up first...
                         f.truncate(orig_disk_size)
                 else:
                     f.truncate(orig_disk_size)
-            # delete temp dir
-            if tmp_dir is not None:
-                try:
-                    rmtree(tmp_dir)
-                except OSError:
-                    pass
+
+        def error (msg, f = None, cls = IOError):
+            cleanup()
             # raise error
             e = cls(msg)
             e.handled = True
@@ -975,8 +958,12 @@ It's probably a good idea to back up first...
                     to_copy_names.append(names[i])
                     # put in old_files
                     old_files.append((start, i, old_i, size))
-                failed = copy(to_copy, progress, names)
-                if failed:
+                failed = copy(to_copy, progress, names, can_cancel = True)
+                if failed is True:
+                    # cancelled
+                    cleanup()
+                    return True
+                elif failed:
                     msg = _('couldn\'t read from and write to the disk image')
                     error(msg, f)
         # sort existing files by position
@@ -1004,12 +991,18 @@ It's probably a good idea to back up first...
                                                 delete = False)
                 fn = f.name
                 f.close()
-                to_extract.append((old_i, fn))
+                to_extract.append((start, (old_i, fn)))
                 # change entry
                 entries[i] = (False, entries[i][1], fn, size)
+            # sort by position
+            to_extract.sort()
             # extract
-            failed = self.extract(to_extract, True)
-            if failed:
+            failed = self.extract([f[1] for f in to_extract], True)
+            if failed is True:
+                # cancelled
+                cleanup()
+                return True
+            elif failed:
                 msg = _('couldn\'t extract to a temporary file ({})')
                 error(msg.format(failed[0][1]))
 
@@ -1038,7 +1031,9 @@ It's probably a good idea to back up first...
             new_files.sort(reverse = True)
             free.sort(reverse = True)
             # take the largest file
-            for file_i, (size, i) in enumerate(new_files):
+            nf_clean = []
+            nf_dirty = []
+            for size, i in new_files:
                 # and put it in the smallest possible gap
                 gap_i = -1
                 for gap_i, (gap, gap_start) in enumerate(free):
@@ -1061,35 +1056,44 @@ It's probably a good idea to back up first...
                         free.sort(reverse = True)
                     else:
                         free.pop(gap_i)
-                new_files[file_i] = (start, i)
+                # determine if this will overwrite an existing file
+                clean = True
+                for d, ss, f_start, f_size in old_entries:
+                    if not d and f_start < start + size and \
+                       f_start + f_size > start:
+                        clean = False
+                        break
+                (nf_clean if clean else nf_dirty).append((start, i))
             # actually copy
             with open(self.fn, 'r+b') as f:
                 # if we will be seeking beyond the image end, expand the file
                 end = f.seek(0, 2)
-                last_start = max(start for start, i in new_files)
+                last_start = max(start for start, i in nf_clean + nf_dirty)
                 if end < last_start:
                     f.truncate(last_start)
                 # perform the copy
-                to_copy = []
-                to_copy_names = []
                 fn = self.fn
-                for start, i in new_files:
-                    is_dir, str_start, this_fn, size = entries[i]
-                    to_copy.append(((this_fn, None, 0, size), (fn, f, start)))
-                    to_copy_names.append(names[i])
-                    entries[i] = (False, str_start, start, size)
-                failed = copy(to_copy, progress, to_copy_names)
-                if failed:
-                    msg = _('either couldn\'t read from \'{}\' or couldn\'t ' \
-                            'write to the disk image')
-                    error(msg.format(to_copy[failed[0]][0][0]), f)
+                for clean in (True, False):
+                    to_copy = []
+                    to_copy_names = []
+                    for start, i in (nf_clean if clean else nf_dirty):
+                        is_dir, str_start, this_fn, size = entries[i]
+                        to_copy.append(((this_fn, None, 0, size),
+                                        (fn, f, start)))
+                        to_copy_names.append(names[i])
+                        entries[i] = (False, str_start, start, size)
+                    failed = copy(to_copy, progress, to_copy_names,
+                                  can_cancel = clean)
+                    if failed is True:
+                        # cancelled
+                        cleanup()
+                        return True
+                    elif failed:
+                        msg = _('either couldn\'t read from \'{}\' or couldn\'t ' \
+                                'write to the disk image')
+                        error(msg.format(to_copy[failed[0]][0][0]), f)
 
-        # clean up temp dir
-        if tmp_dir is not None:
-            try:
-                rmtree(tmp_dir)
-            except OSError:
-                pass
+        cleanup_tmp_dir()
         # get new fst_size, num_entries, str_start
         self.fst_size = data_start - self.fs_start
         self.num_entries = len(entries) + 1
@@ -1118,6 +1122,7 @@ It's probably a good idea to back up first...
                 f.truncate(end)
         # build new tree
         self.build_tree()
+        return False
 
     def _quick_compress (self):
         """Quick compress of the image.

@@ -15,7 +15,6 @@ Editor
 # [BUG] on import dir, can rename two invalid-named files to same name
 # [ENH] include game name in window title (need BNR support)
 # [ENH] icon
-# [FEA] pause/cancel in write/extract
 # [FEA] display file size
 # [FEA] can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
@@ -303,8 +302,6 @@ err: whether the method raised an exception (to make it possible to distingish
         # start write in another thread
         t = Thread(target = self._run_with_progress_backend,
                    args = (q, method, progress, args, kwargs))
-        from time import time
-        t0 = time()
         t.start()
         err_msg = None
         while True:
@@ -336,7 +333,6 @@ err: whether the method raised an exception (to make it possible to distingish
                 rtn = data
                 break
         t.join()
-        print(time() - t0)
         # save autoclose setting
         settings['autoclose_progress'] = d.autoclose.get_active()
         if err_msg is not None:

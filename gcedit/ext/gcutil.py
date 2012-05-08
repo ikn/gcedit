@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 8-dev.
+Release: 9.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -246,33 +246,45 @@ failed: a list of indices in the given files list for copies that failed.  Or,
             dest = list(dest)
         to_copy.append((src, dest))
     # get file sizes/locations
-    files = {(f[0], i // 2) for i, f in enumerate(sum(to_copy, ()))}
     sizes = {}
     locations = {}
     sep = os.sep
-    for f, i in files:
-        try:
-            stat = os.stat(f)
-        except OSError:
-            sizes[f] = 0
-            # use first existing parent for location instead
-            p = os.path.abspath(f)
-            while True:
-                try:
-                    p = dirname(p)
-                    stat = os.stat(p)
-                except OSError:
-                    if not p.strip(sep):
-                        # ...no parent exists, somehow
-                        # it'll just fail later, so location doesn't matter
-                        locations[f] = -1
+
+    def stat (f):
+        # return (size, location) for file f (and cache the results)
+        size = sizes.get(f, None)
+        if size is None:
+            try:
+                stat = os.stat(f)
+            except OSError:
+                size = 0
+                # use first existing parent for location instead
+                p = os.path.abspath(f)
+                while True:
+                    try:
+                        p = dirname(p)
+                        stat = os.stat(p)
+                    except OSError:
+                        if not p.strip(sep):
+                            # ...no parent exists, somehow
+                            # it'll just fail later, so location doesn't matter
+                            location = -1
+                            break
+                    else:
+                        location = stat.st_dev
                         break
-                else:
-                    locations[f] = stat.st_dev
-                    break
+            else:
+                size = stat.st_size
+                location = stat.st_dev
+            # store in cache
+            sizes[f] = size
+            locations[f] = location
         else:
-            sizes[f] = stat.st_size
-            locations[f] = stat.st_dev
+            # retrieve from cache
+            size = sizes[f]
+            location = locations[f]
+        return (size, location)
+
     # fill in default values
     total_size = 0
     for src, dest in to_copy:
@@ -281,7 +293,8 @@ failed: a list of indices in the given files list for copies that failed.  Or,
         if len(src) == 2:
             src.append(0)
         if len(src) == 3:
-            src.append(sizes[src[0]] - src[2])
+            size = stat(src[0])
+            src.append(size - src[2])
         total_size += src[3]
         if len(dest) == 1:
             dest.append(None)
@@ -659,7 +672,6 @@ failed: a list of indices in the given files list for files that could not be
         failed = []
         with open(self.fn, 'rb') as f:
             for i, (name, dest) in enumerate(files):
-                print(i, name, dest)
                 try:
                     start, size = all_files[name]
                 except KeyError:
@@ -1027,11 +1039,7 @@ be imported in the same call to this function.
             new_files.sort(reverse = True)
             free.sort(reverse = True)
             # take the largest file
-            nf_clean = []
-            total_clean = 0
-            nf_dirty = []
-            total_dirty = 0
-            for size, i in new_files:
+            for file_i, (size, i) in enumerate(new_files):
                 # and put it in the smallest possible gap
                 gap_i = -1
                 for gap_i, (gap, gap_start) in enumerate(free):
@@ -1054,11 +1062,36 @@ be imported in the same call to this function.
                         free.sort(reverse = True)
                     else:
                         free.pop(gap_i)
-                # determine if this will overwrite an existing file
+                new_files[file_i] = (start, size, start + size, i)
+            # split into files that do/don't overwrite existing files
+            # sort both lists
+            new_files.sort()
+            old_files_all = iter(sorted((st, sz, st + sz) for d, ss, st, sz \
+                                        in old_entries if not d))
+            # also sum up sizes for progress calculations
+            nf_clean = []
+            total_clean = 0
+            nf_dirty = []
+            total_dirty = 0
+            # get first old file
+            try:
+                f_start, f_size, f_end = next(old_files_all)
+            except StopIteration:
+                f_start = None
+            for start, size, end, i in new_files:
                 clean = True
-                for d, ss, f_start, f_size in old_entries:
-                    if not d and f_start < start + size and \
-                       f_start + f_size > start:
+                while f_start is not None: # else no old files left
+                    if f_end <= start:
+                        # old before new: get next old file
+                        try:
+                            f_start, f_size, f_end = next(old_files_all)
+                        except StopIteration:
+                            f_start = None
+                    elif f_start >= end:
+                        # old after new: no more old files will overlap
+                        break
+                    else:
+                        # overlap
                         clean = False
                         break
                 if clean:

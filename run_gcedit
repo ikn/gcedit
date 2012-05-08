@@ -22,10 +22,13 @@ sys.path.append(sysconfig.get_python_lib(prefix = _LIB_PREFIX))
 
 # non-lowercase modules = evil
 from gi.repository import Gtk as gtk, Gdk as gdk, GObject as gobject
+from gcedit import conf
 from gcedit.editor import Editor
 from gcedit.ext.gcutil import GCFS
 
-IDENTIFIER = 'gcedit'
+# add icons under current dir to icon search path
+gtk.IconTheme.get_default().append_search_path('icons')
+gtk.Window.set_default_icon_name(conf.IDENTIFIER)
 
 
 class LoadDisk (gtk.FileChooserDialog):

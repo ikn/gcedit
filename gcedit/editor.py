@@ -51,8 +51,6 @@ from . import guiutil
 from . import conf
 from .conf import settings
 
-IDENTIFIER = 'gcedit'
-
 
 class Editor (gtk.Window):
     """The main application window.

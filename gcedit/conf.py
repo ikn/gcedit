@@ -18,17 +18,18 @@ import json
 
 from gi.repository import Gtk as gtk
 
+IDENTIFIER = 'gcedit'
+
 if system() == 'Windows':
     HOME = os.environ['USERPROFILE']
-    SHARE = join_path(os.environ['APPDATA'], 'gcedit')
+    SHARE = join_path(os.environ['APPDATA'], IDENTIFIER)
     CONF = join_path(SHARE, 'conf')
 else:
     HOME = os.path.expanduser('~')
-    SHARE = join_path(HOME, '.local', 'share', 'gcedit')
-    CONF = join_path(HOME, '.config', 'gcedit')
+    SHARE = join_path(HOME, '.local', 'share', IDENTIFIER)
+    CONF = join_path(HOME, '.config', IDENTIFIER)
 
 APPLICATION = _('GCEdit')
-IDENTIFIER = 'gcedit'
 UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})

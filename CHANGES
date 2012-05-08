@@ -1,4 +1,6 @@
 0.1.3:
+ * allow writing to be cancelled (much) more often
+ * significant write performance improvements for (very) large numbers of files
 
 0.1.2:
  * pause button when writing/extracting

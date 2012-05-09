@@ -12,10 +12,10 @@ Editor
 """
 
 # TODO:
+# [ENH] icon more stylistic?  Just a big screw?
 # [BUG] on import dir, can rename two invalid-named files to same name
+# [ENH] .desktop file
 # [ENH] include game name in window title (need BNR support)
-# [ENH] icon
-# [FEA] display file size
 # [FEA] can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
 # [FEA] menus:
@@ -86,7 +86,8 @@ prefs: preferences window or None
         self.fs_backend = FSBackend(fs, self)
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
         m = fsmanage.Manager(self.fs_backend, identifier = ident,
-                             drag_to_select = settings['sel_on_drag'])
+                             drag_to_select = settings['sel_on_drag'],
+                             extra_cols = [(_('Size'), None)])
         self.file_manager = m
         # window
         gtk.Window.__init__(self)

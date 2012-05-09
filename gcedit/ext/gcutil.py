@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 9.
+Release: 10-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -408,6 +408,7 @@ fn: file path to the image file.
 
     METHODS
 
+tree_size
 build_tree
 update
 disk_changed
@@ -484,39 +485,80 @@ tree: a dict representing the root directory.  Each directory is a dict whose
                 name = read(f, str_start + entry[1], 0x200, False, b'\0', 0x20)
                 names.append(_decode(name))
 
-    def _tree_size (self, tree, file_size = False):
-        """Get the number of children in a tree.
+    def tree_size (self, tree, file_size = False, recursive = False,
+                   key = None, sizes = None, done = None):
+        """Get the number of children in or total filesize of a tree.
 
-_tree_size(tree, file_size = False)
+tree_size(tree, file_size = False, recursive = False, key = None) -> size
 
 tree: the tree.
 file_size: whether to return the total file size of the children in the tree
            instead.  Imported files are respected (if they cannot be accessed,
            they are ignored).
+recursive: whether to return a dict of numbers for every child in the tree
+           instead.  The keys of this dict are the the same as in the tree
+           ((name, id) for each directory and file).  The key for the whole
+           tree is the key argument. If file_size is False, files are omitted
+           (always have number of children 0).
+key: if recursive is True, this is the key for the whole tree in the returned
+     dict (and must, therefore, be hashable).
+
+size: the number of children in the tree or the total file size, or a dict of
+      such numbers if recursive is True.
 
 """
+        if recursive and sizes is None:
+            sizes = {}
+        if done is None:
+            done = {}
+        # infinite recursion prevention: return if already counted
+        tree_id = id(tree)
+        if tree_id in done:
+            done[tree_id].append(key)
+            return sizes if recursive else 0
+        # done stores lists of keys for the same tree, as detected above
+        done[tree_id] = []
         size = 0
-        for k, v in tree.items():
-            if k is None:
+        for d_key, this_tree in tree.items():
+            if d_key is None:
                 # files
                 if file_size:
                     entries = self.entries
-                    for name, i in v:
+                    for f_key in this_tree:
+                        i = f_key[1]
                         if isinstance(i, int):
-                            size += entries[i][3]
+                            this_size = entries[i][3]
                         else:
                             try:
-                                size += getsize(i)
+                                this_size = getsize(i)
                             except OSError:
-                                pass
+                                this_size = 0
+                        size += this_size
+                        if recursive:
+                            sizes[f_key] = this_size
                 else:
                     size += len(v)
             else:
                 # dir
                 if not file_size:
                     size += 1
-                size += self._tree_size(v, file_size)
-        return size
+                this_size = self.tree_size(this_tree, file_size, recursive,
+                                           d_key, sizes, done)
+                # if not in sizes now, recursion
+                size += sizes.get(d_key, 0) if recursive else this_size
+        if recursive:
+            sizes[key] = size
+            others = done[tree_id]
+            if others:
+                for k in others:
+                    sizes[k] = size
+            # this tree might be somewhere else as well, but we've checked all
+            # children now, so consider that (and possible infinite recursions)
+            # separately
+            del done[tree_id]
+            return sizes
+        else:
+            return size
 
     def build_tree (self, store = True, start = 0, end = None):
         """Build the directory tree from the current entries list.
@@ -750,7 +792,7 @@ Directories are extracted recursively.
             # add to total amount of data to copy
             if not isinstance(j, dict):
                 j = {None: [('', j)]}
-            total += self._tree_size(j, True)
+            total += self.tree_size(j, True)
         to_copy = []
         to_copy_names = []
         failed_pool = []
@@ -912,7 +954,7 @@ be imported in the same call to this function.
                 tree[None] = [f + (True,) for f in tree[None]]
                 name = _decoded(child[0])
                 names.append(name)
-                next_index = len(entries) + 2 + self._tree_size(tree)
+                next_index = len(entries) + 2 + self.tree_size(tree)
                 entries.append((True, str_start, parent, next_index))
                 parent_indices[id(tree)] = len(entries)
             # terminate with a null byte

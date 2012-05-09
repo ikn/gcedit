@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 5-dev.
+Release: 6-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -48,6 +48,7 @@ COL_ICON = 1
 COL_NAME = 2
 COL_COLOUR = 3
 COL_EDITABLE = 4
+COL_LAST = 4
 
 NAME_COLOUR = '#000'
 NAME_COLOUR_CUT = '#666'
@@ -69,7 +70,7 @@ by ['some', 'path', 'current_dir'].
     CONSTRUCTOR
 
 Manager(backend, path = [], read_only = False, cache = False,
-        drag_to_select = True, identifier = 'fsmanage')
+        drag_to_select = True, extra_cols = [], identifier = 'fsmanage')
 
 backend: an object with methods as follows.  Any method that changes the
          directory tree should not return until any call to list_dir will
@@ -112,6 +113,13 @@ drag_to_select: whether dragging across unselected files will select them
                 (otherwise it will drag them; in the first case, files can only
                 be dragged if they are selected first).  Alter this later using
                 Manager.set_rubber_banding (inherited from Gtk.TreeView).
+extra_cols: a list of extra (text) columns to have after the filename column in
+            the TreeView; each is (name, renderer), where type is as
+            passed to the TreeModel, name is shown as the column header
+            (currently never shown), and renderer is a Gtk.CellRendererText to
+            use, or None to have it created.  Each entry in the return value of
+            backend.list_dir should then include the value for each column in
+            order after is_dir.
 identifier: this is some (picklable) data that is passed to the copy method of
             the backend when a file is drag-and-dropped from a different
             Manager instance.  This can optionally be a function instead, that
@@ -130,16 +138,19 @@ clear_cache
 
     ATTRIBUTES
 
-backend: as given.
+backend, read_only, identifier: as given.
 path: as given; change it with the set_path method.
 cache: as given.  Setting this to False will disable further caching, but not
        clear the existing cache; use the clear_cache method for this.
-buttons: the buttons attribute of a Buttons instance.
+buttons: a list of buttons ruturned by the buttons function in this module, or
+         none.
+address_bar: the AddressBar instance attached to this instance, or None.
 
 """
 
     def __init__ (self, backend, path = [], read_only = False, cache = False,
-                  drag_to_select = True, identifier = 'fsmanage'):
+                  drag_to_select = True, extra_cols = [],
+                  identifier = 'fsmanage'):
         self.backend = backend
         self.path = list(path)
         self.read_only = read_only
@@ -155,7 +166,8 @@ buttons: the buttons attribute of a Buttons instance.
         self.address_bar = None
 
         # interface
-        self._model = gtk.ListStore(bool, str, str, str, bool)
+        self._model = gtk.ListStore(bool, str, str, str, bool,
+                                    *(str for c in extra_cols))
         gtk.TreeView.__init__(self, self._model)
         self.get_selection().set_mode(gtk.SelectionMode.MULTIPLE)
         self.set_search_column(COL_NAME)
@@ -178,16 +190,27 @@ buttons: the buttons attribute of a Buttons instance.
         self.connect('row-activated', self._open)
         self.connect('button-press-event', self._click)
         # columns
-        self.append_column(gtk.TreeViewColumn('Icon', gtk.CellRendererPixbuf(),
-                                              stock_id = COL_ICON))
+        c = gtk.TreeViewColumn('Icon', gtk.CellRendererPixbuf(),
+                               stock_id = COL_ICON)
+        self.append_column(c)
         r = gtk.CellRendererText()
         r.set_property('foreground-set', True)
         r.set_property('ellipsize', pango.EllipsizeMode.END)
         r.connect('edited', self._done_rename)
         r.connect('editing-canceled', self._cancel_rename)
-        self.append_column(gtk.TreeViewColumn(_('Name'), r, text = COL_NAME,
-                                              foreground = COL_COLOUR,
-                                              editable = COL_EDITABLE))
+        c = gtk.TreeViewColumn(_('Name'), r, text = COL_NAME,
+                               foreground = COL_COLOUR,
+                               editable = COL_EDITABLE)
+        c.set_property('expand', True)
+        self.append_column(c)
+        # extra columns
+        for i, (name, r) in enumerate(extra_cols):
+            if r is None:
+                r = gtk.CellRendererText()
+            r.set_property('foreground-set', True)
+            c = gtk.TreeViewColumn(name, r, text = COL_LAST + i + 1,
+                                   foreground = COL_COLOUR)
+            self.append_column(c)
         # sorting
         self._model.set_default_sort_func(self._sort_tree)
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
@@ -593,14 +616,17 @@ buttons: the buttons attribute of a Buttons instance.
             # failed
             return
         self._refresh(True)
-        # find it in the tree
+        # make sure the row exists
+        while gtk.events_pending():
+            gtk.main_iteration()
+        # find it in the tree and start editing it
         j = None
         for i, row in enumerate(self._model):
             if name == row[2]:
                 j = i
                 break
         if j is not None:
-            self._rename([i])
+            self._rename([j])
 
     def refresh (self, *new):
         """Refresh the directory listing.
@@ -677,13 +703,14 @@ preserve_sel: whether to try to preserve the selection over the refresh
             cb = cb[0] if cb[1] else False
         DIR = gtk.STOCK_DIRECTORY
         FILE = gtk.STOCK_FILE
-        for name, is_dir in items:
+        for name, is_dir, *extra_vals in items:
             icon = DIR if is_dir else FILE
             if cb and path + [name] in cb:
                 colour = NAME_COLOUR_CUT
             else:
                 colour = NAME_COLOUR
-            model.append((is_dir, icon, name, colour, False))
+            model.append((is_dir, icon, name, colour, False) +
+                         tuple(extra_vals))
         # enable sorting again
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
         model.set_sort_column_id(-1, gtk.SortType.ASCENDING)
@@ -710,6 +737,7 @@ preserve_sel: whether to try to preserve the selection over the refresh
                 sel.select_path(i)
                 if name in changes_new or sel_from_hist:
                     new_selected.append(i)
+        # FIXME: use_align doesn't seem to work
         # if got a focus, scroll to it
         if focus is not None:
             self.scroll_to_cell(focus, use_align = False)

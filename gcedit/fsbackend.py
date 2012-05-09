@@ -56,6 +56,8 @@ fs, editor: the arguments given to the constructor.
         self.editor = editor
         self._hist_pos = 0
         self._hist = []
+        self._sizes = {}
+        self._update_sizes()
 
     def reset (self):
         """Forget all history."""
@@ -95,10 +97,10 @@ rtn: if return_parent is False this is the tree for the given path.  Otherwise,
                 raise ValueError('invalid path')
         if return_parent:
             try:
-                return parent, k
+                return (parent, k)
             except NameError:
                 # never found any, but didn't raise an exception: this is root
-                return tree, None
+                return (tree, None)
         else:
             return tree
 
@@ -116,6 +118,46 @@ is its entry in the tree.
                 return tree, entry
         # nothing found
         raise ValueError('invalid path')
+
+    def _get_size (self, is_dir, path):
+        """Get the total filesize of a path.
+
+_get_size(is_dir, path) -> size
+
+"""
+        if is_dir:
+            key = self.get_tree(path, True)[1]
+        else:
+            key = self.get_file(path)[1]
+        return self._sizes[path[0]][key]
+
+    def _update_sizes (self, *paths):
+        """Add sizes to the cache for the given paths.
+
+If no paths are given, update all sizes.
+
+"""
+        if not paths:
+            # get all toplevel paths
+            paths = [[x[0]] for x in self.fs.tree.keys() if x is not None] + \
+                    [[name] for name, i in self.fs.tree[None]]
+        # update sizes for toplevel parents of paths
+        for name in {path[0] for path in paths}:
+            path = (name,)
+            try:
+                parent, key = self.get_tree(path, True)
+            except ValueError:
+                try:
+                    key = self.get_file(path)[1]
+                    tree = {None: [key]}
+                except ValueError:
+                    continue
+                else:
+                    sizes = self.fs.tree_size(tree, True, True)
+                    sizes = {key: sizes[key]}
+            else:
+                sizes = self.fs.tree_size(parent[key], True, True, key)
+            self._sizes[name] = sizes
 
     def undo (self):
         """Undo the last action."""
@@ -136,11 +178,11 @@ is its entry in the tree.
                 else:
                     # dir
                     parent[x[1]] = x[2]
+                self._update_sizes(*(x[0] for x in data))
         elif action == 'new':
             self.delete(data, hist = False)
         else: # import
-            for path, f in data:
-                self.delete(path, hist = False)
+            self.delete(*(path for path, f in data), hist = False)
         self.editor.file_manager.refresh()
         self.editor.hist_update()
 
@@ -167,6 +209,7 @@ is its entry in the tree.
                 else:
                     # file
                     tree[None].append((name, f))
+            self._update_sizes(*(path for path, f in data))
         self.editor.file_manager.refresh()
         self.editor.hist_update()
 
@@ -266,10 +309,12 @@ Takes an argument indicating whether to import directories (else files).
                     new_names.append(name)
                     current_names.append(name)
             if new:
+                self._update_sizes(*(path for path, tree in new))
                 self.editor.file_manager.refresh(*new_names)
                 self._add_hist(('import', new))
 
     def list_dir (self, path):
+        path = tuple(path)
         try:
             tree = self.get_tree(path)
         except ValueError:
@@ -277,16 +322,27 @@ Takes an argument indicating whether to import directories (else files).
             guiutil.error(_('Directory doesn\'t exist.'), self.editor)
             items = []
         else:
-            # dirs
-            items = [(k[0], True) for k in tree if k is not None]
-            # files
-            items += [(name, False) for name, i in tree[None]]
+            size = self._get_size
+            niceify = guiutil.printable_filesize
+            items = []
+            for k, v in tree.items():
+                if k is None:
+                    # files
+                    for name, i in v:
+                        this_size = niceify(size(False, path + (name,)))
+                        items.append((name, False, this_size))
+                else:
+                    # dir
+                    name = k[0]
+                    this_size = niceify(size(True, path + (name,)))
+                    items.append((name, True, this_size))
         return items
 
     def open_files (self, *files):
         self.editor.extract(*files)
 
-    def copy (self, *data, return_failed = False, hist = True):
+    def copy (self, *data, return_failed = False, hist = True,
+              update_sizes = True):
         failed = []
         cannot_copy = []
         said_nodest = False
@@ -366,28 +422,35 @@ Takes an argument indicating whether to import directories (else files).
             v = guiutil.text_viewer('\n'.join(cannot_copy), gtk.WrapMode.NONE)
             guiutil.error(_('Couldn\'t copy some items:'), self.editor, v)
         # add to history
-        if hist:
-            succeeded = [x for x in data if x[0] not in failed]
-            if succeeded:
+        succeeded = [x for x in data if x[0] not in failed]
+        if succeeded:
+            if update_sizes:
+                self._update_sizes(*(new for old, new in succeeded))
+            if hist:
                 self._add_hist(('copy', succeeded))
         if return_failed:
             return failed
         else:
             return len(failed) != len(data)
 
-    def move (self, *data, hist = True):
-        failed = self.copy(*data, return_failed = True, hist = False)
+    def move (self, *data, hist = True, update_sizes = True):
+        failed = self.copy(*data, return_failed = True, hist = False,
+                           update_sizes = False)
         if len(failed) != len(data):
             succeeded = [x for x in data if x[0] not in failed]
-            self.delete(*(old for old, new in succeeded), hist = False)
-            # add to history
-            if hist and succeeded:
-                self._add_hist(('move', succeeded))
+            if succeeded:
+                self.delete(*(old for old, new in succeeded), hist = False,
+                            update_sizes = False)
+                # add to history
+                if update_sizes:
+                    self._update_sizes(*sum((tuple(x) for x in succeeded), ()))
+                if hist:
+                    self._add_hist(('move', succeeded))
             return True
         else:
             return False
 
-    def delete (self, *files, hist = True):
+    def delete (self, *files, hist = True, update_sizes = True):
         done = []
         for f in files:
             try:
@@ -402,11 +465,14 @@ Takes an argument indicating whether to import directories (else files).
                 done.append((f, k, parent[k]))
                 del parent[k]
         # history
-        if hist and done:
-            self._add_hist(('delete', done))
+        if done:
+            if update_sizes:
+                self._update_sizes(*(x[0] for x in done))
+            if hist:
+                self._add_hist(('delete', done))
         return True
 
-    def new_dir (self, path, hist = True):
+    def new_dir (self, path, hist = True, update_sizes = True):
         *dest, name = path
         try:
             dest = self.get_tree(dest)
@@ -427,7 +493,9 @@ Takes an argument indicating whether to import directories (else files).
                                           self.editor)
             return False
         else:
+            dest[(name, None)] = {None: []}
+            if update_sizes:
+                self._update_sizes(path)
             if hist:
                 self._add_hist(('new', path))
-            dest[(name, None)] = {None: []}
             return True

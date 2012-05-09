@@ -47,10 +47,14 @@ def printable_filesize (size):
     ):
         if size < 1024 ** (factor + 1):
             break
-    size /= (1024 ** factor)
-    # 3 significant figures but always show up to units
-    dp = max(2 - int(log10(max(size, 1))), 0)
-    return ('{:.' + str(dp) + 'f}{}').format(size, suffix)
+    if factor == 0:
+        # bytes
+        return '{} {}'.format(size, suffix)
+    else:
+        size /= (1024 ** factor)
+        # 3 significant figures but always show up to units
+        dp = max(2 - int(log10(max(size, 1))), 0)
+        return ('{:.' + str(dp) + 'f} {}').format(size, suffix)
 
 def text_viewer (text, wrap_mode = gtk.WrapMode.WORD):
     """Get a read-only Gtk.TextView widget in a Gtk.ScrolledWindow.

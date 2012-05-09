@@ -50,7 +50,6 @@ _defaults = {
     # advanced
     'set_tmp_dir': False,
     'tmp_dir': HOME,
-    'threaded_copy': True,
     'block_size': (1, 2) # 1MiB
 }
 
@@ -70,7 +69,6 @@ _types = {
     # advanced
     'set_tmp_dir': bool,
     'tmp_dir': str,
-    'threaded_copy': int,
     'block_size': list
 }
 

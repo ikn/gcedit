@@ -31,20 +31,12 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
                   paused, the function waits this many seconds between
                   subsequent calls to the progress function.
 
-[NOT IMPLEMENTED]
-
-THREADED = True: whether to use threads to read and write data simultaneously.
-                 If True, have as many threads as possible where each is
-                 reading from or writing to a different physical disk; if
-                 False, always have just one thread.
-
 """
 
 # TODO:
 # - decompress function
 # - BNR support
 # - remaining time estimation
-# - threaded copy
 # - handle not being able to access self.fn
 
 import os
@@ -61,7 +53,6 @@ except NameError:
 
 CODEC = 'shift-jis'
 BLOCK_SIZE = 0x100000
-THREADED = None
 PAUSED_WAIT = .1
 
 _decode = lambda b: b.decode(CODEC)
@@ -250,40 +241,22 @@ failed: a list of indices in the given files list for copies that failed.  Or,
     locations = {}
     sep = os.sep
 
-    def stat (f):
-        # return (size, location) for file f (and cache the results)
+    def get_size (f):
+        # return the size of the given file (and cache the results)
         size = sizes.get(f, None)
         if size is None:
             try:
                 stat = os.stat(f)
             except OSError:
                 size = 0
-                # use first existing parent for location instead
-                p = os.path.abspath(f)
-                while True:
-                    try:
-                        p = dirname(p)
-                        stat = os.stat(p)
-                    except OSError:
-                        if not p.strip(sep):
-                            # ...no parent exists, somehow
-                            # it'll just fail later, so location doesn't matter
-                            location = -1
-                            break
-                    else:
-                        location = stat.st_dev
-                        break
             else:
                 size = stat.st_size
-                location = stat.st_dev
             # store in cache
             sizes[f] = size
-            locations[f] = location
         else:
             # retrieve from cache
             size = sizes[f]
-            location = locations[f]
-        return (size, location)
+        return size
 
     # fill in default values
     total_size = 0
@@ -293,7 +266,7 @@ failed: a list of indices in the given files list for copies that failed.  Or,
         if len(src) == 2:
             src.append(0)
         if len(src) == 3:
-            size = stat(src[0])
+            size = get_size(src[0])
             src.append(size - src[2])
         total_size += src[3]
         if len(dest) == 1:
@@ -301,67 +274,63 @@ failed: a list of indices in the given files list for copies that failed.  Or,
         if len(dest) == 2:
             dest.append(0)
     # actual copy
-    THREADED = False
     failed = []
-    if THREADED:
-        pass
-    else:
-        total_done = 0
-        progress_update = BLOCK_SIZE
-        for i, (src, dest) in enumerate(to_copy):
-            src_fn, src_f, src_start, size = src
-            src_open = src_f is None
-            dest_fn, dest_f, dest_start = dest
-            dest_open = dest_f is None
-            try:
-                # open files
-                if src_open:
-                    src_f = open(src_fn, 'rb')
-                if dest_open:
-                    if not overwrite and exists(dest_fn):
-                        # exists and don't want to overwrite
-                        failed.append(i)
-                        continue
-                    dest_f = open(dest_fn, 'wb')
-                # seek
-                same = src_f is dest_f
-                if not same:
-                    src_f.seek(src_start)
-                    dest_f.seek(dest_start)
-                # copy
-                done = 0
-                while size:
-                    if progress is not None and total_done >= progress_update:
-                        # update progress
-                        result = progress(total_done, total_size, names[i])
-                        while result == 1:
-                            # paused
-                            sleep(PAUSED_WAIT)
-                            result = progress(None, None, None)
-                        if result == 2 and can_cancel:
-                            # cancel
-                            return True
-                        progress_update += BLOCK_SIZE
-                    # read and write the next block
-                    amount = min(size, BLOCK_SIZE)
-                    if same:
-                        src_f.seek(src_start + done)
-                    data = src_f.read(amount)
-                    if same:
-                        dest_f.seek(dest_start + done)
-                    dest_f.write(data)
-                    size -= amount
-                    done += amount
-                    total_done += amount
-            except IOError:
-                failed.append(i)
-                continue
-            finally:
-                # clean up
-                if src_open and src_f is not None:
-                    src_f.close()
-                if dest_open and dest_f is not None:
-                    dest_f.close()
+    total_done = 0
+    progress_update = BLOCK_SIZE
+    for i, (src, dest) in enumerate(to_copy):
+        src_fn, src_f, src_start, size = src
+        src_open = src_f is None
+        dest_fn, dest_f, dest_start = dest
+        dest_open = dest_f is None
+        try:
+            # open files
+            if src_open:
+                src_f = open(src_fn, 'rb')
+            if dest_open:
+                if not overwrite and exists(dest_fn):
+                    # exists and don't want to overwrite
+                    failed.append(i)
+                    continue
+                dest_f = open(dest_fn, 'wb')
+            # seek
+            same = src_f is dest_f
+            if not same:
+                src_f.seek(src_start)
+                dest_f.seek(dest_start)
+            # copy
+            done = 0
+            while size:
+                if progress is not None and total_done >= progress_update:
+                    # update progress
+                    result = progress(total_done, total_size, names[i])
+                    while result == 1:
+                        # paused
+                        sleep(PAUSED_WAIT)
+                        result = progress(None, None, None)
+                    if result == 2 and can_cancel:
+                        # cancel
+                        return True
+                    progress_update += BLOCK_SIZE
+                # read and write the next block
+                amount = min(size, BLOCK_SIZE)
+                if same:
+                    src_f.seek(src_start + done)
+                data = src_f.read(amount)
+                if same:
+                    dest_f.seek(dest_start + done)
+                dest_f.write(data)
+                size -= amount
+                done += amount
+                total_done += amount
+        except IOError:
+            failed.append(i)
+            continue
+        finally:
+            # clean up
+            if src_open and src_f is not None:
+                src_f.close()
+            if dest_open and dest_f is not None:
+                dest_f.close()
     return failed
 
 def tree_from_dir (root, walk_iter = None):

@@ -64,7 +64,6 @@ extract
 write
 set_sel_on_drag
 reset_warnings
-update_threaded
 update_bs
 open_prefs
 quit
@@ -81,7 +80,6 @@ prefs: preferences window or None
 
     def __init__ (self, fs):
         self.fs = fs
-        self.update_threaded()
         self.update_bs()
         self.fs_backend = FSBackend(fs, self)
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
@@ -478,13 +476,6 @@ err: whether the method raised an exception (to make it possible to distingish
     def reset_warnings (self):
         """Re-enable all disabled warnings."""
         settings['disabled_warnings'] = None
-
-    def update_threaded (self, value = None):
-        """Update the gcutil module's THREADED setting."""
-        if value is None:
-            gcutil.THREADED = settings['threaded_copy']
-        else:
-            gcutil.THREADED = value
 
     def update_bs (self, value = None):
         """Update the gcutil module's BLOCK_SIZE setting."""

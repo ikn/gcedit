@@ -133,13 +133,6 @@ _widgets = {
         'label': _('_Directory to use:'),
         'sensitive': [('set_tmp_dir', True)]
     },
-    'threaded_copy': {
-        't': 'bool',
-        'label': _('Read and write data _simultaneously'),
-        'tooltip': _('If selected, read from/write to files on different ' \
-                     'disks simultaneously'),
-        'cb': 'update_threaded'
-    },
     'block_size': {
         't': 'int',
         'label': _('Read and write in _blocks of:'),
@@ -377,7 +370,7 @@ _prefs = (
                       'trash or reducing its size may <b>permanently ' \
                       'delete</b> items to fit the new settings.'), True),
                    'trash_enabled', 'trash_location', 'trash_size')),
-    (_('_Advanced'), ('set_tmp_dir', 'tmp_dir', 'threaded_copy', 'block_size'))
+    (_('_Advanced'), ('set_tmp_dir', 'tmp_dir', 'block_size'))
 )
 
 

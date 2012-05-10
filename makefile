@@ -45,6 +45,9 @@ install: $(patsubst $(ICON_PATTERN),install-%.png,$(ICONS))
 	@ # readme
 	mkdir -p "$(DESTDIR)$(docdir)/"
 	$(INSTALL_DATA) README "$(DESTDIR)$(docdir)/"
+	@ # desktop file
+	mkdir -p "$(DESTDIR)$(datarootdir)/applications"
+	$(INSTALL_DATA) gcedit.desktop "$(DESTDIR)$(datarootdir)/applications"
 
 uninstall: $(patsubst $(ICON_PATTERN),uninstall-%.png,$(ICONS))
 	@ # executable
@@ -54,3 +57,5 @@ uninstall: $(patsubst $(ICON_PATTERN),uninstall-%.png,$(ICONS))
 	$(RM) -r $(python_lib)/{gcedit,gcedit-*.egg-info}
 	@ # readme
 	- $(RM) -r "$(DESTDIR)$(docdir)/"
+	@ # desktop file
+	- $(RM) "$(DESTDIR)$(datarootdir)/applications/gcedit.desktop"

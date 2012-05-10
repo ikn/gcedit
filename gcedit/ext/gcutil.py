@@ -377,8 +377,8 @@ fn: file path to the image file.
 
     METHODS
 
-tree_size
 build_tree
+tree_size
 update
 disk_changed
 changed
@@ -454,6 +454,45 @@ tree: a dict representing the root directory.  Each directory is a dict whose
                 name = read(f, str_start + entry[1], 0x200, False, b'\0', 0x20)
                 names.append(_decode(name))
 
+    def build_tree (self, store = True, start = 0, end = None):
+        """Build the directory tree from the current entries list.
+
+build_tree(store = True, start = 0[, end]) -> tree
+
+store: whether to store the built tree in the tree attribute.
+start: the entry to start at.
+end: the index of the entry to stop at (this one is not included).  Defaults to
+     len(entries).
+
+tree: the built tree.
+
+"""
+        entries = list(self.entries)
+        names = self.names
+        start = max(start, 0)
+        if end is None:
+            end = len(entries)
+        end = min(end, len(entries))
+        # create tree with empty file list
+        children = []
+        tree = {None: children}
+        # populate it
+        i = start
+        while i < end:
+            is_dir, str_offset, start, size = entries[i]
+            name = names[i]
+            if is_dir:
+                # build as a separate tree
+                tree[(name, i)] = self.build_tree(False, i + 1, size - 1)
+                i = size - 1
+            else:
+                # add file list
+                children.append((name, i))
+                i += 1
+        if store:
+            self.tree = tree
+        return tree
+
     def tree_size (self, tree, file_size = False, recursive = False,
                    key = None, sizes = None, done = None):
         """Get the number of children in or total filesize of a tree.
@@ -462,18 +501,18 @@ tree_size(tree, file_size = False, recursive = False, key = None) -> size
 
 tree: the tree.
 file_size: whether to return the total file size of the children in the tree
-           instead.  Imported files are respected (if they cannot be accessed,
-           they are ignored).
+        instead.  Imported files are respected (if they cannot be accessed,
+        they are ignored).
 recursive: whether to return a dict of numbers for every child in the tree
-           instead.  The keys of this dict are the the same as in the tree
-           ((name, id) for each directory and file).  The key for the whole
-           tree is the key argument. If file_size is False, files are omitted
-           (always have number of children 0).
+        instead.  The keys of this dict are the the same as in the tree
+        ((name, id) for each directory and file).  The key for the whole
+        tree is the key argument. If file_size is False, files are omitted
+        (always have number of children 0).
 key: if recursive is True, this is the key for the whole tree in the returned
-     dict (and must, therefore, be hashable).
+    dict (and must, therefore, be hashable).
 
 size: the number of children in the tree or the total file size, or a dict of
-      such numbers if recursive is True.
+    such numbers if recursive is True.
 
 """
         if recursive and sizes is None:
@@ -528,45 +567,6 @@ size: the number of children in the tree or the total file size, or a dict of
             return sizes
         else:
             return size
-
-    def build_tree (self, store = True, start = 0, end = None):
-        """Build the directory tree from the current entries list.
-
-build_tree(store = True, start = 0[, end]) -> tree
-
-store: whether to store the built tree in the tree attribute.
-start: the entry to start at.
-end: the index of the entry to stop at (this one is not included).  Defaults to
-     len(entries).
-
-tree: the built tree.
-
-"""
-        entries = list(self.entries)
-        names = self.names
-        start = max(start, 0)
-        if end is None:
-            end = len(entries)
-        end = min(end, len(entries))
-        # create tree with empty file list
-        children = []
-        tree = {None: children}
-        # populate it
-        i = start
-        while i < end:
-            is_dir, str_offset, start, size = entries[i]
-            name = names[i]
-            if is_dir:
-                # build as a separate tree
-                tree[(name, i)] = self.build_tree(False, i + 1, size - 1)
-                i = size - 1
-            else:
-                # add file list
-                children.append((name, i))
-                i += 1
-        if store:
-            self.tree = tree
-        return tree
 
     def update (self):
         """Re-read data from the disk.  Discards all changes to the tree."""

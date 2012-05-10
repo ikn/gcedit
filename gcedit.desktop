@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=GCEdit
+GenericName=GameCube Disk Editor
+Comment=A tool for viewing and making changes to GameCube disk images
+Icon=gcedit
+TryExec=gcedit
+Exec=gcedit %f
+Terminal=false
+MimeType=application/octet-stream
+Categories=Game;Emulator;GTK;

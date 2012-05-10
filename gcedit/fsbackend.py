@@ -64,6 +64,8 @@ fs, editor: the arguments given to the constructor.
         self._hist_pos = 0
         self._hist = []
         self.editor.hist_update()
+        self._sizes = {}
+        self._update_sizes()
 
     def get_tree (self, path, return_parent = False):
         """Get the tree for the given path.

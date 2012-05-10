@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 10-dev.
+Release: 11.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -17,6 +17,7 @@ read
 write
 copy
 tree_from_dir
+search_tree
 
     SETTINGS
 
@@ -43,6 +44,7 @@ import os
 from os.path import getsize, exists, dirname, basename
 from time import sleep
 from copy import deepcopy
+import re
 from shutil import rmtree
 import tempfile
 
@@ -356,6 +358,76 @@ That is, you can place it directly in such a tree to import lots of files.
             tree[(d, None)] = tree_from_dir(d, walk_iter)
     return tree
 
+def _match (term, name, case_sensitive, whole_name, regex):
+    """Used by search_tree to check if a name matches.
+
+_match(term, name, case_sensitive, whole_name, regex) -> matches
+
+term, case_sensitive, whole_name, regex: as taken by search_tree.
+name: the file/directory name to match against.
+
+matches: whether name is a match for term.
+
+If case_sensitive is False, term should be lower-case.
+
+"""
+    if regex:
+        flags = 0 if case_sensitive else re.I
+        if whole_name:
+            match = re.match(term, name, flags)
+            return match is not None and match.end() == len(name)
+        else:
+            return re.search(term, name, flags) is not None
+    else:
+        if not case_sensitive:
+            name = name.lower()
+        if whole_name:
+            return term == name
+        else:
+            return name.find(term) != -1
+
+def search_tree (tree, term = '', case_sensitive = False, whole_name = False,
+                 regex = False, dirs = True, files = True, matches = None):
+    """Search within a tree.
+
+search_tree(tree, term = '', case_sensitive = False, whole_name = False,
+            regex = False, dirs = True, files = True) -> matches
+
+tree: the tree to search (same format as the tree attribute of GCFS objects).
+term: the string to search for.
+case_sensitive: whether the match should be case-sensitive.
+whole_name: whether to only return results where the term matches the whole of
+            the file/directory name.
+regex: whether to perform RegEx-based matching.
+dirs: whether to include directories in the results.
+files: whether to include files in the results.
+
+matches: a list of (name, index) keys for matching files and directories, as
+         found in the tree.
+
+"""
+    if matches is None:
+        matches = []
+    elif not case_sensitive:
+        term = term.lower()
+    for d_key, this_tree in tree.items():
+        if d_key is None:
+            # files
+            if files:
+                for f_key in this_tree:
+                    if _match(term, f_key[0], case_sensitive, whole_name,
+                              regex):
+                        matches.append(f_key)
+        else:
+            # dir
+            if dirs:
+                if _match(term, d_key[0], case_sensitive, whole_name, regex):
+                    matches.append(d_key)
+            # search this dir (its results get added to matches)
+            search_tree(this_tree, term, case_sensitive, whole_name, regex,
+                        dirs, files, matches)
+    return matches
+
 
 class GCFS:
     """Read from and make changes to a GameCube image's filesystem.
@@ -505,7 +577,7 @@ file_size: whether to return the total file size of the children in the tree
         they are ignored).
 recursive: whether to return a dict of numbers for every child in the tree
         instead.  The keys of this dict are the the same as in the tree
-        ((name, id) for each directory and file).  The key for the whole
+        ((name, index) for each directory and file).  The key for the whole
         tree is the key argument. If file_size is False, files are omitted
         (always have number of children 0).
 key: if recursive is True, this is the key for the whole tree in the returned

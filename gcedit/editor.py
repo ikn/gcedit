@@ -14,7 +14,6 @@ Editor
 # TODO:
 # [ENH] icon more stylistic?  Just a big screw?
 # [BUG] on import dir, can rename two invalid-named files to same name
-# [ENH] .desktop file
 # [ENH] include game name in window title (need BNR support)
 # [FEA] can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write

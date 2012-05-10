@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 6-dev.
+Release: 6.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:

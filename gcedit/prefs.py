@@ -362,11 +362,11 @@ and settings.  A heading is (heading_text, None), a label is
 _prefs = (
     (_('_Interface'), ('sel_on_drag', 'autoclose_progress',
                        'disabled_warnings')),
-    (_('T_rash'), ((_('The trash directory is used to save files that are ' \
-                      'deleted from disk images.  Note that disabling the ' \
-                      'trash or reducing its size may <b>permanently ' \
-                      'delete</b> items to fit the new settings.'), True),
-                   'trash_enabled', 'trash_location', 'trash_size')),
+    #(_('T_rash'), ((_('The trash directory is used to save files that are ' \
+                      #'deleted from disk images.  Note that disabling the ' \
+                      #'trash or reducing its size may <b>permanently ' \
+                      #'delete</b> items to fit the new settings.'), True),
+                   #'trash_enabled', 'trash_location', 'trash_size')),
     (_('_Advanced'), ('set_tmp_dir', 'tmp_dir', 'block_size'))
 )
 

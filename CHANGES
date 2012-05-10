@@ -4,6 +4,8 @@
  * significant write performance improvements for (very) large numbers of files
  * icon
  * desktop entry
+ * preferences window closes on escape key
+ * bug: settings don't get saved until the preferences window is closed
  * bug: when creating a new directory, it seems like the first file is being
    renamed instead of the new directory
 

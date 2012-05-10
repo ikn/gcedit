@@ -416,8 +416,7 @@ address_bar: the AddressBar instance attached to this instance, or None.
     def _get_drag_data (self, widget, context, sel_data, info, time):
         """Retrieve drag data from this drag source."""
         sel = self._get_selected_paths()
-        if len(sel) != 1:
-            # strange; user probably did ctrl-drag
+        if self.read_only or len(sel) != 1:
             data = 'failed'
         else:
             file_path = self.path + [self._model[sel[0]][COL_NAME]]
@@ -434,7 +433,7 @@ address_bar: the AddressBar instance attached to this instance, or None.
         """Handle data dropped on this drag destination."""
         # check data is valid
         data = from_str(sel_data.get_text())
-        if len(data) != 5 or data[0] != IDENTIFIER:
+        if self.read_only or len(data) != 5 or data[0] != IDENTIFIER:
             context.finish(False, False, time)
             return
         source = data[3]
@@ -493,6 +492,8 @@ address_bar: the AddressBar instance attached to this instance, or None.
 
     def _uncut (self, this_dir_only = False):
         """Cancel cut selection."""
+        if self.read_only:
+            return
         cb = self._clipboard
         if cb is not None and cb[1]:
             for row in self._model:
@@ -501,6 +502,8 @@ address_bar: the AddressBar instance attached to this instance, or None.
 
     def _copy (self, paths = None, cut = False):
         """Copy files for given TreeModel paths or selected files."""
+        if self.read_only:
+            return
         if paths is None:
             paths = self.get_selection().get_selected_rows()[1]
         files = [self.path + [self._model[path][COL_NAME]] for path in paths]
@@ -514,6 +517,8 @@ address_bar: the AddressBar instance attached to this instance, or None.
 
     def _paste (self):
         """Paste files in the clipboard."""
+        if self.read_only:
+            return
         cb = self._clipboard
         if cb is not None:
             files, cut = cb
@@ -527,6 +532,8 @@ address_bar: the AddressBar instance attached to this instance, or None.
 
     def _delete (self, *files):
         """Delete given files, else selected files, if any."""
+        if self.read_only:
+            return
         if not files:
             path = self.path
             files = [path + [name] for name in self.get_selected_files()]
@@ -604,6 +611,8 @@ address_bar: the AddressBar instance attached to this instance, or None.
 
     def _new_dir (self, *args):
         """Create a new directory here."""
+        if self.read_only:
+            return
         # find a name not already used
         names = [row[2] for row in self._model]
         i = 1

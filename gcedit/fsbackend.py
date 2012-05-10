@@ -353,6 +353,7 @@ Takes an argument indicating whether to import directories (else files).
                 this_data, old = old[1:]
                 if not isinstance(this_data, tuple) or len(this_data) != 3 or \
                    this_data[0] != conf.IDENTIFIER:
+                    failed.append(old)
                     continue
                 if this_data[2] != id(self.editor):
                     # different Editor
@@ -360,6 +361,7 @@ Takes an argument indicating whether to import directories (else files).
                     guiutil.error(_('Drag-and-drop between instances is not ' \
                                   'supported yet.'))
                     #print(this_data, old, new)
+                    failed.append(old)
                     continue
             # get destination
             try:

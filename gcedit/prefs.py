@@ -15,9 +15,6 @@ gen_widgets
 
 """
 
-# TODO:
-# [ENH] close on escape
-
 import os
 from html import escape
 
@@ -216,19 +213,19 @@ ws: widgets, each (setting_id, widget, callback), where widget can be the
         else:
             v = w
         # call callback, if any
-        do = True
+        done = False
         if callable(cb):
             if v is None:
-                do = cb(editor)
+                done = cb(editor)
             else:
-                do = cb(editor, v)
+                done = cb(editor, v)
         elif cb is not None:
             # cb is a method of editor
             if v is None:
-                do = getattr(editor, cb)()
+                done = getattr(editor, cb)()
             else:
-                do = getattr(editor, cb)(v)
-        if do and v is not None:
+                done = getattr(editor, cb)(v)
+        if not done and v is not None:
             settings[setting_id] = v
 
 def _cb_wrapper (w, *args):
@@ -463,6 +460,11 @@ widgets: setting_ID: widget dict of settings widgets.
         self.set_title(conf.APPLICATION + ' ' + _('Preferences'))
         self.connect('delete-event', self.quit)
         self.widgets, self._end_cb = gen_widgets(editor, self)
+        # close on escape
+        group = gtk.AccelGroup()
+        key, mods = gtk.accelerator_parse('Escape')
+        group.connect(key, mods, 0, self.quit)
+        self.add_accel_group(group)
         # add outer stuff
         v = gtk.Box(False, 12)
         v.set_orientation(gtk.Orientation.VERTICAL)

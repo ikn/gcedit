@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 11.
+Release: 12-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -617,7 +617,7 @@ size: the number of children in the tree or the total file size, or a dict of
                         if recursive:
                             sizes[f_key] = this_size
                 else:
-                    size += len(v)
+                    size += len(this_tree)
             else:
                 # dir
                 if not file_size:

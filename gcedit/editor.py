@@ -96,6 +96,22 @@ prefs: preferences window or None
         self.connect('delete-event', self.quit)
         self.connect('size-allocate', self._size_cb)
         self.connect('window-state-event', self._state_cb)
+        # shortcuts
+        group = gtk.AccelGroup()
+        accels = (
+            ('<ctrl>z', self.fs_backend.undo),
+            ('<ctrl><shift>z', self.fs_backend.redo),
+            ('<ctrl>y', self.fs_backend.redo)
+        )
+        def mk_fn (cb, *cb_args):
+            def f (*args):
+                cb(*cb_args)
+            return f
+        for accel, cb, *args in accels:
+            key, mods = gtk.accelerator_parse(accel)
+            group.connect(key, mods, 0, mk_fn(cb, *args))
+        self.add_accel_group(group)
+        self.add_accel_group(self.file_manager.accel_group)
         # contents
         g = gtk.Grid()
         self.add(g)
@@ -162,22 +178,6 @@ prefs: preferences window or None
         m.set_hexpand(True)
         # automatically computed button focus order is weird
         g.set_focus_chain(btns + [g_right])
-        # shortcuts
-        group = gtk.AccelGroup()
-        accels = (
-            ('<ctrl>z', self.fs_backend.undo),
-            ('<ctrl><shift>z', self.fs_backend.redo),
-            ('<ctrl>y', self.fs_backend.redo)
-        )
-        def mk_fn (cb, *cb_args):
-            def f (*args):
-                cb(*cb_args)
-            return f
-        for accel, cb, *args in accels:
-            key, mods = gtk.accelerator_parse(accel)
-            group.connect(key, mods, 0, mk_fn(cb, *args))
-        self.add_accel_group(group)
-        self.add_accel_group(self.file_manager.accel_group)
         # display
         self.show_all()
         m.grab_focus()

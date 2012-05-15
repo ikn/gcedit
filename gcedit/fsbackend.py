@@ -341,7 +341,7 @@ Takes an argument indicating whether to import directories (else files).
         return items
 
     def open_files (self, *files):
-        self.editor.extract(*files)
+        self.editor.extract(*(f[0] for f in files))
 
     def copy (self, *data, return_failed = False, hist = True,
               update_sizes = True):

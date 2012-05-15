@@ -36,8 +36,10 @@ INVALID_FN_CHARS = ({b'/'}, {'/'})
 
 _defaults = {
     # interface
-    'win_size': (400, 450),
-    'win_max': False,
+    'win_size_main': (450, 450),
+    'win_max_main': False,
+    'win_size_search': (600, 250),
+    'win_max_search': False,
     'import_path': HOME,
     'extract_path': HOME,
     'sel_on_drag': True,
@@ -55,8 +57,10 @@ _defaults = {
 
 _types = {
     # interface
-    'win_size': list,
-    'win_max': bool,
+    'win_size_main': list,
+    'win_max_main': bool,
+    'win_size_search': list,
+    'win_max_search': bool,
     'import_path': str,
     'extract_path': str,
     'autoclose_progress': bool,
@@ -109,7 +113,7 @@ To restore a setting to its default value, set it to None.
         v = dict.__getitem__(self, k)
         try:
             v = _types[k](v)
-        except (TypeError, ValueError):
+        except (KeyError, TypeError, ValueError):
             v = self.defaults[k]
         return v
 

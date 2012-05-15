@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 12.
+Release: 13-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -37,7 +37,6 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 # TODO:
 # - decompress function
 # - BNR support
-# - remaining time estimation
 # - handle not being able to access self.fn
 
 import os
@@ -387,7 +386,8 @@ If case_sensitive is False, term should be lower-case.
             return name.find(term) != -1
 
 def search_tree (tree, term = '', case_sensitive = False, whole_name = False,
-                 regex = False, dirs = True, files = True, matches = None):
+                 regex = False, dirs = True, files = True, current_dir = None,
+                 matches = None):
     """Search within a tree.
 
 search_tree(tree, term = '', case_sensitive = False, whole_name = False,
@@ -402,11 +402,17 @@ regex: whether to perform RegEx-based matching.
 dirs: whether to include directories in the results.
 files: whether to include files in the results.
 
-matches: a list of (name, index) keys for matching files and directories, as
-         found in the tree.
+matches: a list of (is_dir, parent_path, key) tuples for matching files and
+         directories, where:
+    is_dir: whether this is a directory.
+    parent_path: a list of keys for each parent directory, starting from the
+                 root directory.  This is empty for items in the root
+                 directory.
+    key: the item's (name, index) tuple as found in the tree.
 
 """
-    if matches is None:
+    if current_dir is None:
+        current_dir = []
         matches = []
     elif not case_sensitive:
         term = term.lower()
@@ -417,15 +423,15 @@ matches: a list of (name, index) keys for matching files and directories, as
                 for f_key in this_tree:
                     if _match(term, f_key[0], case_sensitive, whole_name,
                               regex):
-                        matches.append(f_key)
+                        matches.append((False, current_dir, f_key))
         else:
             # dir
             if dirs:
                 if _match(term, d_key[0], case_sensitive, whole_name, regex):
-                    matches.append(d_key)
+                    matches.append((True, current_dir, d_key))
             # search this dir (its results get added to matches)
             search_tree(this_tree, term, case_sensitive, whole_name, regex,
-                        dirs, files, matches)
+                        dirs, files, current_dir + [d_key], matches)
     return matches
 
 
@@ -927,7 +933,7 @@ be imported in the same call to this function.
 """
         old_entries = self.entries
         old_names = self.names
-        tree, self.tree = self.tree, deepcopy(self.tree)
+        tree =  deepcopy(self.tree)
         # compile new filesystem/string tables
         tree[None] = [f + (True,) for f in tree[None]]
         entries = []

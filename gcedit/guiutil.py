@@ -18,6 +18,7 @@ invalid_name
 
     CLASSES
 
+Window
 Progress
 
 """
@@ -25,7 +26,7 @@ Progress
 from html import escape
 from math import log10
 
-from gi.repository import Gtk as gtk, Pango as pango
+from gi.repository import Gtk as gtk, Pango as pango, Gdk as gdk
 from .ext.gcutil import valid_name
 
 from . import conf
@@ -203,6 +204,35 @@ widgets: widgets to add to the same grid as the text, which is at (0, 0) with
     g.show()
     d.run()
     d.destroy()
+
+
+class Window (gtk.Window):
+    """A Gtk.Window subclass that saves its size.
+
+Takes a string identifier used in the setting keys.
+
+"""
+    def __init__ (self, ident):
+        self.ident = ident
+        gtk.Window.__init__(self)
+        w, h = settings['win_size_{}'.format(ident)][:2]
+        self.set_default_size(w, h)
+        if settings['win_max_{}'.format(ident)]:
+            self.maximize()
+        self.connect('size-allocate', self._size_cb)
+        self.connect('window-state-event', self._state_cb)
+
+    def _size_cb (self, w, size):
+        """Save changes to window size."""
+        if not settings['win_max_{}'.format(self.ident)]:
+            settings['win_size_{}'.format(self.ident)] = (size.width,
+                                                          size.height)
+
+    def _state_cb (self, w, e):
+        """Save changes to maximised state."""
+        is_max = e.new_window_state & gdk.WindowState.MAXIMIZED
+        settings['win_max_{}'.format(self.ident)] = bool(is_max)
+
 
 def move_conflict (fn_from, f_to, parent = None, invalid = False):
     """Show a dialogue that handles a conflict in moving a file.

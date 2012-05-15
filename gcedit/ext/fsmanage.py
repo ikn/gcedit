@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 6.
+Release: 7-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -70,7 +70,8 @@ by ['some', 'path', 'current_dir'].
     CONSTRUCTOR
 
 Manager(backend, path = [], read_only = False, cache = False,
-        drag_to_select = True, extra_cols = [], identifier = 'fsmanage')
+        select_multi = True, drag_to_select = True, allow_nav = True,
+        extra_cols = [], identifier = 'fsmanage')
 
 backend: an object with methods as follows.  Any method that changes the
          directory tree should not return until any call to list_dir will
@@ -81,8 +82,19 @@ backend: an object with methods as follows.  Any method that changes the
               indicating the item's name and whether it is a directory.  The
               order of items is unimportant.
 
-    open_files: this is optional.  It takes any number of file (not directory)
-                paths as arguments to 'open' them.
+    open_files: this is optional.  It takes any number of files
+                (not directories) to 'open' them.  Each is a
+                [path, *extra_data] list, where extra_data denotes the data in
+                the given extra columns (see the extra_cols argument) for this
+                file.
+
+    open_dirs: like open_files, but for directories, _only_ when the allow_nav
+               argument is False.
+
+    open_items: like open_dirs, but can be called with a mixture of files and
+                dirs.  If only files/only dirs are activated,
+                open_files/open_dirs is called if it exists in preference to
+                this function.
 
          The following are only required if read_only is False.  They should
          each return True if the action is taken, else False.
@@ -109,17 +121,27 @@ read_only: whether the directory tree is read-only; if True, things like copy,
 cache: whether to cache directory contents when requested.  There is no need to
        clear the cache after any changes that go through this class and the
        given backend (copy, delete, etc.); this is done automatically.
+select_multi: whether to allow multiple items to be selected at the same time.
+              To change the value, you need to change this instance's
+              select_multi attribute and set the selection mode manually:
+
+    manager.get_selection().set_selection_mode(Gtk.SelectionMode.MODE)
+
 drag_to_select: whether dragging across unselected files will select them
                 (otherwise it will drag them; in the first case, files can only
                 be dragged if they are selected first).  Alter this later using
                 Manager.set_rubber_banding (inherited from Gtk.TreeView).
+allow_nav: whether to allow navigation by activating a directory entry.  If
+           False, activating directories will also result in a call to the
+           backend's open_files method, if it exists.
 extra_cols: a list of extra (text) columns to have after the filename column in
-            the TreeView; each is (name, renderer), where type is as
-            passed to the TreeModel, name is shown as the column header
-            (currently never shown), and renderer is a Gtk.CellRendererText to
-            use, or None to have it created.  Each entry in the return value of
-            backend.list_dir should then include the value for each column in
-            order after is_dir.
+            the TreeView; each is (name, renderer), where name is shown as the
+            column header (currently never shown), and renderer is a
+            Gtk.CellRendererText to use, or None to have it created.  renderer
+            can also be False, in which case the column is not displayed (but
+            its data is still stored, and passed to the backend's open_*
+            methods).  Each entry in the return value of backend.list_dir
+            should then include the value for each column in order after is_dir.
 identifier: this is some (picklable) data that is passed to the copy method of
             the backend when a file is drag-and-dropped from a different
             Manager instance.  This can optionally be a function instead, that
@@ -135,10 +157,11 @@ back
 forwards
 get_selected_files
 clear_cache
+present_item
 
     ATTRIBUTES
 
-backend, read_only, identifier: as given.
+backend, read_only, identifier, select_multi, allow_nav: as given.
 path: as given; change it with the set_path method.
 cache: as given.  Setting this to False will disable further caching, but not
        clear the existing cache; use the clear_cache method for this.
@@ -149,12 +172,14 @@ address_bar: the AddressBar instance attached to this instance, or None.
 """
 
     def __init__ (self, backend, path = [], read_only = False, cache = False,
-                  drag_to_select = True, extra_cols = [],
-                  identifier = 'fsmanage'):
+                  select_multi = True, drag_to_select = True, allow_nav = True,
+                  extra_cols = [], identifier = 'fsmanage'):
         self.backend = backend
         self.path = list(path)
         self.read_only = read_only
         self.cache = cache
+        self.select_multi = select_multi
+        self.allow_nav = allow_nav
         self.identifier = identifier
         self._cache = {}
         self._clipboard = None
@@ -169,24 +194,26 @@ address_bar: the AddressBar instance attached to this instance, or None.
         self._model = gtk.ListStore(bool, str, str, str, bool,
                                     *(str for c in extra_cols))
         gtk.TreeView.__init__(self, self._model)
-        self.get_selection().set_mode(gtk.SelectionMode.MULTIPLE)
+        if select_multi:
+            self.get_selection().set_mode(gtk.SelectionMode.MULTIPLE)
         self.set_search_column(COL_NAME)
         self.set_enable_tree_lines(True)
         self.set_headers_visible(False)
         self.set_rubber_banding(drag_to_select)
         self.set_rules_hint(True)
         # drag and drop
-        mod_mask = MOVE_BTN | COPY_BTN
-        action = gdk.DragAction.COPY | gdk.DragAction.MOVE
-        self.enable_model_drag_source(mod_mask, [], action)
-        self.drag_source_add_text_targets()
-        self.enable_model_drag_dest([], action)
-        self.drag_dest_add_text_targets()
-        # signals
-        self.connect('drag-begin', self._drag_begin)
-        self.connect('drag-data-get', self._get_drag_data)
-        self.connect('drag-data-received', self._received_drag_data)
-        self.connect('drag-data-delete', self._drag_del)
+        if not self.read_only:
+            mod_mask = MOVE_BTN | COPY_BTN
+            action = gdk.DragAction.COPY | gdk.DragAction.MOVE
+            self.enable_model_drag_source(mod_mask, [], action)
+            self.drag_source_add_text_targets()
+            self.enable_model_drag_dest([], action)
+            self.drag_dest_add_text_targets()
+            # signals
+            self.connect('drag-begin', self._drag_begin)
+            self.connect('drag-data-get', self._get_drag_data)
+            self.connect('drag-data-received', self._received_drag_data)
+            self.connect('drag-data-delete', self._drag_del)
         self.connect('row-activated', self._open)
         self.connect('button-press-event', self._click)
         # columns
@@ -204,13 +231,17 @@ address_bar: the AddressBar instance attached to this instance, or None.
         c.set_property('expand', True)
         self.append_column(c)
         # extra columns
-        for i, (name, r) in enumerate(extra_cols):
+        i = 1
+        for name, r in extra_cols:
+            if r is False:
+                continue
             if r is None:
                 r = gtk.CellRendererText()
             r.set_property('foreground-set', True)
-            c = gtk.TreeViewColumn(name, r, text = COL_LAST + i + 1,
+            c = gtk.TreeViewColumn(name, r, text = COL_LAST + i,
                                    foreground = COL_COLOUR)
             self.append_column(c)
+            i += 1
         # sorting
         self._model.set_default_sort_func(self._sort_tree)
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
@@ -257,6 +288,13 @@ address_bar: the AddressBar instance attached to this instance, or None.
         # HACK: need to store the menu for some reason, else it doesn't show up
         # - maybe GTK stores it in such a way that the garbage collector thinks
         # it can get rid of it or something
+        if not actions:
+            return
+        for i in (0, -1):
+            if actions[i] is None:
+                actions.pop(i)
+        if not actions:
+            return
         menu = self._temp_menu = gtk.Menu()
         f = lambda widget, cb, *args: cb(*args)
         for x in actions:
@@ -288,8 +326,9 @@ address_bar: the AddressBar instance attached to this instance, or None.
                 actions.append((gtk.STOCK_PASTE,
                                 _('Paste cut or copied files'), self._paste))
             actions.append(None)
-        actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
-                        self.get_selection().select_all))
+        if self.select_multi:
+            actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
+                           self.get_selection().select_all))
         # only show up if not in root directory
         if self.path:
             actions.append((gtk.STOCK_GO_UP, _('Go to parent directory'),
@@ -304,8 +343,7 @@ address_bar: the AddressBar instance attached to this instance, or None.
                             _('Go to the next directory in history'),
                             self.forwards))
         # show menu
-        if actions:
-            self._show_menu(actions, menu_args)
+        self._show_menu(actions, menu_args)
 
     def _show_item_menu (self, paths, menu_args):
         """Show the context menu when files are selected."""
@@ -313,16 +351,26 @@ address_bar: the AddressBar instance attached to this instance, or None.
         current_path = self.path
         model = self._model
         items = [model[path] for path in paths]
-        item_paths = tuple(current_path + [item[COL_NAME]] for item in items)
+        item_paths = [current_path + [item[COL_NAME]] for item in items]
         # only show open if supported by backend and no dirs are selected, or
         # only one dir and nothing else is selected
         all_files = not any(item[COL_IS_DIR] for item in items)
-        one_dir = len(items) == 1 and items[0][COL_IS_DIR]
-        if (hasattr(self.backend, 'open_files') and all_files) or one_dir:
-            if all_files:
-                f = (self.backend.open_files,) + item_paths
-            else:
+        all_dirs = not all_files and hasattr(self.backend, 'open_dirs')
+        all_files = all_files and hasattr(self.backend, 'open_files')
+        nav = len(items) == 1 and items[0][COL_IS_DIR] and self.allow_nav
+        if all_files or all_dirs or hasattr(self.backend, 'open_items') or nav:
+            if nav:
                 f = (self._open, None, paths[0])
+            else:
+                if all_files:
+                    f = self.backend.open_files
+                elif all_dirs:
+                    f = self.backend.open_dirs
+                else:
+                    f = self.backend.open_items
+                args = tuple([path] + row[COL_LAST + 1:] for path, row in \
+                             zip(item_paths, items))
+                f = (self.backend.open_files,) + args
             actions = [(gtk.STOCK_OPEN, _('Open all selected files')) + f,
                        None]
         else:
@@ -340,13 +388,14 @@ address_bar: the AddressBar instance attached to this instance, or None.
                                 _('Paste cut or copied files'), self._paste))
             actions += [
                 (gtk.STOCK_DELETE, _('Delete selected files'),
-                 self._delete) + item_paths,
+                 self._delete) + tuple(item_paths),
                 ('_Rename', _('Rename selected files'), self._rename, paths),
                 (gtk.STOCK_NEW, _('Create directory'), self._new_dir),
                 None
             ]
-        actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
-                        self.get_selection().select_all))
+        if self.select_multi:
+            actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
+                           self.get_selection().select_all))
         # only show up if not in root directory
         if current_path:
             actions.append((gtk.STOCK_GO_UP, _('Go to parent directory'),
@@ -361,8 +410,7 @@ address_bar: the AddressBar instance attached to this instance, or None.
                             _('Go to the next directory in history'),
                             self.forwards))
         # show menu
-        if actions:
-            self._show_menu(actions, menu_args)
+        self._show_menu(actions, menu_args)
 
     def _menu (self):
         """Show the context menu."""
@@ -482,13 +530,23 @@ address_bar: the AddressBar instance attached to this instance, or None.
         row = self._model[path]
         is_dir = row[COL_IS_DIR]
         name = row[COL_NAME]
-        if is_dir:
-            self.set_path(self.path + [name])
+        path = self.path + [name]
+        if is_dir and self.allow_nav:
+            self.set_path(path)
         else:
+            item = [path] + row[COL_LAST + 1:]
             try:
-                self.backend.open_files(self.path + [name])
+                if is_dir:
+                    f = self.backend.open_dirs
+                else:
+                    f = self.backend.open_files
             except AttributeError:
-                pass
+                try:
+                    self.backend.open_items(item)
+                except AttributeError:
+                    pass
+            else:
+                f(item)
 
     def _uncut (self, this_dir_only = False):
         """Cancel cut selection."""
@@ -839,6 +897,32 @@ dirs: if none are given, clear all cache; otherwise, clear the cache for these
                     pass
         else:
             self._cache = {}
+
+    def present_item (self, item):
+        """Present a file or directory to the user.
+
+Takes the item, which is either a full list-style path or the item's name in
+the current directory.  This function then changes to the item's directory,
+selects and focuses it, and scrolls so that it is in view.
+
+"""
+        if not isinstance(item, str):
+            # got a path
+            self.set_path(item[:-1])
+            item = item[-1]
+        # find item's model path
+        i = 0
+        found = False
+        for row in self._model:
+            if row[COL_NAME] == item:
+                found = True
+                break
+            i += 1
+        if not found:
+            raise ValueError('no such file \'{}\' exists'.format(item))
+        # set focus
+        self.set_cursor(i, None, False)
+        self.scroll_to_cell(i, use_align = False)
 
     def _sort_tree (self, model, iter1, iter2, data):
         """Sort callback."""

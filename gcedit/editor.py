@@ -12,6 +12,7 @@ Editor
 """
 
 # TODO:
+# [ENH] option to close search results when an item is selected
 # [BUG] on import dir, can rename two invalid-named files to same name
 # [ENH] include game name in window title (need BNR support)
 # [FEA] can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
@@ -29,6 +30,7 @@ Editor
 #   - in context menu, buttons
 #   - on open, check if can decode to text; if not, have hex editor
 #   - option for open_files to edit instead of extract
+# [END] progress windows: remaining time estimation
 
 import os
 from time import sleep
@@ -40,17 +42,16 @@ except ImportError:
 from queue import Queue
 from html import escape
 
-from gi.repository import Gtk as gtk, Gdk as gdk
+from gi.repository import Gtk as gtk
 from .ext import fsmanage, gcutil
 
 from .fsbackend import FSBackend
 from .prefs import Preferences
-from . import guiutil
-from . import conf
+from . import guiutil, search, conf
 from .conf import settings
 
 
-class Editor (gtk.Window):
+class Editor (guiutil.Window):
     """The main application window.
 
 Takes a gcutil.GCFS instance.
@@ -58,6 +59,8 @@ Takes a gcutil.GCFS instance.
     METHODS
 
 hist_update
+start_find
+end_find
 extract
 write
 set_sel_on_drag
@@ -72,11 +75,18 @@ fs: the given gcutil.GCFS instance.
 fs_backend: FSBackend instance.
 file_manager: fsmanage.Manager instance.
 buttons: a list of the buttons on the left.
-prefs: preferences window or None
+prefs: preferences window or None.
+searching: whether the search bar is currently open.
+search: search window or None.
+search_manager: fsmanage.Manager instance for search results, or None.
 
 """
 
     def __init__ (self, fs):
+        self.searching = False
+        self.prefs = None
+        self.search = None
+        self.search_manager = None
         self.fs = fs
         self.update_bs()
         self.fs_backend = FSBackend(fs, self)
@@ -86,22 +96,17 @@ prefs: preferences window or None
                              extra_cols = [(_('Size'), None)])
         self.file_manager = m
         # window
-        gtk.Window.__init__(self)
-        w, h = settings['win_size'][:2]
-        self.set_default_size(w, h)
-        if settings['win_max']:
-            self.maximize()
+        guiutil.Window.__init__(self, 'main')
         self.set_border_width(12)
         self._update_title()
         self.connect('delete-event', self.quit)
-        self.connect('size-allocate', self._size_cb)
-        self.connect('window-state-event', self._state_cb)
         # shortcuts
         group = gtk.AccelGroup()
         accels = (
             ('<ctrl>z', self.fs_backend.undo),
             ('<ctrl><shift>z', self.fs_backend.redo),
-            ('<ctrl>y', self.fs_backend.redo)
+            ('<ctrl>y', self.fs_backend.redo),
+            ('<ctrl>f', self.start_find)
         )
         def mk_fn (cb, *cb_args):
             def f (*args):
@@ -113,12 +118,11 @@ prefs: preferences window or None
         self.add_accel_group(group)
         self.add_accel_group(self.file_manager.accel_group)
         # contents
-        g = gtk.Grid()
+        self._grid = g = gtk.Grid()
         self.add(g)
         g.set_row_spacing(6)
         g.set_column_spacing(12)
         # left
-        self.prefs = None
         self.buttons = btns = []
         f = lambda widget, cb, *args: cb(*args)
         for btn_data in (
@@ -174,8 +178,8 @@ prefs: preferences window or None
         g_right.attach(s, 0, 1, 1, 1)
         s.set_policy(gtk.PolicyType.NEVER, gtk.PolicyType.AUTOMATIC)
         s.add(m)
-        m.set_vexpand(True)
         m.set_hexpand(True)
+        m.set_vexpand(True)
         # automatically computed button focus order is weird
         g.set_focus_chain(btns + [g_right])
         # display
@@ -193,6 +197,27 @@ prefs: preferences window or None
         self.buttons[0].set_sensitive(self.fs_backend.can_undo())
         self.buttons[1].set_sensitive(self.fs_backend.can_redo())
         self._update_title()
+
+    def start_find (self):
+        """Open the search bar."""
+        if not self.searching:
+            self.searching = True
+            if self.search is None:
+                # create window
+                self.search = w = search.SearchWindow(self)
+            else:
+                w = self.search
+            # update last search
+            w.manager.set_path([])
+            # show window
+            w.present()
+            w.entry.grab_focus()
+
+    def end_find (self):
+        """Close the search bar."""
+        if self.searching:
+            self.searching = False
+            self.search.hide()
 
     def _run_with_progress_backend (self, q, method, progress, args, kwargs):
         """Wrapper that calls a backend function with a progress method.
@@ -456,16 +481,6 @@ err: whether the method raised an exception (to make it possible to distingish
             # tree is different, so have to get rid of history
             self.fs_backend.reset()
             self.file_manager.refresh()
-
-    def _state_cb (self, w, e):
-        """Save changes to maximised state."""
-        is_max = e.new_window_state & gdk.WindowState.MAXIMIZED
-        settings['win_max'] = bool(is_max)
-
-    def _size_cb (self, w, size):
-        """Save changes to window size."""
-        if not settings['win_max']:
-            settings['win_size'] = (size.width, size.height)
 
     def set_sel_on_drag (self, value):
         """Update value of select_on_drag of file manager."""

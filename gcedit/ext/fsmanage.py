@@ -135,13 +135,15 @@ allow_nav: whether to allow navigation by activating a directory entry.  If
            False, activating directories will also result in a call to the
            backend's open_files method, if it exists.
 extra_cols: a list of extra (text) columns to have after the filename column in
-            the TreeView; each is (name, renderer), where name is shown as the
-            column header (currently never shown), and renderer is a
-            Gtk.CellRendererText to use, or None to have it created.  renderer
-            can also be False, in which case the column is not displayed (but
-            its data is still stored, and passed to the backend's open_*
-            methods).  Each entry in the return value of backend.list_dir
-            should then include the value for each column in order after is_dir.
+            the TreeView; each is (name, renderer[, expand]), where name is
+            shown as the column header (currently never shown), renderer is a
+            Gtk.CellRendererText to use, or None to have it created, and expand
+            is whether to have the column fill horizontal space (defaults to
+            False).  renderer can also be False, in which case the column is
+            not displayed (but its data is still stored, and passed to the
+            backend's open_* methods).  Each entry in the return value of
+            backend.list_dir should then include the value for each column in
+            order after is_dir.
 identifier: this is some (picklable) data that is passed to the copy method of
             the backend when a file is drag-and-dropped from a different
             Manager instance.  This can optionally be a function instead, that
@@ -228,11 +230,16 @@ address_bar: the AddressBar instance attached to this instance, or None.
         c = gtk.TreeViewColumn(_('Name'), r, text = COL_NAME,
                                foreground = COL_COLOUR,
                                editable = COL_EDITABLE)
-        c.set_property('expand', True)
+        c.set_expand(True)
         self.append_column(c)
         # extra columns
         i = 1
-        for name, r in extra_cols:
+        for c in extra_cols:
+            if len(c) == 2:
+                name, r = c
+                expand = False
+            else:
+                name, r, expand = c
             if r is False:
                 continue
             if r is None:
@@ -240,6 +247,8 @@ address_bar: the AddressBar instance attached to this instance, or None.
             r.set_property('foreground-set', True)
             c = gtk.TreeViewColumn(name, r, text = COL_LAST + i,
                                    foreground = COL_COLOUR)
+            if expand:
+                c.set_expand(True)
             self.append_column(c)
             i += 1
         # sorting

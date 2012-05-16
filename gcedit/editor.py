@@ -106,7 +106,8 @@ search_manager: fsmanage.Manager instance for search results, or None.
             ('<ctrl>z', self.fs_backend.undo),
             ('<ctrl><shift>z', self.fs_backend.redo),
             ('<ctrl>y', self.fs_backend.redo),
-            ('<ctrl>f', self.start_find)
+            ('<ctrl>f', self.start_find),
+            ('F3', self.start_find)
         )
         def mk_fn (cb, *cb_args):
             def f (*args):
@@ -200,18 +201,15 @@ search_manager: fsmanage.Manager instance for search results, or None.
 
     def start_find (self):
         """Open the search bar."""
-        if not self.searching:
-            self.searching = True
-            if self.search is None:
-                # create window
-                self.search = w = search.SearchWindow(self)
-            else:
-                w = self.search
-            # update last search
-            w.manager.set_path([])
-            # show window
-            w.present()
-            w.entry.grab_focus()
+        self.searching = True
+        if self.search is None:
+            # create window
+            self.search = w = search.SearchWindow(self)
+        else:
+            w = self.search
+        # show window
+        w.present()
+        w.entry.grab_focus()
 
     def end_find (self):
         """Close the search bar."""

@@ -20,9 +20,10 @@ from .ext.gcutil import search_tree
 from . import guiutil, conf
 
 # TODO:
-# [FEA] history (http://developer.gnome.org/gtk3/stable/GtkEntryCompletion.html)
+# [FEA] history (gtk.EntryCompletion)
 # [FEA] options (case-sensitive, regex, whole name, include dirs/files)
-# - paths get super-ellipsised
+# [ENH] setting to close search on choosing an item
+# [ENH] enable results column headers, and make them resizable
 
 
 class SearchResultsBackend:
@@ -49,21 +50,36 @@ items: a list of files and directories, each an (is_dir, path) tuple, where
         return [(path[-1], is_dir, printable_path(path[:-1]), repr(path)) \
                 for is_dir, path in self.items]
 
-    def open_files (self, *files):
-        assert len(files) == 1
-        self.editor.file_manager.present_item(eval(files[0][2]))
-        self.editor.present()
+    def open_items (self, *items):
+        assert len(items) == 1
+        try:
+            self.editor.file_manager.present_item(eval(items[0][2]))
+        except ValueError:
+            # doesn't exist (any more)
+            msg = _('The selected file no longer exists.')
+            guiutil.error(msg, self.editor.search)
+        else:
+            self.editor.present()
 
-    def open_dirs (self, *dirs):
-        assert len(dirs) == 1
-        self.editor.file_manager.set_path(eval(dirs[0][2]))
-        self.editor.present()
+    #def open_files (self, *files):
+        #assert len(files) == 1
+        #self.editor.file_manager.present_item(eval(files[0][2]))
+        #self.editor.present()
+
+    #def open_dirs (self, *dirs):
+        #assert len(dirs) == 1
+        #self.editor.file_manager.set_path(eval(dirs[0][2]))
+        #self.editor.present()
 
 
 class SearchWindow (guiutil.Window):
     """Search window (guiutil.Window subclass).
 
 Takes the current Editor instance.
+
+    METHODS
+
+search
 
     ATTRIBUTES
 
@@ -81,8 +97,12 @@ entry: the gtk.Entry used for the search text.
         self.connect('delete-event', self._close)
         # close on escape
         group = gtk.AccelGroup()
-        key, mods = gtk.accelerator_parse('Escape')
-        group.connect(key, mods, 0, self._close)
+        find = lambda *args: self.entry.grab_focus()
+        for accel, cb in (('Escape', self._close),
+                          ('<ctrl>f', find),
+                          ('F3', find)):
+            key, mods = gtk.accelerator_parse(accel)
+            group.connect(key, mods, 0, cb)
         self.add_accel_group(group)
         # widgets
         g = gtk.Grid()
@@ -93,7 +113,7 @@ entry: the gtk.Entry used for the search text.
         backend = SearchResultsBackend(editor)
         r = gtk.CellRendererText()
         r.set_property('ellipsize', pango.EllipsizeMode.END)
-        extra_cols = [(_('Parent'), r), ('path', False)]
+        extra_cols = [(_('Parent'), r, True), ('path', False)]
         self.manager = m = Manager(backend, [], True, False, False, False,
                                    False, extra_cols)
         s = gtk.ScrolledWindow()
@@ -105,26 +125,31 @@ entry: the gtk.Entry used for the search text.
         # bar
         self.entry = e = gtk.Entry()
         g.attach(e, 0, 1, 1, 1)
-        e.connect('activate', self._search) # activating default is slow...?
+        e.connect('activate', self.search) # activating default is slow...?
         b = gtk.Button(None, gtk.STOCK_FIND)
         b.set_can_default(True)
         g.attach(b, 1, 1, 1, 1)
         b.grab_default()
-        b.connect('clicked', self._search)
+        b.connect('clicked', self.search)
         b = gtk.Button(None, gtk.STOCK_CLOSE)
         g.attach(b, 2, 1, 1, 1)
         b.connect('clicked', self._close)
         self.show_all()
         self.hide()
 
-    def _search (self, *args):
-        """Search callback: show files matching the current text."""
+    def search (self, *args):
+        """Perform a search: show matches for the current text and options."""
         text = self.entry.get_text()
         results = search_tree(self.editor.fs.tree, text)
         items = [(is_dir, [d_name for d_name, d_index in path] + [name]) \
                  for is_dir, path, (name, index) in results]
         self.manager.backend.items = items
         self.manager.refresh()
+
+    def _focus_manager (self, *args):
+        """Give manager focus if entry is focused."""
+        if self.entry.is_focus():
+            self.manager.grab_focus()
 
     def _close (self, *args):
         """Close callback."""

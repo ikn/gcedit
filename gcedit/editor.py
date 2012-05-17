@@ -92,9 +92,10 @@ search_manager: fsmanage.Manager instance for search results, or None.
         self.fs_backend = FSBackend(fs, self)
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
         m = fsmanage.Manager(self.fs_backend, identifier = ident,
-                             drag_to_select = settings['sel_on_drag'],
+                             # NOTE: filesize
                              extra_cols = [(_('Size'), None)])
         self.file_manager = m
+        self.set_sel_on_drag(settings['sel_on_drag'])
         # window
         guiutil.Window.__init__(self, 'main')
         self.set_border_width(12)

@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 13-dev.
+Release: 13.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -500,6 +500,9 @@ tree: a dict representing the root directory.  Each directory is a dict whose
     index: the index in the entries list if the file/directory is already in
            the image's filesystem, else (for items yet to be added) None for a
            directory, or the real filesystem path for a file.
+
+      Note: bad things happen if you have an object (dict or list) in more than
+      one place in the tree.
 """
 
     def __init__ (self, fn):
@@ -933,7 +936,7 @@ be imported in the same call to this function.
 """
         old_entries = self.entries
         old_names = self.names
-        tree =  deepcopy(self.tree)
+        tree = deepcopy(self.tree)
         # compile new filesystem/string tables
         tree[None] = [f + (True,) for f in tree[None]]
         entries = []
@@ -959,7 +962,7 @@ be imported in the same call to this function.
             # find next file or dir alphabetically
             children = tree[None]
             # += causes the original list to be modified
-            children = children + list(k for k in tree if k is not None)
+            children = children + [k for k in tree if k is not None]
             child = min(children, key = sort_key)
             if len(child) == 3:
                 # file

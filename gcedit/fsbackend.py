@@ -19,6 +19,7 @@ FSBackend
 # [ENH] dialogues should use primary text (brief summary - have no title)
 
 import os
+from copy import deepcopy
 
 from gi.repository import Gtk as gtk
 from .ext.gcutil import tree_from_dir
@@ -418,7 +419,8 @@ Takes an argument indicating whether to import directories (else files).
             else:
                 # copy
                 if is_dir:
-                    dest[(new[-1], index)] = parent[(old[-1], index)]
+                    # copy tree so they can be modified independently
+                    dest[(new[-1], index)] = deepcopy(parent[(old[-1], index)])
                 else:
                     dest[None].append((new[-1], index))
         if cannot_copy:

@@ -66,6 +66,7 @@ text_viewer(text, wrap_mode = Gtk.WrapMode.WORD) -> widget
 
 """
     w = gtk.ScrolledWindow()
+    w.set_min_content_height(150)
     v = gtk.TextView()
     w.add(v)
     v.set_editable(False)

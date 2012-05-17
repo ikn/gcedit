@@ -1,4 +1,9 @@
-0.1.4:
+0.2.0:
+ * search function (ctrl + f)
+ * larger default text area height for tracebacks in error messages
+ * bug: copying a directory means any modifications affect both, and writing
+   only leaves the files in either the source or the copy, but removes them
+   from the other
 
 0.1.3:
  * allow writing to be cancelled (much) more often

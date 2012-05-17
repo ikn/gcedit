@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 7-dev.
+Release: 7.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -70,8 +70,7 @@ by ['some', 'path', 'current_dir'].
     CONSTRUCTOR
 
 Manager(backend, path = [], read_only = False, cache = False,
-        select_multi = True, drag_to_select = True, allow_nav = True,
-        extra_cols = [], identifier = 'fsmanage')
+        allow_nav = True, extra_cols = [], identifier = 'fsmanage')
 
 backend: an object with methods as follows.  Any method that changes the
          directory tree should not return until any call to list_dir will
@@ -121,16 +120,6 @@ read_only: whether the directory tree is read-only; if True, things like copy,
 cache: whether to cache directory contents when requested.  There is no need to
        clear the cache after any changes that go through this class and the
        given backend (copy, delete, etc.); this is done automatically.
-select_multi: whether to allow multiple items to be selected at the same time.
-              To change the value, you need to change this instance's
-              select_multi attribute and set the selection mode manually:
-
-    manager.get_selection().set_selection_mode(Gtk.SelectionMode.MODE)
-
-drag_to_select: whether dragging across unselected files will select them
-                (otherwise it will drag them; in the first case, files can only
-                be dragged if they are selected first).  Alter this later using
-                Manager.set_rubber_banding (inherited from Gtk.TreeView).
 allow_nav: whether to allow navigation by activating a directory entry.  If
            False, activating directories will also result in a call to the
            backend's open_files method, if it exists.
@@ -139,8 +128,8 @@ extra_cols: a list of extra (text) columns to have after the filename column in
             shown as the column header (currently never shown), renderer is a
             Gtk.CellRendererText to use, or None to have it created, and expand
             is whether to have the column fill horizontal space (defaults to
-            False).  renderer can also be False, in which case the column is
-            not displayed (but its data is still stored, and passed to the
+            False).  The column can also just be None, in which case it is not
+            displayed (but its data is still stored, and passed to the
             backend's open_* methods).  Each entry in the return value of
             backend.list_dir should then include the value for each column in
             order after is_dir.
@@ -163,7 +152,7 @@ present_item
 
     ATTRIBUTES
 
-backend, read_only, identifier, select_multi, allow_nav: as given.
+backend, read_only, identifier, allow_nav: as given.
 path: as given; change it with the set_path method.
 cache: as given.  Setting this to False will disable further caching, but not
        clear the existing cache; use the clear_cache method for this.
@@ -171,16 +160,31 @@ buttons: a list of buttons ruturned by the buttons function in this module, or
          none.
 address_bar: the AddressBar instance attached to this instance, or None.
 
+    TREEVIEW SETTINGS
+
+You might want to do some of the following:
+
+manager.get_selection().set_mode(gtk.SelectionMode.SINGLE)
+    (default: MULTIPLE)
+manager.set_headers_visible(True)
+    (default: False)
+manager.set_rubber_banding(False)
+    (default: True)
+manager.set_tooltip_column(column)
+    (default: COL_NAME)
+
+Note that column can be one of the COL_* attributes of this module, or for an
+extra column, fsmanage.COL_LAST + i + 1, where i is the column's index in the
+extra_cols argument.
+
 """
 
     def __init__ (self, backend, path = [], read_only = False, cache = False,
-                  select_multi = True, drag_to_select = True, allow_nav = True,
-                  extra_cols = [], identifier = 'fsmanage'):
+                  allow_nav = True, extra_cols = [], identifier = 'fsmanage'):
         self.backend = backend
         self.path = list(path)
         self.read_only = read_only
         self.cache = cache
-        self.select_multi = select_multi
         self.allow_nav = allow_nav
         self.identifier = identifier
         self._cache = {}
@@ -196,13 +200,13 @@ address_bar: the AddressBar instance attached to this instance, or None.
         self._model = gtk.ListStore(bool, str, str, str, bool,
                                     *(str for c in extra_cols))
         gtk.TreeView.__init__(self, self._model)
-        if select_multi:
-            self.get_selection().set_mode(gtk.SelectionMode.MULTIPLE)
+        self.get_selection().set_mode(gtk.SelectionMode.MULTIPLE)
+        self.set_headers_visible(False)
+        self.set_rubber_banding(True)
         self.set_search_column(COL_NAME)
         self.set_enable_tree_lines(True)
-        self.set_headers_visible(False)
-        self.set_rubber_banding(drag_to_select)
         self.set_rules_hint(True)
+        self.set_tooltip_column(COL_NAME)
         # drag and drop
         if not self.read_only:
             mod_mask = MOVE_BTN | COPY_BTN
@@ -219,7 +223,7 @@ address_bar: the AddressBar instance attached to this instance, or None.
         self.connect('row-activated', self._open)
         self.connect('button-press-event', self._click)
         # columns
-        c = gtk.TreeViewColumn('Icon', gtk.CellRendererPixbuf(),
+        c = gtk.TreeViewColumn('', gtk.CellRendererPixbuf(),
                                stock_id = COL_ICON)
         self.append_column(c)
         r = gtk.CellRendererText()
@@ -235,13 +239,13 @@ address_bar: the AddressBar instance attached to this instance, or None.
         # extra columns
         i = 1
         for c in extra_cols:
+            if c is None:
+                continue
             if len(c) == 2:
                 name, r = c
                 expand = False
             else:
                 name, r, expand = c
-            if r is False:
-                continue
             if r is None:
                 r = gtk.CellRendererText()
             r.set_property('foreground-set', True)
@@ -335,7 +339,7 @@ address_bar: the AddressBar instance attached to this instance, or None.
                 actions.append((gtk.STOCK_PASTE,
                                 _('Paste cut or copied files'), self._paste))
             actions.append(None)
-        if self.select_multi:
+        if self.get_selection().get_mode() == gtk.SelectionMode.MULTIPLE:
             actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
                            self.get_selection().select_all))
         # only show up if not in root directory
@@ -377,9 +381,8 @@ address_bar: the AddressBar instance attached to this instance, or None.
                     f = self.backend.open_dirs
                 else:
                     f = self.backend.open_items
-                args = tuple([path] + row[COL_LAST + 1:] for path, row in \
-                             zip(item_paths, items))
-                f = (self.backend.open_files,) + args
+                f = (f,) + tuple([path] + row[COL_LAST + 1:] for path, row in \
+                                 zip(item_paths, items))
             actions = [(gtk.STOCK_OPEN, _('Open all selected files')) + f,
                        None]
         else:
@@ -402,7 +405,7 @@ address_bar: the AddressBar instance attached to this instance, or None.
                 (gtk.STOCK_NEW, _('Create directory'), self._new_dir),
                 None
             ]
-        if self.select_multi:
+        if self.get_selection().get_mode() == gtk.SelectionMode.MULTIPLE:
             actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
                            self.get_selection().select_all))
         # only show up if not in root directory

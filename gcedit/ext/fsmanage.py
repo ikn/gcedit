@@ -262,17 +262,20 @@ extra_cols argument.
         # accelerators
         group = self.accel_group = gtk.AccelGroup()
         accels = [
-            ('F2', self._rename_selected),
             ('F5', self.refresh),
             ('Menu', self._menu),
-            ('BackSpace', self.up),
-            ('<alt>Up', self.up),
-            ('<alt>Left', self.back),
-            ('<alt>Right', self.forwards),
             ('<ctrl>l', self._focus_address_bar)
         ]
+        if self.allow_nav:
+            accels += [
+                ('BackSpace', self.up),
+                ('<alt>Up', self.up),
+                ('<alt>Left', self.back),
+                ('<alt>Right', self.forwards)
+            ]
         if not self.read_only:
             accels += [
+                ('F2', self._rename_selected),
                 ('<ctrl>x', self._copy, None, True),
                 ('Escape', self._uncut, True),
                 ('<ctrl>c', self._copy),

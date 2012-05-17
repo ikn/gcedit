@@ -23,7 +23,6 @@ from .conf import settings
 # TODO:
 # [FEA] history (gtk.EntryCompletion) (setting: number of searches to remember)
 # [FEA] options (case-sensitive, regex, whole name, include dirs/files)
-# [ENH] setting to close search on choosing an item
 
 
 class SearchResultsBackend:
@@ -88,7 +87,7 @@ entry: the gtk.Entry used for the search text.
         self.set_border_width(12)
         self.set_title('Find Files - {}'.format(conf.APPLICATION))
         self.connect('delete-event', self._close)
-        # close on escape
+        # shortcuts
         group = gtk.AccelGroup()
         find = lambda *args: self.entry.grab_focus()
         for accel, cb in (('Escape', self._close),
@@ -108,6 +107,7 @@ entry: the gtk.Entry used for the search text.
         r.set_property('ellipsize', pango.EllipsizeMode.END)
         extra_cols = [(_('Parent Directory'), r, True), None, None]
         self.manager = m = Manager(backend, [], True, False, False, extra_cols)
+        self.add_accel_group(self.manager.accel_group)
         m.get_selection().set_mode(gtk.SelectionMode.SINGLE)
         m.set_headers_visible(True)
         m.set_tooltip_column(COL_LAST + 2)

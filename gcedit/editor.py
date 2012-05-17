@@ -12,25 +12,16 @@ Editor
 """
 
 # TODO:
-# [ENH] option to close search results when an item is selected
-# [BUG] on import dir, can rename two invalid-named files to same name
 # [ENH] include game name in window title (need BNR support)
-# [FEA] can search within filesystem (ctrl-f, edit/find; shows bar with entry and Next/Previous buttons)
-# [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
 # [FEA] menus:
 #   - switch disk image (go back to initial screen)
+#   - find
 #   - buttons
 #   - compress, decompress, discard all changes (fs.update(), manager.refresh()), reload from disk (fs.update())
 #   - split view (horiz/vert/close)
 #   - about
-# [FEA] built-in tabbed editor (expands window out to the right)
-#   - if rename/move a file being edited, rename the tab
-#   - if delete, show error
-#   - if write, ask if want to save files being edited; afterwards, 're-open' them and show error if can't for some reason
-#   - in context menu, buttons
-#   - on open, check if can decode to text; if not, have hex editor
-#   - option for open_files to edit instead of extract
-# [END] progress windows: remaining time estimation
+# [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
+# [ENH] progress windows: remaining time estimation
 
 import os
 from time import sleep

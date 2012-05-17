@@ -18,6 +18,7 @@ from .ext.fsmanage import Manager, COL_LAST
 from .ext.gcutil import search_tree
 
 from . import guiutil, conf
+from .conf import settings
 
 # TODO:
 # [FEA] history (gtk.EntryCompletion) (setting: number of searches to remember)
@@ -60,6 +61,8 @@ items: a list of files and directories, each an (is_dir, path) tuple, where
             guiutil.error(msg, self.editor.search)
         else:
             self.editor.present()
+            if settings['close_search']:
+                self.editor.end_find()
 
 
 class SearchWindow (guiutil.Window):

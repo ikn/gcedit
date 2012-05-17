@@ -6,7 +6,7 @@
 # version.
 
 # TODO:
-# [FEA] show list of all opened images (with buttons to remove from list) and 'browse' button to load a new image
+# [FEA] show list of all previously successfully opened images that still exist (with buttons to remove from list) and 'browse' button to load a new image
 #   - option to always load chosen disk on startup
 
 # BNR: http://hitmen.c02.at/files/yagcd/yagcd/chap14.html#sec14.1

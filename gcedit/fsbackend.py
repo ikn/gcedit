@@ -12,11 +12,12 @@ FSBackend
 """
 
 # TODO:
+# [BUG] on import dir, can rename two invalid-named files to same name
+# [ENH] dialogues should use primary text (brief summary - have no title)
+# [ENH] 'do this for all remaining conflicts' for move_conflict
 # [ENH] in overwrite with copy/import, have the deletion in the same history action
 #   - history action can be list of actions
 #   - need to add copies/imports and deletes to this list in the right order
-# [ENH] 'do this for all remaining conflicts' for move_conflict
-# [ENH] dialogues should use primary text (brief summary - have no title)
 
 import os
 from copy import deepcopy

@@ -92,6 +92,10 @@ _widgets = {
         't': 'bool',
         'label': _('Automatically close _progress dialogues when finished')
     },
+    'close_search': {
+        't': 'bool',
+        'label': _('Close the _Find window when a result is selected')
+    },
     'disabled_warnings': {
         't': 'button',
         'data': _('_Re-enable all warnings'),
@@ -361,7 +365,7 @@ and settings.  A heading is (heading_text, None), a label is
 
 _prefs = (
     (_('_Interface'), ('sel_on_drag', 'autoclose_progress',
-                       'disabled_warnings')),
+                       'close_search', 'disabled_warnings')),
     #(_('T_rash'), ((_('The trash directory is used to save files that are ' \
                       #'deleted from disk images.  Note that disabling the ' \
                       #'trash or reducing its size may <b>permanently ' \

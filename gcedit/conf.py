@@ -44,6 +44,7 @@ _defaults = {
     'extract_path': HOME,
     'sel_on_drag': True,
     'autoclose_progress': False,
+    'close_search': False,
     'disabled_warnings': set(),
     # trash
     'trash_enabled': True,
@@ -65,6 +66,7 @@ _types = {
     'extract_path': str,
     'autoclose_progress': bool,
     'sel_on_drag': bool,
+    'close_search': bool,
     'disabled_warnings': set,
     # trash
     'trash_enabled': bool,

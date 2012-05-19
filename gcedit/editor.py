@@ -208,6 +208,7 @@ search_manager: fsmanage.Manager instance for search results, or None.
         if self.searching:
             self.searching = False
             self.search.hide()
+            self.search.cleanup()
 
     def _run_with_progress_backend (self, q, method, progress, args, kwargs):
         """Wrapper that calls a backend function with a progress method.

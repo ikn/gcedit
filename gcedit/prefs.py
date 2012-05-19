@@ -139,6 +139,19 @@ _widgets = {
         'label': _('Read and write in _blocks of:'),
         'data': (1, 1023, 1, ('B', 'KiB', 'MiB')),
         'cb': 'update_bs'
+    },
+    'search_hist_limited': {
+        't': 'bool',
+        'label': _('Limit search history'),
+        'tooltip': _('Note that this only limits the number of searches ' \
+                     'saved to disk: the number of searches remembered for ' \
+                     'current session is always unlimited')
+    },
+    'search_hist_size': {
+        't': 'int',
+        'label': _('Maximum number of saved searches:'),
+        'data': (0, 1000, 1),
+        'sensitive': [('search_hist_limited', True)]
     }
 }
 
@@ -371,7 +384,8 @@ _prefs = (
                       #'trash or reducing its size may <b>permanently ' \
                       #'delete</b> items to fit the new settings.'), True),
                    #'trash_enabled', 'trash_location', 'trash_size')),
-    (_('_Advanced'), ('set_tmp_dir', 'tmp_dir', 'block_size'))
+    (_('_Advanced'), ('set_tmp_dir', 'tmp_dir', 'block_size',
+                      'search_hist_limited', 'search_hist_size'))
 )
 
 

@@ -23,11 +23,20 @@ IDENTIFIER = 'gcedit'
 if system() == 'Windows':
     HOME = os.environ['USERPROFILE']
     SHARE = join_path(os.environ['APPDATA'], IDENTIFIER)
-    CONF = join_path(SHARE, 'conf')
+    CONF_DIR = SHARE
+    CONF = join_path(CONF_DIR, 'conf')
 else:
     HOME = os.path.expanduser('~')
     SHARE = join_path(HOME, '.local', 'share', IDENTIFIER)
-    CONF = join_path(HOME, '.config', IDENTIFIER)
+    CONF_DIR = join_path(HOME, '.config')
+    CONF = join_path(CONF_DIR, IDENTIFIER)
+
+for d in set((SHARE, CONF_DIR)):
+    try:
+        os.makedirs(d, exist_ok = True)
+    except OSError:
+        print('warning: can\'t create directory: \'{}\''.format(d))
+        pass
 
 APPLICATION = _('GCEdit')
 UPDATE_ON_CHANGE = True
@@ -53,7 +62,9 @@ _defaults = {
     # advanced
     'set_tmp_dir': False,
     'tmp_dir': HOME,
-    'block_size': (1, 2) # 1MiB
+    'block_size': (1, 2), # 1MiB
+    'search_hist_limited': True,
+    'search_hist_size': 100
 }
 
 _types = {
@@ -75,8 +86,44 @@ _types = {
     # advanced
     'set_tmp_dir': bool,
     'tmp_dir': str,
-    'block_size': list
+    'block_size': list,
+    'search_hist_limited': bool,
+    'search_hist_size': int
 }
+
+def read_lines (fn):
+    """Read a file's lines into a list of strings.
+
+Takes the filename under conf.SHARE.
+
+"""
+    l = []
+    try:
+        with open(join_path(SHARE, fn)) as f:
+            m = f.readlines()
+    except IOError:
+        pass
+    else:
+        for s in m:
+            s = s.strip()
+            if s:
+                l.append(s)
+    return l
+
+def write_lines (fn, l):
+    """Read a list of strings to a file as separate lines.
+
+Takes the filename under conf.SHARE and the list of strings.
+
+"""
+    fn = join_path(SHARE, fn)
+    print('info: writing to file: \'{}\''.format(fn))
+    try:
+        with open(fn, 'w') as f:
+            f.write('\n'.join(l))
+    except IOError:
+        print('warning: can\'t write to file: \'{}\''.format(fn))
+        pass
 
 
 class JSONEncoder (json.JSONEncoder):
@@ -128,11 +175,13 @@ To restore a setting to its default value, set it to None.
             if v == self[k]:
                 # no change
                 return
+        print('info: saving setting: \'{}\''.format(k))
         dict.__setitem__(self, k, v)
         try:
             with open(self.fn, 'w') as f:
                 json.dump(self, f, indent = 4, cls = JSONEncoder)
         except IOError:
+            print('warning: can\'t write to file: \'{}\''.format(self.fn))
             pass
 
 

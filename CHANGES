@@ -1,3 +1,6 @@
+0.2.0-next:
+ * search history, and a setting to limit number of saved searches
+
 0.2.0:
  * search function (ctrl + f)
  * larger default text area height for tracebacks in error messages

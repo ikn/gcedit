@@ -139,12 +139,12 @@ entry: the gtk.Entry used for the search text.
         bb = gtk.ButtonBox(gtk.Orientation.HORIZONTAL)
         bb.set_spacing(6)
         g.attach(bb, 1, 1, 1, 1)
-        b = gtk.Button(None, gtk.STOCK_FIND)
+        b = guiutil.Button(gtk.STOCK_FIND)
         b.set_can_default(True)
         bb.pack_start(b, False, False, 0)
         b.grab_default()
         b.connect('clicked', self.search)
-        b = gtk.Button(None, gtk.STOCK_CLOSE)
+        b = guiutil.Button(gtk.STOCK_CLOSE)
         bb.pack_start(b, False, False, 0)
         b.connect('clicked', self._close)
         self.show_all()
@@ -166,19 +166,11 @@ entry: the gtk.Entry used for the search text.
         self.manager.refresh()
         # add to history
         if search:
-            h = self.history
-            try:
-                i = h.index(search)
-            except ValueError:
-                # new search term
-                h.append(search)
-                self._completion_model.append((search,))
+            changed, new = conf.mru_add(self.history, search)
+            if changed:
                 self._hist_changed = True
-            else:
-                # already in the history: move to end to indicate recent use
-                if i != len(h):
-                    h.append(h.pop(i))
-                    self._hist_changed = True
+            if new:
+                self._completion_model.append((search,))
 
     def _focus_manager (self, *args):
         """Give manager focus if entry is focused."""

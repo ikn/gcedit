@@ -5,6 +5,11 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version.
 
+    FUNCTIONS
+
+read_lines
+write_lines
+
     DATA
 
 settings: dict-like object to handle settings.
@@ -129,8 +134,35 @@ Takes the filename under conf.SHARE and the list of strings.
         print('warning: can\'t write to file: \'{}\''.format(fn))
         pass
 
+def mru_add (l, x):
+    """Add an item to a most-recently-used list.
 
-class JSONEncoder (json.JSONEncoder):
+mru_add(l, x) -> (changed, new)
+
+If x is in l, it is moved to the end; if not, it is appended.
+
+changed: whether was l changed.
+new: whether x was not already in l.
+
+"""
+    changed = False
+    new = False
+    try:
+        i = l.index(x)
+    except ValueError:
+        # new
+        l.append(x)
+        changed = True
+        new = True
+    else:
+        # already in the list: move to end to indicate recent use
+        if i != len(l):
+            l.append(l.pop(i))
+            changed = True
+    return (changed, new)
+
+
+class _JSONEncoder (json.JSONEncoder):
     """Extended json.JSONEncoder with support for sets."""
 
     def default (self, o):
@@ -183,7 +215,7 @@ To restore a setting to its default value, set it to None.
         dict.__setitem__(self, k, v)
         try:
             with open(self.fn, 'w') as f:
-                json.dump(self, f, indent = 4, cls = JSONEncoder)
+                json.dump(self, f, indent = 4, cls = _JSONEncoder)
         except IOError:
             print('warning: can\'t write to file: \'{}\''.format(self.fn))
             pass

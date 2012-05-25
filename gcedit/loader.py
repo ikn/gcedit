@@ -18,19 +18,17 @@ browse
 """
 
 # TODO:
-# - show name, banner, size, other details
-#   - need BNR support
-# - 'browse' button
-# - option to always load chosen disk on startup
-# - _rm, _click, _menu (has Open, Remove, Clear List)
+# [ENH] show name, banner, size, other details (need BNR support)
+# - _click, _menu
+# - confirm _rm, _rm_all
 
 from os.path import abspath, basename
 
 from gi.repository import Gtk as gtk, Pango as pango
 
-from gcedit import conf, guiutil
-from gcedit.editor import Editor
-from gcedit.ext.gcutil import GCFS
+from . import conf, guiutil
+from .editor import Editor
+from .ext.gcutil import GCFS
 
 COL_FN = 0
 COL_PATH = 1
@@ -71,8 +69,7 @@ fn_hist: current disk image history.
 
 """
     fn = abspath(fn)
-    if fn not in fn_hist:
-        fn_hist.append(fn)
+    if conf.mru_add(fn_hist, fn)[0]:
         conf.write_lines('disk_history', fn_hist)
 
 def browse (fn_hist = None, parent = None):
@@ -124,18 +121,26 @@ fn_hist: current disk image history; must have at least one item.
         self.set_title(conf.APPLICATION)
         self.connect('delete-event', self.quit)
         g = gtk.Grid()
+        g.set_column_spacing(6)
         g.set_row_spacing(6)
         self.add(g)
 
+        # label
+        l = gtk.Label(_('Recent files:'))
+        l.set_alignment(0, .5)
+        g.attach(l, 0, 0, 3, 1)
         # treeview
         self._model = m = gtk.ListStore(str, str)
-        m.set_sort_column_id(COL_FN, gtk.SortType.ASCENDING)
+        self._model.set_default_sort_func(self._sort_tree)
+        # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
+        self._model.set_sort_column_id(-1, gtk.SortType.DESCENDING)
         self._tree = tree = gtk.TreeView(m)
         tree.set_headers_visible(False)
         tree.set_search_column(COL_FN)
         tree.set_rules_hint(True)
         tree.set_tooltip_column(COL_PATH)
-        tree.connect('row-activated', self._open)
+        open_cb = lambda t, path, c: self._open(self._model[path][COL_PATH])
+        tree.connect('row-activated', open_cb)
         self.connect('button-press-event', self._click)
         # content
         r = gtk.CellRendererText()
@@ -146,7 +151,7 @@ fn_hist: current disk image history; must have at least one item.
         self._add_fns(*fn_hist)
         # add to window
         s = gtk.ScrolledWindow()
-        g.attach(s, 0, 0, 1, 1)
+        g.attach(s, 0, 1, 3, 1)
         s.set_policy(gtk.PolicyType.NEVER, gtk.PolicyType.AUTOMATIC)
         s.add(tree)
         tree.set_hexpand(True)
@@ -159,19 +164,40 @@ fn_hist: current disk image history; must have at least one item.
         ]
         def mk_fn (cb, *cb_args):
             def f (*args):
-                if self.is_focus():
+                if tree.is_focus():
                     cb(*cb_args)
             return f
         for accel, cb, *args in accels:
             key, mods = gtk.accelerator_parse(accel)
             group.connect(key, mods, 0, mk_fn(cb, *args))
-        # button
-        b = gtk.Button('_Browse...', None, True)
-        g.attach(b, 0, 1, 1, 1)
+        self.add_accel_group(group)
+        # buttons
+        for i, (data, cb) in enumerate((
+            (gtk.STOCK_OPEN, self._open_current),
+            (gtk.STOCK_REMOVE, self._rm),
+            ((_('Remove _All'), gtk.STOCK_REMOVE), self._rm_all)
+        )):
+            b = guiutil.Button(data)
+            g.attach(b, i, 2, 1, 1)
+            b.connect('clicked', cb)
+        b = guiutil.Button((_('_Browse...'), gtk.STOCK_FIND))
+        g.attach(b, 0, 3, 3, 1)
         b.connect('clicked', self._browse)
 
         self.show_all()
         self.hide()
+
+    def _get_selected (self):
+        """Get (model, iter, file_path) for the selected disk image.
+
+i and file_path are None if nothing is selected.
+
+"""
+        m, i = self._tree.get_selection().get_selected()
+        if i is None:
+            return m, None, None
+        else:
+            return m, i, m[i][COL_PATH]
 
     def _add_fns (self, *fns):
         """Add the given disk images to the tree.
@@ -183,20 +209,36 @@ Each is as stored in the history.
         for fn in fns:
             m.append((basename(fn), fn))
 
-    def _open (self, tree, path, column):
-        """Open a file."""
-        fn = self._model[path][COL_PATH]
+    def _open (self, fn):
+        """Open the given disk image."""
         if run_editor(fn):
             self.destroy()
             add_to_hist(fn, self._fn_hist)
+
+    def _open_current (self, *args):
+        """Open the currently selected disk image."""
+        m, i, fn = self._get_selected()
+        if fn is not None:
+            self._open(fn)
 
     def _click (self, tree, event):
         """Callback for clicking the tree."""
         pass
 
-    def _rm (self):
+    def _rm (self, *args):
         """Remove the currently selected disk image."""
-        pass
+        m, i, fn = self._get_selected()
+        if fn is not None:
+            self._fn_hist.remove(m[i][COL_PATH])
+            conf.write_lines('disk_history', self._fn_hist)
+            del m[i]
+
+    def _rm_all (self, *args):
+        """Remove all disk images."""
+        if self._fn_hist:
+            self._fn_hist = []
+            conf.write_lines('disk_history', [])
+            self._model.clear()
 
     def _menu (self):
         """Show a context menu."""
@@ -206,6 +248,16 @@ Each is as stored in the history.
         """Show a file chooser to find a disk image."""
         if browse(self._fn_hist, self):
             self.destroy()
+
+    def _sort_tree (self, model, iter1, iter2, data):
+        """Sort callback."""
+        path1 = model[iter1][COL_PATH]
+        path2 = model[iter2][COL_PATH]
+        if path1 == path2:
+            return 0
+        else:
+            h = self._fn_hist
+            return h.index(path1) - h.index(path2)
 
     def quit (self, *args):
         """Quit the application."""

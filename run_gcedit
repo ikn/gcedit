@@ -32,11 +32,7 @@ if __name__ == '__main__':
         fn = sys.argv[1]
     except IndexError:
         # ask for a disk image
-        if fn_hist:
-            loader.LoadDisk(fn_hist).show()
-        else:
-            if not loader.browse(fn_hist):
-                sys.exit()
+        loader.LoadDisk(fn_hist).show()
     else:
         # try to load given file
         if loader.run_editor(fn):

@@ -20,7 +20,7 @@ from html import escape
 
 from gi.repository import Gtk as gtk
 
-from . import conf
+from . import conf, guiutil
 from .conf import settings
 
 """
@@ -57,10 +57,7 @@ sensitive: a list of (setting_ID, value) tuples, where the widget is only
 
 Setting types are:
 
-button: takes the label, which is assumed to be stock if it starts with 'gtk-';
-        otherwise, it is assumed to use underline if it contains '_'.  It can
-        also be (label, icon) to show a stock icon with the given label (and
-        label may again contain '_' for underline).  This type has no value.
+button: takes the argument taken by guiutil.Button.  This type has no value.
 text: shows a text entry.
 bool: shows a checkbox.
 dir: choose a directory on the real filesystem.
@@ -272,16 +269,7 @@ the setting's _widgets entry as arguments.
 """
     cb_args = (editor, prefs, setting_id, cb, on_change)
     if t == 'button':
-        # data is label
-        if not isinstance(data, str):
-            name, icon = data
-            w = gtk.Button(name, None, '_' in name)
-            img = gtk.Image.new_from_stock(icon, gtk.IconSize.BUTTON)
-            w.set_image(img)
-        elif data.startswith('gtk-'):
-            w = gtk.Button(None, data)
-        else:
-            w = gtk.Button(data, None, '_' in data)
+        w = guiutil.Button(data)
     elif t == 'text':
         w = gtk.Entry()
         w.set_text(settings[setting_id])
@@ -491,7 +479,7 @@ widgets: setting_ID: widget dict of settings widgets.
         v.pack_start(tabs, True, True, 0)
         bs = gtk.Box()
         v.pack_start(bs, False, False, 0)
-        b = gtk.Button(None, gtk.STOCK_CLOSE)
+        b = guiutil.Button(gtk.STOCK_CLOSE)
         bs.pack_end(b, False, False, 0)
         b.connect('clicked', self.quit)
         # create pages with widgets

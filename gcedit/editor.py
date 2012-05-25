@@ -114,8 +114,8 @@ search_manager: fsmanage.Manager instance for search results, or None.
         # contents
         self._grid = g = gtk.Grid()
         self.add(g)
-        g.set_row_spacing(6)
         g.set_column_spacing(12)
+        g.set_row_spacing(6)
         # left
         self.buttons = btns = []
         f = lambda widget, cb, *args: cb(*args)
@@ -143,15 +143,7 @@ search_manager: fsmanage.Manager instance for search results, or None.
                     btns.append(b)
             else:
                 name, tooltip, cb, *cb_args = btn_data
-                if not isinstance(name, str):
-                    name, icon = name
-                    b = gtk.Button(name, None, '_' in name)
-                    img = gtk.Image.new_from_stock(icon, gtk.IconSize.BUTTON)
-                    b.set_image(img)
-                elif name.startswith('gtk-'):
-                    b = gtk.Button(None, name)
-                else:
-                    b = gtk.Button(name, None, '_' in name)
+                b = guiutil.Button(name)
                 btns.append(b)
                 if tooltip is not None:
                      b.set_tooltip_text(tooltip)

@@ -18,6 +18,7 @@ invalid_name
 
     CLASSES
 
+Button
 Window
 Progress
 
@@ -205,6 +206,27 @@ widgets: widgets to add to the same grid as the text, which is at (0, 0) with
     g.show()
     d.run()
     d.destroy()
+
+
+class Button (gtk.Button):
+    """A Gtk.Button subclass that makes custom stock easier.
+
+Takes a single argument, which is either a stock ID, a label for the button
+to have no stock, or a (label, stock_ID) tuple to have a stock icon with a
+different label.  If the label contains an underscore, it is interpreted as
+marking a keyboard mnemonic.
+
+"""
+    def __init__ (self, name):
+        if not isinstance(name, str):
+            name, icon = name
+            gtk.Button.__init__(self, name, None, '_' in name)
+            img = gtk.Image.new_from_stock(icon, gtk.IconSize.BUTTON)
+            self.set_image(img)
+        elif name.startswith('gtk-'):
+            gtk.Button.__init__(self, None, name)
+        else:
+            gtk.Button.__init__(self, name, None, '_' in name)
 
 
 class Window (gtk.Window):

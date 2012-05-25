@@ -52,7 +52,7 @@ _defaults = {
     # interface
     'win_size_main': (450, 450),
     'win_max_main': False,
-    'win_size_loader': (400, 200),
+    'win_size_loader': (400, 225),
     'win_max_loader': False,
     'win_size_search': (600, 250),
     'win_max_search': False,
@@ -156,7 +156,7 @@ new: whether x was not already in l.
         new = True
     else:
         # already in the list: move to end to indicate recent use
-        if i != len(l):
+        if i != len(l) - 1:
             l.append(l.pop(i))
             changed = True
     return (changed, new)

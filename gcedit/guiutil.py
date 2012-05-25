@@ -211,22 +211,60 @@ widgets: widgets to add to the same grid as the text, which is at (0, 0) with
 class Button (gtk.Button):
     """A Gtk.Button subclass that makes custom stock easier.
 
-Takes a single argument, which is either a stock ID, a label for the button
-to have no stock, or a (label, stock_ID) tuple to have a stock icon with a
-different label.  If the label contains an underscore, it is interpreted as
-marking a keyboard mnemonic.
+    CONSTRUCTOR
+
+Button(data[, tooltip])
+
+data: either a stock ID, a label for the button to have no stock, or a
+      (label, stock_ID) tuple to have a stock icon with a different label.  If
+      the label contains an underscore, it is interpreted as marking a keyboard
+      mnemonic.
+tooltip: a tooltip for the button (else don't have a tooltip).
 
 """
-    def __init__ (self, name):
-        if not isinstance(name, str):
-            name, icon = name
+    def __init__ (self, data, tooltip = None):
+        if not isinstance(data, str):
+            name, icon = data
             gtk.Button.__init__(self, name, None, '_' in name)
             img = gtk.Image.new_from_stock(icon, gtk.IconSize.BUTTON)
             self.set_image(img)
-        elif name.startswith('gtk-'):
-            gtk.Button.__init__(self, None, name)
+        elif data.startswith('gtk-'):
+            gtk.Button.__init__(self, None, data)
         else:
-            gtk.Button.__init__(self, name, None, '_' in name)
+            gtk.Button.__init__(self, data, None, '_' in data)
+        if tooltip is not None:
+            self.set_tooltip_text(tooltip)
+
+
+class MenuItem (gtk.ImageMenuItem):
+    """A Gtk.ImageMenuItem subclass that makes custom stock easier.
+
+    CONSTRUCTOR
+
+Button(data[, tooltip])
+
+data: either a stock ID, a label for the widget to have no stock, or a
+      (label, stock_ID) tuple to have a stock icon with a different label.  If
+      the label contains an underscore, it is interpreted as marking a keyboard
+      mnemonic.
+tooltip: a tooltip for the widget (else don't have a tooltip).
+
+"""
+    def __init__ (self, data, tooltip = None):
+        if not isinstance(data, str):
+            name, icon = data
+            gtk.MenuItem.__init__(self, name)
+            img = gtk.Image.new_from_stock(icon, gtk.IconSize.MENU)
+            self.set_image(img)
+        else:
+            name = data
+            gtk.MenuItem.__init__(self, name)
+            if name.startswith('gtk-'):
+                self.set_use_stock(True)
+        if '_' in name:
+            self.set_use_underline(True)
+        if tooltip is not None:
+            self.set_tooltip_text(tooltip)
 
 
 class Window (gtk.Window):

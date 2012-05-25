@@ -19,8 +19,7 @@ browse
 
 # TODO:
 # [ENH] show name, banner, size, other details (need BNR support)
-# - _click, _menu
-# - confirm _rm, _rm_all
+# [ENH] confirm _rm, _rm_all
 
 from os.path import abspath, basename
 
@@ -141,7 +140,7 @@ fn_hist: current disk image history; must have at least one item.
         tree.set_tooltip_column(COL_PATH)
         open_cb = lambda t, path, c: self._open(self._model[path][COL_PATH])
         tree.connect('row-activated', open_cb)
-        self.connect('button-press-event', self._click)
+        tree.connect('button-press-event', self._click)
         # content
         r = gtk.CellRendererText()
         r.set_property('ellipsize', pango.EllipsizeMode.END)
@@ -159,7 +158,7 @@ fn_hist: current disk image history; must have at least one item.
         # accelerators
         group = self.accel_group = gtk.AccelGroup()
         accels = [
-            ('Menu', self._menu),
+            ('Menu', self._menu, 0, gtk.get_current_event_time()),
             ('Delete', self._rm)
         ]
         def mk_fn (cb, *cb_args):
@@ -223,7 +222,20 @@ Each is as stored in the history.
 
     def _click (self, tree, event):
         """Callback for clicking the tree."""
-        pass
+        if event.button not in (1, 3):
+            return
+        tree = self._tree
+        sel = tree.get_path_at_pos(int(event.x), int(event.y))
+        if sel is None:
+            # deselect
+            tree.get_selection().unselect_all()
+        if event.button == 3:
+            # right-click: show context menu
+            if sel is None:
+                # no-file context menu
+                self._menu(event.button, event.time, False)
+            else:
+                self._menu(event.button, event.time, sel[0])
 
     def _rm (self, *args):
         """Remove the currently selected disk image."""
@@ -240,9 +252,39 @@ Each is as stored in the history.
             conf.write_lines('disk_history', [])
             self._model.clear()
 
-    def _menu (self):
-        """Show a context menu."""
-        pass
+    def _menu (self, btn = None, time = None, path = None):
+        """Show a context menu.
+
+_menu([btn][, time][, path])
+
+btn: event button, if any.
+time: event time, if any.
+path: Gtk.TreePath for the row to show a menu for, or False to show a menu for
+      no row; if not given, the current selection is used.
+
+"""
+        if path is None:
+            path = self._get_selected()[1]
+            if path is None:
+                path = False
+        if path:
+            fn = self._model[path][COL_PATH]
+            items = [(gtk.STOCK_OPEN, lambda *args: self._open(fn)),
+                     (gtk.STOCK_REMOVE, self._rm)]
+        else:
+            items = []
+        items.append(((_('Remove _All'), gtk.STOCK_REMOVE), self._rm_all))
+        # create menu
+        # HACK: need to store the menu for some reason, else it doesn't show up
+        # - maybe GTK stores it in such a way that the garbage collector thinks
+        # it can get rid of it or something
+        menu = self._temp_menu = gtk.Menu()
+        for data, cb in items:
+            item = guiutil.MenuItem(data)
+            item.connect('activate', cb)
+            menu.append(item)
+        menu.show_all()
+        menu.popup(None, None, None, None, btn, time)
 
     def _browse (self, b):
         """Show a file chooser to find a disk image."""

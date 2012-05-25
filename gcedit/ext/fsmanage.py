@@ -300,9 +300,6 @@ extra_cols argument.
 
     def _show_menu (self, actions, menu_args):
         """Create a display a popup menu."""
-        # HACK: need to store the menu for some reason, else it doesn't show up
-        # - maybe GTK stores it in such a way that the garbage collector thinks
-        # it can get rid of it or something
         if not actions:
             return
         for i in (0, -1):
@@ -310,6 +307,9 @@ extra_cols argument.
                 actions.pop(i)
         if not actions:
             return
+        # HACK: need to store the menu for some reason, else it doesn't show up
+        # - maybe GTK stores it in such a way that the garbage collector thinks
+        # it can get rid of it or something
         menu = self._temp_menu = gtk.Menu()
         f = lambda widget, cb, *args: cb(*args)
         for x in actions:

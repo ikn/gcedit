@@ -143,10 +143,8 @@ search_manager: fsmanage.Manager instance for search results, or None.
                     btns.append(b)
             else:
                 name, tooltip, cb, *cb_args = btn_data
-                b = guiutil.Button(name)
+                b = guiutil.Button(name, tooltip)
                 btns.append(b)
-                if tooltip is not None:
-                     b.set_tooltip_text(tooltip)
                 if cb is not None:
                     b.connect('clicked', f, cb, *cb_args)
         for i, b in enumerate(btns):

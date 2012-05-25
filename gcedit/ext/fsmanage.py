@@ -25,7 +25,6 @@ buttons
 # - multi-DND
 # - allow resizing of breadcrumbs (gtk.Grid) smaller than its current size
 # - escape with address bar focused does self.grab_focus()
-# - extra fields
 
 from pickle import dumps, loads
 from base64 import encodebytes, decodebytes

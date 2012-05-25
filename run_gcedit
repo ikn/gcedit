@@ -5,10 +5,6 @@
 # Foundation, either version 3 of the License, or (at your option) any later
 # version.
 
-# TODO:
-# [FEA] show list of all previously successfully opened images that still exist (with buttons to remove from list) and 'browse' button to load a new image
-#   - option to always load chosen disk on startup
-
 # BNR: http://hitmen.c02.at/files/yagcd/yagcd/chap14.html#sec14.1
 # RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
 # Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
@@ -23,49 +19,34 @@ sys.path.append(sysconfig.get_python_lib(prefix = _LIB_PREFIX))
 # non-lowercase modules = evil
 from gi.repository import Gtk as gtk, Gdk as gdk, GObject as gobject
 from gcedit import conf
-from gcedit.editor import Editor
-from gcedit.ext.gcutil import GCFS
+from gcedit import loader
 
 # add icons under current dir to icon search path
 gtk.IconTheme.get_default().append_search_path('icons')
 gtk.Window.set_default_icon_name(conf.IDENTIFIER)
 
-
-class LoadDisk (gtk.FileChooserDialog):
-    """The dialogue for choosing a disk image to load."""
-
-    def __init__ (self):
-        rt = gtk.ResponseType
-        buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
-        # NOTE: the title for a file open dialogue
-        gtk.FileChooserDialog.__init__(self, _('Open disk image'), None,
-                                       gtk.FileChooserAction.OPEN, buttons)
-
-
-try:
-    # use the first argument as a filename to load, if given
-    fn = sys.argv[1]
-except IndexError:
-    # ask for a disk image
-    load = LoadDisk()
-    if load.run() == gtk.ResponseType.OK:
-        # got one
-        fn = load.get_filename()
-    else:
-        fn = None
-    load.destroy()
-# check we have a filename and it's valid
-if fn is not None:
+fn_hist = conf.read_lines('disk_history')
+if __name__ == '__main__':
     try:
-        fs = GCFS(fn)
-    except: # TODO: [ENH] raise something in GCFS if invalid
-        # TODO: [ENH] show error dialogue and return to disk loader
-        pass
+        # use the first argument as a filename to load, if given
+        fn = sys.argv[1]
+    except IndexError:
+        # ask for a disk image
+        if fn_hist:
+            loader.LoadDisk(fn_hist).show()
+        else:
+            if not loader.browse(fn_hist):
+                sys.exit()
     else:
-        # start the editor
-        Editor(fs)
-        gobject.threads_init()
-        gdk.threads_init()
-        gdk.threads_enter()
-        gtk.main()
-        gdk.threads_leave()
+        # try to load given file
+        if loader.run_editor(fn):
+            loader.add_to_hist(fn, fn_hist)
+        else:
+            # failed: fall back to loader
+            loader.LoadDisk(fn_hist).show()
+    # start GTK main loop
+    gobject.threads_init()
+    gdk.threads_init()
+    gdk.threads_enter()
+    gtk.main()
+    gdk.threads_leave()

@@ -47,6 +47,8 @@ _defaults = {
     # interface
     'win_size_main': (450, 450),
     'win_max_main': False,
+    'win_size_loader': (400, 200),
+    'win_max_loader': False,
     'win_size_search': (600, 250),
     'win_max_search': False,
     'import_path': HOME,
@@ -71,6 +73,8 @@ _types = {
     # interface
     'win_size_main': list,
     'win_max_main': bool,
+    'win_size_loader': list,
+    'win_max_loader': bool,
     'win_size_search': list,
     'win_max_search': bool,
     'import_path': str,

@@ -12,6 +12,7 @@ Editor
 """
 
 # TODO:
+# [FEA] multi-paned file manager
 # [ENH] include game name in window title (need BNR support)
 # [FEA] menus:
 #   - switch disk image (go back to initial screen)
@@ -177,6 +178,7 @@ search_manager: fsmanage.Manager instance for search results, or None.
         g.set_focus_chain(btns + [g_right])
         # display
         self.show_all()
+        self.hide()
         m.grab_focus()
 
     def _update_title (self):
@@ -499,9 +501,6 @@ err: whether the method raised an exception (to make it possible to distingish
 
     def quit (self, *args):
         """Quit the program."""
-        if not self.get_sensitive():
-            # doing stuff
-            return True
         if self.fs_backend.can_undo() or self.fs_backend.can_redo():
             # confirm
             msg = _('The changes you\'ve made will be lost if you quit.  ' \

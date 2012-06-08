@@ -85,8 +85,9 @@ search_manager: fsmanage.Manager instance for search results, or None.
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
         m = fsmanage.Manager(self.fs_backend, identifier = ident,
                              # NOTE: filesize
-                             extra_cols = [(_('Size'), None)])
+                             extra_cols = [(_('Size'), None), None])
         self.file_manager = m
+        m.set_tooltip_column(fsmanage.COL_LAST + 2)
         self.set_sel_on_drag(settings['sel_on_drag'])
         # window
         guiutil.Window.__init__(self, 'main')
@@ -219,34 +220,32 @@ args, kwargs: arguments to the method, excluding the progress argument.
         except Exception as e:
             if hasattr(e, 'handled') and e.handled is True:
                 # disk should still be in the same state
-                # NOTE: {} is an error message
-                msg = _('Couldn\'t write: {}.').format(e.args[0])
-                q.put(('handled_err', msg))
+                q.put(('handled_err', e))
             else:
                 # not good: show traceback
-                msg = _('Something may have gone horribly wrong, and the ' \
-                        'disk image might have ended up in an ' \
-                        'inconsistent state.  Here\'s some debug ' \
-                        'information.')
-                q.put(('unhandled_err', (msg, format_exc().strip())))
+                q.put(('unhandled_err', (e, format_exc().strip())))
         else:
             q.put(('end', rtn))
 
-    def _run_with_progress (self, method, title, item_text, failed = None,
-                            *args, **kwargs):
+    def _run_with_progress (self, method, title, item_text, handled_msg,
+                            failed = None, handled = {}, *args, **kwargs):
         """Run a backend function with a progress window.
 
-_run_with_progress(method, title, item_text[, failed], *args, **kwargs)
-    -> (rtn, err)
+_run_with_progress(method, title, item_text, handled_msg[, failed],
+                   handled = {}, *args, **kwargs) -> (rtn, err)
 
 method: the method of the GCFS instance to call.
 title: the window title.
 item_text: format for the text displayed for each item; with an item returned
            by the method, this function displays item_text.format(item).
+handled_msg: message to do .format(error_message) on and display for 'handled'
+             error messages.
 failed: an (optional) function that takes the return value of the method and
         returns whether it has failed (in which case, this function returns
         immediately instead of leaving the progress window open for the user to
         close it).
+handled: a {cls: msg} dict of 'handled' error messages to show for each
+         Exception subclass raised by method.
 args, kwargs: arguments passed to the method, excluding the progress argument.
 
 rtn: the method's return value, or None if it raised an exception.
@@ -306,7 +305,7 @@ err: whether the method raised an exception (to make it possible to distingish
         t = Thread(target = self._run_with_progress_backend,
                    args = (q, method, progress, args, kwargs))
         t.start()
-        err_msg = None
+        err = None
         while True:
             while q.empty():
                 while gtk.events_pending():
@@ -324,11 +323,11 @@ err: whether the method raised an exception (to make it possible to distingish
                 if not status['cancelled']:
                     d.set_item(item_text.format(name))
             elif action == 'handled_err':
-                err_msg = data
+                err = data
                 err_handled = True
                 break
             elif action == 'unhandled_err':
-                err_msg, traceback = data
+                err, traceback = data
                 err_handled = False
                 break
             else: # action == 'end'
@@ -338,14 +337,21 @@ err: whether the method raised an exception (to make it possible to distingish
         t.join()
         # save autoclose setting
         settings['autoclose_progress'] = d.autoclose.get_active()
-        if err_msg is not None:
+        if err is not None:
             d.destroy()
             # show error
-            if err_handled:
-                guiutil.error(err_msg, self)
+            if err_handled or type(err) in handled:
+                if err_handled:
+                    handled_msg = handled_msg.format(err.args[0])
+                else:
+                    handled_msg = handled_msg.format(handled[type(err)])
+                guiutil.error(handled_msg, self)
             else:
+                msg = _('Something may have gone horribly wrong, and the disk '
+                        'image might have ended up in an inconsistent state.  '
+                        'Here\'s some debug information.')
                 v = guiutil.text_viewer(traceback, gtk.WrapMode.WORD_CHAR)
-                guiutil.error(err_msg, self, v)
+                guiutil.error(msg, self, v)
                 # don't try and do anything else, in case it breaks things
             rtn = None
         elif failed is not None and failed(rtn):
@@ -365,7 +371,7 @@ err: whether the method raised an exception (to make it possible to distingish
                 if d.run() == 0:
                     settings['autoclose_progress'] = True
             d.destroy()
-        return (rtn, err_msg is not None)
+        return (rtn, err is not None)
 
     def extract (self, *files):
         """Extract the files at the given paths, else the selected files."""
@@ -374,7 +380,7 @@ err: whether the method raised an exception (to make it possible to distingish
             files = self.file_manager.get_selected_files()
             if not files:
                 # nothing to do
-                msg = _('No files selected: to extract, select some files ' \
+                msg = _('No files selected: to extract, select some files '
                         'first.')
                 guiutil.error(msg, self)
                 return
@@ -420,16 +426,19 @@ err: whether the method raised an exception (to make it possible to distingish
             args.append((f, d))
         # show progress dialogue
         failed_cb = lambda rtn: rtn and rtn is not True
+        # NOTE: {} is an error message
+        msg = _('Couldn\'t extract: {}.')
+        handled = {IOError: _('reading or writing failed')}
         failed, err = self._run_with_progress('extract', _('Extracting files'),
-                                              _('Extracting file: {}'),
-                                              failed_cb, args)
+                                              _('Extracting file: {}'), msg,
+                                              failed_cb, handled, args)
         if failed and failed is not True:
             # display failed list
             v = guiutil.text_viewer('\n'.join(dest for f, dest in failed),
                                     gtk.WrapMode.NONE)
-            msg = _('Couldn\'t extract to the following locations.  Maybe ' \
-                    'the files already exist, or you don\'t have permission ' \
-                    'to write here.')
+            msg = _('Couldn\'t extract to the following locations.  Maybe the '
+                    'files already exist, or you don\'t have permission to '
+                    'write here.')
             guiutil.error(msg, self, v)
 
     def write (self):
@@ -440,8 +449,8 @@ err: whether the method raised an exception (to make it possible to distingish
             return
         elif self.fs.disk_changed():
             if 'changed_write' not in settings['disabled_warnings']:
-                msg = _('The contents of the disk have been changed by ' \
-                        'another program since it was loaded.  Are you sure ' \
+                msg = _('The contents of the disk have been changed by '
+                        'another program since it was loaded.  Are you sure '
                         'you want to continue?')
                 ask_again = ('changed_write', 1)
                 # NOTE: confirmation dialogue title
@@ -450,16 +459,18 @@ err: whether the method raised an exception (to make it possible to distingish
                     return
         # ask for confirmation
         if 'write' not in settings['disabled_warnings']:
-            msg = _('Once your changes have been written to the disk, they ' \
+            msg = _('Once your changes have been written to the disk, they '
                     'cannot be undone.  Are you sure you want to continue?')
             if guiutil.question(_('Confirm Write'), msg, confirm_buttons, self,
                                 None, True, ('write', 1)) != 1:
                 return
         # show progress dialogue
+        # NOTE: {} is an error message
+        msg = _('Couldn\'t write: {}.')
         tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
         rtn, err = self._run_with_progress('write', _('Writing to disk'),
-                                           _('Copying file: {}'), None,
-                                           tmp_dir)
+                                           _('Copying file: {}'), msg, None,
+                                           {}, tmp_dir)
         if not rtn and not err:
             # tree is different, so have to get rid of history
             self.fs_backend.reset()
@@ -493,8 +504,8 @@ err: whether the method raised an exception (to make it possible to distingish
         """Quit the program."""
         if self.fs_backend.can_undo() or self.fs_backend.can_redo():
             # confirm
-            msg = _('The changes you\'ve made will be lost if you quit.  ' \
-                    'Are you sure you want to continue?')
+            msg = _('The changes you\'ve made will be lost if you quit.  Are '
+                    'you sure you want to continue?')
             if 'quit_with_changes' not in settings['disabled_warnings']:
                 # NOTE: confirmation dialogue title
                 if guiutil.question(_('Confirm Quit'), msg,

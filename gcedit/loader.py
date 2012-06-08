@@ -24,10 +24,10 @@ browse
 from os.path import abspath, basename
 
 from gi.repository import Gtk as gtk, Pango as pango
+from .ext.gcutil import GCFS
 
 from . import conf, guiutil
 from .editor import Editor
-from .ext.gcutil import GCFS
 
 COL_FN = 0
 COL_PATH = 1

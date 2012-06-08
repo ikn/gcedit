@@ -21,6 +21,7 @@ FSBackend
 
 import os
 from copy import deepcopy
+from html import escape
 
 from gi.repository import Gtk as gtk
 from .ext.gcutil import tree_from_dir
@@ -334,12 +335,12 @@ Takes an argument indicating whether to import directories (else files).
                     # files
                     for name, i in v:
                         this_size = niceify(size(False, path + (name,)))
-                        items.append((name, False, this_size))
+                        items.append((name, False, this_size, escape(name)))
                 else:
                     # dir
                     name = k[0]
                     this_size = niceify(size(True, path + (name,)))
-                    items.append((name, True, this_size))
+                    items.append((name, True, this_size, escape(name)))
         return items
 
     def open_files (self, *files):

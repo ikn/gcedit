@@ -1,6 +1,8 @@
 0.2.0-next:
  * start with a list of previously opened disk images
  * search history, and a setting to limit number of saved searches
+ * (slightly) better error messages on extract
+ * bug: tooltips don't show up for files with certain characters
 
 0.2.0:
  * search function (ctrl + f)

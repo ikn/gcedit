@@ -12,8 +12,9 @@ SearchWindow
 
 """
 
-from gi.repository import Gtk as gtk, Pango as pango
+from html import escape
 
+from gi.repository import Gtk as gtk, Pango as pango
 from .ext.fsmanage import Manager, COL_LAST
 from .ext.gcutil import search_tree
 
@@ -46,7 +47,7 @@ items: a list of files and directories, each an (is_dir, path) tuple, where
     def list_dir (self, path):
         printable_path = guiutil.printable_path
         return [(path[-1], is_dir, printable_path(path[:-1]),
-                 printable_path(path), repr(path)) \
+                 escape(printable_path(path)), repr(path)) \
                 for is_dir, path in self.items]
 
     def open_items (self, *items):

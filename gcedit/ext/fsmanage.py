@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 7.
+Release: 8-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -170,7 +170,7 @@ manager.set_headers_visible(True)
 manager.set_rubber_banding(False)
     (default: True)
 manager.set_tooltip_column(column)
-    (default: COL_NAME)
+    (default: not set)
 
 Note that column can be one of the COL_* attributes of this module, or for an
 extra column, fsmanage.COL_LAST + i + 1, where i is the column's index in the
@@ -205,7 +205,6 @@ extra_cols argument.
         self.set_search_column(COL_NAME)
         self.set_enable_tree_lines(True)
         self.set_rules_hint(True)
-        self.set_tooltip_column(COL_NAME)
         # drag and drop
         if not self.read_only:
             mod_mask = MOVE_BTN | COPY_BTN

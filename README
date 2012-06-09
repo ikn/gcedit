@@ -15,6 +15,10 @@ included, you can find it here:
 Python 3 (>= 3.2): http://www.python.org
 PyGObject 3: https://live.gnome.org/PyGObject
 
+and just to build:
+
+gettext: https://www.gnu.org/software/gettext/gettext.html
+
     INSTALLATION
 
 There is no installation method on Windows.  On Unix-like OSs, with GNU make or
@@ -44,8 +48,11 @@ On Unix-like OSs, once installed, just run gcedit (installed to /usr/local/bin/
 by default).  Alternatively, you can run in-place without installing by
 
     ./configure
+    make inplace
     ./run_gcedit
+
+('make inplace' performs a subset of the actions that 'make' does.)
 
     FILES
 
-GCEdit creates the ~/.config/gcedit for configuration.
+GCEdit creates ~/.config/gcedit for configuration.

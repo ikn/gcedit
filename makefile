@@ -16,9 +16,11 @@ ICON_PATH_UNINSTALL = $(patsubst uninstall-%.png,$(ICON_PATTERN),$@)
 
 .PHONY: all clean distclean install uninstall
 
-all:
-	./setup build
+inplace:
 	./i18n/gen_mo
+
+all: inplace
+	./setup build
 
 clean:
 	- $(RM) -r build

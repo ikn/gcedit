@@ -32,13 +32,14 @@ from .editor import Editor
 COL_FN = 0
 COL_PATH = 1
 
-def run_editor (fn, parent = None):
+def run_editor (fn, parent):
     """Start and display the editor.
 
-run_editor(fn[, parent]) -> valid
+run_editor(fn, parent) -> valid
 
 fn: filename to load as a disk image.
-parent: parent window for the error dialogue, if shown.
+parent: parent window for the error dialogue, if shown; this is destroyed if
+        the file is a valid disk image.
 
 valid: whether the file was found to be valid (if not, an error dialogue is
        shown and the editor isn't started).
@@ -50,12 +51,10 @@ valid: whether the file was found to be valid (if not, an error dialogue is
         # TODO: [ENH] show error dialogue and return to disk loader
         return False
     else:
+        if parent:
+            parent.destroy()
         # start the editor
         Editor(fs).show()
-        # make sure the editor is realised before returning (so that destroying
-        # parent happens after, and editor gets focus)
-        while gtk.events_pending():
-            gtk.main_iteration()
         return True
 
 def add_to_hist (fn, fn_hist):
@@ -95,7 +94,7 @@ opened: whether the disk image was opened in the editor.
     load.destroy()
     # open file if given
     if fn is not None:
-        if run_editor(fn):
+        if run_editor(fn, parent):
             add_to_hist(fn, fn_hist)
             return True
     return False
@@ -210,8 +209,7 @@ Each is as stored in the history.
 
     def _open (self, fn):
         """Open the given disk image."""
-        if run_editor(fn):
-            self.destroy()
+        if run_editor(fn, self):
             add_to_hist(fn, self._fn_hist)
 
     def _open_current (self, *args):
@@ -288,8 +286,7 @@ path: Gtk.TreePath for the row to show a menu for, or False to show a menu for
 
     def _browse (self, b):
         """Show a file chooser to find a disk image."""
-        if browse(self._fn_hist, self):
-            self.destroy()
+        browse(self._fn_hist, self)
 
     def _sort_tree (self, model, iter1, iter2, data):
         """Sort callback."""

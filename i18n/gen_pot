@@ -4,6 +4,7 @@
 
 # takes 'src' dir, defaulting to the parent dir of this file
 
+prog="GCEdit"
 if [ -z "$1" ]; then
     src_dir="`dirname "$0"`/.."
 else
@@ -11,11 +12,11 @@ else
 fi
 po_dir="`dirname "$0"`/po"
 # generate POT
-version=`head -n1 "$src_dir/README" | sed "s/GCEdit \(.*\)\./\1/"`
+version=`head -n1 "$src_dir/README" | sed "s/$prog \(.*\)\./\1/"`
 find "$src_dir/gcedit" -regex ".*\.py" -print0 | xargs -0 xgettext -cNOTE \
-    -LPython -o "$po_dir/messages.pot.tmp" "$src_dir/run_gcedit"
+     -LPython -o "$po_dir/messages.pot.tmp" "$src_dir/run_gcedit"
 # xgettext options to put info in output don't seem to work...
-echo "# Template for GCEdit translations.
+echo "# Template for $prog translations.
 # This file is distributed under the new BSD license.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #

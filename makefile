@@ -18,9 +18,11 @@ ICON_PATH_UNINSTALL = $(patsubst uninstall-%.png,$(ICON_PATTERN),$@)
 
 all:
 	./setup build
+	./i18n/gen_mo
 
 clean:
 	- $(RM) -r build
+	- $(RM) -r gcedit/locale
 
 distclean: clean
 	@ ./unconfigure

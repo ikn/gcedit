@@ -10,6 +10,7 @@ included, you can find it here:
     CLASSES
 
 GCFS
+DiskError
 
     FUNCTIONS
 
@@ -38,7 +39,6 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 # - decompress function
 # - BNR support
 # - don't load fst on startup: have .load_fst; replaces .update
-# - validity checks on init
 
 import os
 from os.path import getsize, exists, dirname, basename
@@ -453,9 +453,14 @@ IOError; you should handle this yourself.
 
     CONSTRUCTOR
 
-GCFS(fn)
+GCFS(fn, sanity = True)
 
 fn: file path to the image file.
+sanity: perform some sanity checks when loading the filesystem.  If any fail,
+        DiskError is raised.  This is to protect against crashes or hangs in
+        the case of invalid files.  Passing False is not recommended, but may
+        be necessary if there happens to be a valid disk that falls outside
+        these checks.
 
     METHODS
 
@@ -474,7 +479,7 @@ compress
 
     ATTRIBUTES
 
-fn: as given.
+fn, max_name_size: as given.
 fs_start: position in the image at which the filesystem starts.
 fst_size: image's filesystem table (includes string table) size in bytes.
 num_entries: number of entries in the filesystem.
@@ -509,34 +514,76 @@ tree: a dict representing the root directory.  Each directory is a dict whose
       one place in the tree.
 """
 
-    def __init__ (self, fn):
+    def __init__ (self, fn, sanity = True):
         self.fn = str(fn)
+        self.sanity = sanity
         # read data from the disk
         self.update()
 
     def _init (self):
         """Read and store data from the disk."""
+        sanity = self.sanity
         with open(self.fn, 'rb') as f:
+            if sanity:
+                # check DVD magic word
+                if read(f, 0x1c, 0x4, True) != 0xc2339f3d:
+                    raise DiskError(_('DVD magic word missing'))
+                end = f.seek(0, 2)
             self.fs_start = fs_start = read(f, 0x424, 0x4, True)
-            self.fst_size = read(f, 0x428, 0x4, True)
-            self.num_entries = read(f, fs_start + 0x8, 0x4, True)
-            self.str_start = str_start = fs_start + self.num_entries * 0xc
+            self.fst_size = fst_size = read(f, 0x428, 0x4, True)
+            fst_end = fs_start + fst_size
+            if sanity:
+                # check FST position and size
+                if fs_start < 0x2440: # this is where the Apploader starts
+                    raise DiskError(_('filesystem starts too early'))
+                elif fs_start > 0x4000000: # 64MiB
+                    raise DiskError(_('filesystem starts too late'))
+                if fst_size > 0x400000: # 4MiB
+                    raise DiskError(_('filesystem table too large'))
+                if fst_end > end:
+                    raise DiskError(_('filesystem ends too late'))
+            self.num_entries = n = read(f, fs_start + 0x8, 0x4, True)
+            if sanity:
+                if n == 0:
+                    raise DiskError(_('no root directory entry'))
+                if n > 10 ** 5:
+                    raise DiskError(_('too many files in the filesystem'))
+                if fst_size < n * 0xc:
+                    raise DiskError(_('filesystem table too small'))
+            self.str_start = str_start = fs_start + n * 0xc
+            # string table should start within FST
+            if sanity and self.str_start > fst_end:
+                raise DiskError(_('filesystem table ends too early'))
             # get file data
             self.entries = entries = []
-            for i in range(1, self.num_entries):
+            for i in range(1, n):
                 # get entry offset
                 entry_offset = fs_start + i * 0xc
                 # is_dir, str_offset, start, size
                 args = ((0x0, 0x1), (0x1, 0x3), (0x4, 0x4), (0x8, 0x4))
                 data = [read(f, entry_offset + offset, size, True)
                         for offset, size in args]
-                data[0] = bool(data[0])
+                data[0] = d = bool(data[0])
+                if sanity:
+                    # string table must be contained within FST
+                    if str_start + data[1] > fst_end:
+                        msg = _('found a file whose name starts too late')
+                        raise DiskError(msg)
+                    if d:
+                        if data[2] >= n:
+                            msg = _('found a directory with an invalid parent')
+                            raise DiskError(msg)
+                        if data[3] > n:
+                            msg = _('found an invalid directory entry')
+                            raise DiskError(msg)
+                    # don't limit file offset/size
                 entries.append(tuple(data))
             # get filenames
             self.names = names = []
             for entry in entries:
-                # only read 512 chars for safety
                 name = read(f, str_start + entry[1], 0x200, False, b'\0', 0x20)
+                if len(name) == 0x200: # 512B
+                    raise DiskError(_('too long a filename'))
                 names.append(_decode(name))
 
     def build_tree (self, store = True, start = 0, end = None):
@@ -654,7 +701,11 @@ size: the number of children in the tree or the total file size, or a dict of
             return size
 
     def update (self):
-        """Re-read data from the disk.  Discards all changes to the tree."""
+        """Re-read data from the disk.  Discards all changes to the tree.
+
+May raise DiskError (see constructor).
+
+"""
         self._init()
         # build tree
         self.tree = self.build_tree()
@@ -662,7 +713,8 @@ size: the number of children in the tree or the total file size, or a dict of
     def disk_changed (self, update = False):
         """Return whether changes have been made to the disk.
 
-This checks the filesystem table, but not the files themselves.
+This checks the filesystem table, but not the files themselves.  May raise
+DiskError (see constructor).
 
 """
         attrs = ('fs_start', 'fst_size', 'num_entries', 'str_start', 'entries',
@@ -1440,3 +1492,8 @@ compressing.  Make sure you write everything you want to keep first.
                 #rmtree(tmp_dir)
             #except OSError:
                 #pass
+
+
+class DiskError (EnvironmentError):
+    """Exception subclass raised for invalid disk images."""
+    pass

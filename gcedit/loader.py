@@ -22,15 +22,17 @@ browse
 # [ENH] confirm _rm, _rm_all
 
 from os.path import abspath, basename
+from html import escape
 
 from gi.repository import Gtk as gtk, Pango as pango
-from .ext.gcutil import GCFS
+from .ext.gcutil import GCFS, DiskError
 
 from . import conf, guiutil
 from .editor import Editor
 
 COL_FN = 0
 COL_PATH = 1
+COL_PATH_ESC = 2
 
 def run_editor (fn, parent):
     """Start and display the editor.
@@ -45,10 +47,15 @@ valid: whether the file was found to be valid (if not, an error dialogue is
        shown and the editor isn't started).
 
 """
+    # TODO: [ENH] show error dialogue on exception
     try:
         fs = GCFS(fn)
-    except: # TODO: [ENH] raise something in GCFS if invalid
-        # TODO: [ENH] show error dialogue and return to disk loader
+    except IOError as e:
+        e = e.strerror[0].lower() + e.strerror[1:]
+        guiutil.error(_('Couldn\'t read the file: {}').format(e), parent)
+        return False
+    except DiskError as e:
+        guiutil.error(_('Invalid file: {}').format(e), parent)
         return False
     else:
         if parent:
@@ -128,7 +135,7 @@ fn_hist: current disk image history; must have at least one item.
         l.set_alignment(0, .5)
         g.attach(l, 0, 0, 3, 1)
         # treeview
-        self._model = m = gtk.ListStore(str, str)
+        self._model = m = gtk.ListStore(str, str, str)
         self._model.set_default_sort_func(self._sort_tree)
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
         self._model.set_sort_column_id(-1, gtk.SortType.DESCENDING)
@@ -136,7 +143,7 @@ fn_hist: current disk image history; must have at least one item.
         tree.set_headers_visible(False)
         tree.set_search_column(COL_FN)
         tree.set_rules_hint(True)
-        tree.set_tooltip_column(COL_PATH)
+        tree.set_tooltip_column(COL_PATH_ESC)
         open_cb = lambda t, path, c: self._open(self._model[path][COL_PATH])
         tree.connect('row-activated', open_cb)
         tree.connect('button-press-event', self._click)
@@ -205,7 +212,7 @@ Each is as stored in the history.
 """
         m = self._model
         for fn in fns:
-            m.append((basename(fn), fn))
+            m.append((basename(fn), fn, escape(fn)))
 
     def _open (self, fn):
         """Open the given disk image."""
@@ -239,7 +246,7 @@ Each is as stored in the history.
         """Remove the currently selected disk image."""
         m, i, fn = self._get_selected()
         if fn is not None:
-            self._fn_hist.remove(m[i][COL_PATH])
+            self._fn_hist.remove(fn)
             conf.write_lines('disk_history', self._fn_hist)
             del m[i]
 
@@ -262,15 +269,16 @@ path: Gtk.TreePath for the row to show a menu for, or False to show a menu for
 
 """
         if path is None:
-            path = self._get_selected()[1]
-            if path is None:
-                path = False
-        if path:
+            fn = self._get_selected()[2]
+        elif path is False:
+            fn = None
+        else:
             fn = self._model[path][COL_PATH]
+        if fn is None:
+            items = []
+        else:
             items = [(gtk.STOCK_OPEN, lambda *args: self._open(fn)),
                      (gtk.STOCK_REMOVE, self._rm)]
-        else:
-            items = []
         items.append(((_('Remove _All'), gtk.STOCK_REMOVE), self._rm_all))
         # create menu
         # HACK: need to store the menu for some reason, else it doesn't show up

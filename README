@@ -15,14 +15,10 @@ included, you can find it here:
 Python 3 (>= 3.2): http://www.python.org
 PyGObject 3: https://live.gnome.org/PyGObject
 
-and just to build:
-
-gettext: https://www.gnu.org/software/gettext/gettext.html
-
     INSTALLATION
 
-There is no installation method on Windows.  On Unix-like OSs, with GNU make or
-equivalent, run
+There is no installation method on Windows.  On Unix-like OSs, with bash, sed,
+find, GNU make or equivalent and gettext, run
 
     ./configure
     make
@@ -51,7 +47,7 @@ by default).  Alternatively, you can run in-place without installing by
     make inplace
     ./run_gcedit
 
-('make inplace' performs a subset of the actions that 'make' does.)
+(`make inplace' performs a subset of the actions that `make' does.)
 
     FILES
 

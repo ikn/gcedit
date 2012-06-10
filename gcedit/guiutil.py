@@ -63,7 +63,8 @@ def text_viewer (text, wrap_mode = gtk.WrapMode.WORD):
 
 text_viewer(text, wrap_mode = Gtk.WrapMode.WORD) -> widget
 
-
+text: the text to display.
+wrap_mode: GTK wrap mode to use.
 
 """
     w = gtk.ScrolledWindow()
@@ -94,7 +95,7 @@ options: a list of options to present as buttons, where each is the button text
          or a stock ID.
 parent: dialogue parent.
 default: the index of the option in the list that should be selected by default
-         (pressing enter normally).
+         (pressing enter normally).  If None or not given, there is no default.
 warning: whether this is a warning dialogue (instead of just a question).
 ask_again: show a 'Don't ask again' checkbox.  This is
            (setting_key, match_response), where, if the checkbox is ticked and
@@ -312,10 +313,10 @@ action: True to overwrite (not for an invalid name), False to cancel the move,
 """
     # get dialogue
     if invalid:
-        msg = _('The file \'{}\' cannot be moved to \'{}\' because the ' \
+        msg = _('The file \'{}\' cannot be moved to \'{}\' because the '
                 'destination name is invalid.')
     else:
-        msg = _('The file \'{}\' cannot be moved to \'{}\' because the ' \
+        msg = _('The file \'{}\' cannot be moved to \'{}\' because the '
                 'destination file exists.')
     msg = msg.format(fn_from, f_to)
     buttons = ['_Rename', gtk.STOCK_CANCEL]
@@ -374,8 +375,8 @@ def _invalid_name_details_expander ():
     e = gtk.Expander()
     e.set_label(_('_Details'))
     e.set_use_underline(True)
-    l = gtk.Label(_('It must be possible to encode file and directory names ' \
-                    'using the shift-JIS encoding, and \'/\' and null bytes ' \
+    l = gtk.Label(_('It must be possible to encode file and directory names '
+                    'using the shift-JIS encoding, and \'/\' and null bytes '
                     '(\'\\0\') are not allowed.'))
     e.add(l)
     l.set_line_wrap(True)
@@ -398,8 +399,8 @@ parent: dialogue parent.
         msg = msg.format(paths)
     else:
         # NOTE: name as in file/directory name
-        msg = _('The following items couldn\'t be created because their ' \
-                'names are invalid:')
+        msg = _('The following items couldn\'t be created because their names '
+                'are invalid:')
         widgets.append(text_viewer('\n'.join(paths), gtk.WrapMode.NONE))
     # details
     e = _invalid_name_details_expander()

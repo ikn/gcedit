@@ -81,8 +81,8 @@ _widgets = {
     'sel_on_drag': {
         't': 'bool',
         'label': _('_Drag to select files'),
-        'tooltip': _('Otherwise dragging moves or copies files, even if ' \
-                     'they are not already selected'),
+        'tooltip': _('Otherwise dragging moves or copies files, even if they '
+                     'are not already selected'),
         'cb': 'set_sel_on_drag'
     },
     'autoclose_progress': {
@@ -140,9 +140,9 @@ _widgets = {
     'search_hist_limited': {
         't': 'bool',
         'label': _('Limit search history'),
-        'tooltip': _('Note that this only limits the number of searches ' \
-                     'saved to disk: the number of searches remembered for ' \
-                     'current session is always unlimited')
+        'tooltip': _('Note that this only limits the number of searches saved '
+                     'to disk: the number of searches remembered for current '
+                     'session is always unlimited')
     },
     'search_hist_size': {
         't': 'int',
@@ -367,9 +367,9 @@ and settings.  A heading is (heading_text, None), a label is
 _prefs = (
     (_('_Interface'), ('sel_on_drag', 'autoclose_progress',
                        'close_search', 'disabled_warnings')),
-    #(_('T_rash'), ((_('The trash directory is used to save files that are ' \
-                      #'deleted from disk images.  Note that disabling the ' \
-                      #'trash or reducing its size may <b>permanently ' \
+    #(_('T_rash'), ((_('The trash directory is used to save files that are '
+                      #'deleted from disk images.  Note that disabling the '
+                      #'trash or reducing its size may <b>permanently '
                       #'delete</b> items to fit the new settings.'), True),
                    #'trash_enabled', 'trash_location', 'trash_size')),
     (_('_Advanced'), ('set_tmp_dir', 'tmp_dir', 'block_size',

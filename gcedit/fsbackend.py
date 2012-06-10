@@ -363,8 +363,8 @@ Takes an argument indicating whether to import directories (else files).
                 if this_data[2] != id(self.editor):
                     # different Editor
                     foreign = True
-                    guiutil.error(_('Drag-and-drop between instances is not ' \
-                                  'supported yet.'))
+                    guiutil.error(_('Drag-and-drop between instances is not '
+                                    'supported yet.'))
                     #print(this_data, old, new)
                     failed.append(old)
                     continue
@@ -373,7 +373,7 @@ Takes an argument indicating whether to import directories (else files).
                 dest = self.get_tree(new[:-1])
             except ValueError:
                 if not said_nodest:
-                    guiutil.error(_('Can\'t copy to a non-existent ' \
+                    guiutil.error(_('Can\'t copy to a non-existent '
                                     'directory.'))
                     said_nodest = True
                 failed.append(old)
@@ -485,8 +485,8 @@ Takes an argument indicating whether to import directories (else files).
         try:
             dest = self.get_tree(dest)
         except ValueError:
-            guiutil.error(_('Can\'t create a directory in a non-existent ' \
-                          'directory.'))
+            guiutil.error(_('Can\'t create a directory in a non-existent '
+                            'directory.'))
             return False
         current_items = [k[0] for k in dest if k is not None]
         current_items += [name for name, i in dest[None]]

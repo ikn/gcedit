@@ -19,7 +19,6 @@ browse
 
 # TODO:
 # [ENH] show name, banner, size, other details (need BNR support)
-# [ENH] confirm _rm, _rm_all
 
 from os.path import abspath, basename
 from html import escape
@@ -28,6 +27,7 @@ from gi.repository import Gtk as gtk, Pango as pango
 from .ext.gcutil import GCFS, DiskError
 
 from . import conf, guiutil
+from .conf import settings
 from .editor import Editor
 
 COL_FN = 0
@@ -47,7 +47,6 @@ valid: whether the file was found to be valid (if not, an error dialogue is
        shown and the editor isn't started).
 
 """
-    # TODO: [ENH] show error dialogue on exception
     try:
         fs = GCFS(fn)
     except IOError as e:
@@ -246,6 +245,12 @@ Each is as stored in the history.
         """Remove the currently selected disk image."""
         m, i, fn = self._get_selected()
         if fn is not None:
+            btns = (gtk.STOCK_CANCEL, _('_Remove Anyway'))
+            if 'rm_disk' not in settings['disabled_warnings']:
+                msg = _('Remove the selected file from this list?')
+                if guiutil.question(_('Confirm Remove'), msg, btns, self, None,
+                                    True, ('rm_disk', 1)) != 1:
+                    return
             self._fn_hist.remove(fn)
             conf.write_lines('disk_history', self._fn_hist)
             del m[i]
@@ -253,6 +258,12 @@ Each is as stored in the history.
     def _rm_all (self, *args):
         """Remove all disk images."""
         if self._fn_hist:
+            btns = (gtk.STOCK_CANCEL, _('_Remove Anyway'))
+            if 'rm_all_disks' not in settings['disabled_warnings']:
+                msg = _('Remove all files from this list?')
+                if guiutil.question(_('Confirm Remove'), msg, btns, self, None,
+                                    True, ('rm_all_disks', 1)) != 1:
+                    return
             self._fn_hist = []
             conf.write_lines('disk_history', [])
             self._model.clear()

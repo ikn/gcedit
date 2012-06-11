@@ -1,5 +1,6 @@
-0.2.0-next:
+0.3.0:
  * start with a list of previously opened disk images
+ * some search options
  * search history, and a setting to limit number of saved searches
  * perform a number of validity checks on an opened disk image
  * (slightly) better error messages on extract

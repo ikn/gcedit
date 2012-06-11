@@ -415,8 +415,8 @@ matches: a list of (is_dir, parent_path, key) tuples for matching files and
     if current_dir is None:
         current_dir = []
         matches = []
-    elif not case_sensitive:
-        term = term.lower()
+        if not case_sensitive:
+            term = term.lower()
     for d_key, this_tree in tree.items():
         if d_key is None:
             # files

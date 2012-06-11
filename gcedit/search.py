@@ -24,7 +24,6 @@ from .conf import settings
 # TODO:
 # [FEA] options (case-sensitive, regex, whole name, include dirs/files)
 
-
 class SearchResultsBackend:
     """A read-only fsmanage backend that lists search results.
 
@@ -117,7 +116,7 @@ entry: the gtk.Entry used for the search text.
         self.add(g)
         # manager
         s = gtk.ScrolledWindow()
-        g.attach(s, 0, 0, 2, 1)
+        g.attach(s, 0, 0, 3, 1)
         s.set_policy(gtk.PolicyType.AUTOMATIC, gtk.PolicyType.AUTOMATIC)
         s.add(m)
         m.set_hexpand(True)
@@ -148,8 +147,37 @@ entry: the gtk.Entry used for the search text.
         b = guiutil.Button(gtk.STOCK_CLOSE)
         bb.pack_start(b, False, False, 0)
         b.connect('clicked', self._close)
+        b = gtk.Button()
+        g.attach(b, 2, 1, 1, 1)
+        # extra options
+        self._options = options = {}
+        option_widgets = []
+        b.connect('clicked', self._toggle_options, option_widgets)
+        self._options_hidden = settings['search_options_hidden']
+        for y, row in enumerate(((
+            ('case_sensitive', _('_Match case'),
+             _('Perform a case-insensitive search')),
+            ('whole_name', _('Match _whole name only'), None),
+        ), (
+            ('dirs', _('Include _Directories'), None),
+            ('files', _('Include _files'), None),
+            ('regex', _('_Regular expression'),
+             _('Python regular expressions (like Perl\'s)'))
+        ))):
+            h = gtk.Box(False, 6)
+            g.attach(h, 0, 2 + y, 3, 1)
+            option_widgets.append(h)
+            for key, label, tooltip in row:
+                c = gtk.CheckButton.new_with_mnemonic(label)
+                c.set_active(settings[key])
+                if tooltip is not None:
+                    c.set_tooltip_text(tooltip)
+                h.pack_start(c, False, False, 0)
+                options[key] = c
+                c.connect('toggled', self._set_option, key)
         self.show_all()
         self.hide()
+        self._toggle_options(b, option_widgets, False)
 
     def _complete (self, c, m, i):
         """Callback for selecting a completion for the search box."""
@@ -160,7 +188,9 @@ entry: the gtk.Entry used for the search text.
     def search (self, *args):
         """Perform a search: show matches for the current text and options."""
         search = self.entry.get_text()
-        results = search_tree(self.editor.fs.tree, search)
+        # get options
+        options = {k: c.get_active() for k, c in self._options.items()}
+        results = search_tree(self.editor.fs.tree, search, **options)
         items = [(is_dir, [d_name for d_name, d_index in path] + [name]) \
                  for is_dir, path, (name, index) in results]
         self.manager.backend.items = items
@@ -177,6 +207,23 @@ entry: the gtk.Entry used for the search text.
         """Give manager focus if entry is focused."""
         if self.entry.is_focus():
             self.manager.grab_focus()
+
+    def _toggle_options (self, b, options, update_setting = True):
+        """Toggle visiblity of extra search options."""
+        hidden = self._options_hidden
+        if update_setting:
+            hidden = not hidden
+        for h in options:
+            h.set_visible(not hidden)
+        b.set_label('\u25bc' if hidden else '\u25b2')
+        tooltip = _('More options') if hidden else _('Hide extra options')
+        b.set_tooltip_text(tooltip)
+        self._options_hidden = hidden
+        settings['search_options_hidden'] = hidden
+
+    def _set_option (self, c, key):
+        """Callback for changing an option."""
+        settings[key] = c.get_active()
 
     def cleanup (self):
         """Save some stuff."""

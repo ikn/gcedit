@@ -49,24 +49,32 @@ SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})
 
 _defaults = {
-    # interface
+    # automatic/interface
     'win_size_main': (450, 450),
     'win_max_main': False,
     'win_size_loader': (400, 225),
     'win_max_loader': False,
-    'win_size_search': (600, 250),
+    'win_size_search': (600, 300),
     'win_max_search': False,
     'import_path': HOME,
     'extract_path': HOME,
+    # automatic/interface/search
+    'search_options_hidden': True,
+    'case_sensitive': False,
+    'whole_name': False,
+    'dirs': True,
+    'files': True,
+    'regex': False,
+    # exposed/interface
     'sel_on_drag': True,
     'autoclose_progress': False,
     'close_search': False,
     'disabled_warnings': set(),
-    # trash
+    # exposed/trash
     'trash_enabled': True,
     'trash_location': join_path(SHARE, 'trash'),
     'trash_size': (50, 1), # 50MiB
-    # advanced
+    # exposed/advanced
     'set_tmp_dir': False,
     'tmp_dir': HOME,
     'block_size': (1, 2), # 1MiB
@@ -75,7 +83,7 @@ _defaults = {
 }
 
 _types = {
-    # interface
+    # automatic/interface
     'win_size_main': list,
     'win_max_main': bool,
     'win_size_loader': list,
@@ -84,15 +92,23 @@ _types = {
     'win_max_search': bool,
     'import_path': str,
     'extract_path': str,
+    # automatic/interface/search
+    'search_options_hidden': bool,
+    'case_sensitive': bool,
+    'whole_name': bool,
+    'dirs': bool,
+    'files': bool,
+    'regex': bool,
+    # exposed/interface
     'autoclose_progress': bool,
     'sel_on_drag': bool,
     'close_search': bool,
     'disabled_warnings': set,
-    # trash
+    # exposed/trash
     'trash_enabled': bool,
     'trash_location': str,
     'trash_size': list,
-    # advanced
+    # exposed/advanced
     'set_tmp_dir': bool,
     'tmp_dir': str,
     'block_size': list,

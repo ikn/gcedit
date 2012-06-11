@@ -19,6 +19,7 @@ browse
 
 # TODO:
 # [ENH] show name, banner, size, other details (need BNR support)
+# [ENH] button to add all files in a directory
 
 from os.path import abspath, basename
 from html import escape
@@ -34,10 +35,10 @@ COL_FN = 0
 COL_PATH = 1
 COL_PATH_ESC = 2
 
-def run_editor (fn, parent):
+def run_editor (fn, parent = None):
     """Start and display the editor.
 
-run_editor(fn, parent) -> valid
+run_editor(fn[, parent]) -> valid
 
 fn: filename to load as a disk image.
 parent: parent window for the error dialogue, if shown; this is destroyed if

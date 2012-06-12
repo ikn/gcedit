@@ -21,9 +21,6 @@ from .ext.gcutil import search_tree
 from . import guiutil, conf
 from .conf import settings
 
-# TODO:
-# [FEA] options (case-sensitive, regex, whole name, include dirs/files)
-
 class SearchResultsBackend:
     """A read-only fsmanage backend that lists search results.
 

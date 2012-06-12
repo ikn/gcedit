@@ -39,6 +39,10 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 # - decompress function
 # - BNR support
 # - don't load fst on startup: have .load_fst; replaces .update
+# BNR: http://hitmen.c02.at/files/yagcd/yagcd/chap14.html#sec14.1
+# RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
+# Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
+# BTI: http://www.amnoid.de/gc/bti.txt
 
 import os
 from os.path import getsize, exists, dirname, basename
@@ -1273,8 +1277,10 @@ be imported in the same call to this function.
                     # split up the progress function
                     total = total_clean + total_dirty
                     p_clean = lambda d, t, n: progress(d, total, n)
-                    p_dirty = lambda d, t, n: progress(d + total_clean, total,
-                                                       n)
+                    def p_dirty (d, t, n):
+                        if d is not None:
+                            d += total_clean
+                        return progress(d, total, n)
                     # perform the copy
                     fn = self.fn
                     for clean in (True, False):

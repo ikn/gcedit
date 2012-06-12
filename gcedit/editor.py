@@ -429,7 +429,7 @@ err: whether the method raised an exception (to make it possible to distingish
         # NOTE: {} is an error message
         msg = _('Couldn\'t extract: {}.')
         handled = {IOError: _('reading or writing failed')}
-        failed, err = self._run_with_progress('extract', _('Extracting files'),
+        failed, err = self._run_with_progress('extract', _('Extracting Files'),
                                               _('Extracting file: {}'), msg,
                                               failed_cb, handled, args)
         if failed and failed is not True:
@@ -468,7 +468,7 @@ err: whether the method raised an exception (to make it possible to distingish
         # NOTE: {} is an error message
         msg = _('Couldn\'t write: {}.')
         tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
-        rtn, err = self._run_with_progress('write', _('Writing to disk'),
+        rtn, err = self._run_with_progress('write', _('Writing to Disk'),
                                            _('Copying file: {}'), msg, None,
                                            {}, tmp_dir)
         if not rtn and not err:

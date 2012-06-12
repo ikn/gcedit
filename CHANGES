@@ -1,3 +1,6 @@
+0.3.0-next:
+ * fix bug: pausing sometimes causes a crash
+
 0.3.0:
  * start with a list of previously opened disk images
  * some search options

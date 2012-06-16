@@ -12,6 +12,7 @@ printable_filesize
 text_viewer
 question
 error
+MenuItem
 move_conflict
 invalid_name_dialogue
 invalid_name
@@ -208,6 +209,36 @@ widgets: widgets to add to the same grid as the text, which is at (0, 0) with
     d.run()
     d.destroy()
 
+def MenuItem (data = None, tooltip = None):
+    """Returns a Gtk.MenuItem subclass that makes custom stock easier.
+
+MenuItem([data][, tooltip])
+
+data: either a stock ID, a label for the widget to have no stock, or a
+      (label, stock_ID) tuple to have a stock icon with a different label.  If
+      the label contains an underscore, it is interpreted as marking a keyboard
+      mnemonic.  If not given or None, a gtk.SeparatorMenuItem is returned.
+tooltip: a tooltip for the widget (else don't have a tooltip).
+
+"""
+    if data is None:
+        return gtk.SeparatorMenuItem()
+    if not isinstance(data, str):
+        name, icon = data
+        item = gtk.ImageMenuItem(name)
+        img = gtk.Image.new_from_stock(icon, gtk.IconSize.MENU)
+        item.set_image(img)
+    else:
+        name = data
+        item = gtk.ImageMenuItem(name)
+        if name.startswith('gtk-'):
+            item.set_use_stock(True)
+    if '_' in name:
+        item.set_use_underline(True)
+    if tooltip is not None:
+        item.set_tooltip_text(tooltip)
+    return item
+
 
 class Button (gtk.Button):
     """A Gtk.Button subclass that makes custom stock easier.
@@ -233,37 +264,6 @@ tooltip: a tooltip for the button (else don't have a tooltip).
             gtk.Button.__init__(self, None, data)
         else:
             gtk.Button.__init__(self, data, None, '_' in data)
-        if tooltip is not None:
-            self.set_tooltip_text(tooltip)
-
-
-class MenuItem (gtk.ImageMenuItem):
-    """A Gtk.ImageMenuItem subclass that makes custom stock easier.
-
-    CONSTRUCTOR
-
-Button(data[, tooltip])
-
-data: either a stock ID, a label for the widget to have no stock, or a
-      (label, stock_ID) tuple to have a stock icon with a different label.  If
-      the label contains an underscore, it is interpreted as marking a keyboard
-      mnemonic.
-tooltip: a tooltip for the widget (else don't have a tooltip).
-
-"""
-    def __init__ (self, data, tooltip = None):
-        if not isinstance(data, str):
-            name, icon = data
-            gtk.MenuItem.__init__(self, name)
-            img = gtk.Image.new_from_stock(icon, gtk.IconSize.MENU)
-            self.set_image(img)
-        else:
-            name = data
-            gtk.MenuItem.__init__(self, name)
-            if name.startswith('gtk-'):
-                self.set_use_stock(True)
-        if '_' in name:
-            self.set_use_underline(True)
         if tooltip is not None:
             self.set_tooltip_text(tooltip)
 

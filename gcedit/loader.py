@@ -29,7 +29,6 @@ from .ext.gcutil import GCFS, DiskError
 
 from . import conf, guiutil
 from .conf import settings
-from .editor import Editor
 
 COL_FN = 0
 COL_PATH = 1
@@ -61,6 +60,7 @@ valid: whether the file was found to be valid (if not, an error dialogue is
         if parent:
             parent.destroy()
         # start the editor
+        from .editor import Editor
         Editor(fs).show()
         return True
 
@@ -91,7 +91,7 @@ opened: whether the disk image was opened in the editor.
     rt = gtk.ResponseType
     buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
     # NOTE: the title for a file open dialogue
-    load = gtk.FileChooserDialog(_('Open disk image'), parent,
+    load = gtk.FileChooserDialog(_('Open Disk Image'), parent,
                                  gtk.FileChooserAction.OPEN, buttons)
     if load.run() == rt.OK:
         # got one
@@ -101,6 +101,9 @@ opened: whether the disk image was opened in the editor.
     load.destroy()
     # open file if given
     if fn is not None:
+        if fn_hist is None:
+            # load history first
+            fn_hist = conf.read_lines('disk_history')
         if run_editor(fn, parent):
             add_to_hist(fn, fn_hist)
             return True
@@ -112,14 +115,18 @@ class LoadDisk (guiutil.Window):
 
     CONSTRUCTOR
 
-LoadDisk(fn_hist)
+LoadDisk([fn_hist])
 
-fn_hist: current disk image history; must have at least one item.
+fn_hist: current disk image history; must have at least one item.  If not
+         given, it is loaded from disk.
 
 """
 
-    def __init__ (self, fn_hist):
-        self._fn_hist = fn_hist
+    def __init__ (self, fn_hist = None):
+        if fn_hist is None:
+            self._fn_hist = conf.read_lines('disk_history')
+        else:
+            self._fn_hist = fn_hist
         # window
         guiutil.Window.__init__(self, 'loader')
         self.set_border_width(12)
@@ -153,7 +160,7 @@ fn_hist: current disk image history; must have at least one item.
         c = gtk.TreeViewColumn(_('Filename'), r, text = COL_FN)
         c.set_expand(True)
         tree.append_column(c)
-        self._add_fns(*fn_hist)
+        self._add_fns(*self._fn_hist)
         # add to window
         s = gtk.ScrolledWindow()
         g.attach(s, 0, 1, 3, 1)

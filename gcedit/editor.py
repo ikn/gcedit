@@ -12,19 +12,21 @@ Editor
 """
 
 # TODO:
+# [FEA] menus
+#   - need to avoid having any other shortcuts defined, so that remappings don't clash with them
+#       - implement all of fsmanage's and don't add its accelgroup
+#   - save remapped shortcuts (can connect to a callback?)
+# [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
 # [ENH] include game name in window title (need BNR support)
-# [FEA] menus:
-#   - switch disk image (go back to initial screen)
-#   - find
-#   - buttons
-#   - compress, decompress, discard all changes (fs.update(), manager.refresh()), reload from disk (fs.update())
-#   - split view (horiz/vert/close)
-#   - about
+# [ENH] Force Cancel button on write
+#   - replaces Cancel if try to cancel but can't
+#   - gives warning: may mess things up
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
 # [ENH] progress windows: remaining time estimation
 
 import os
+from platform import system
 from time import sleep
 from traceback import format_exc
 try:
@@ -39,8 +41,149 @@ from .ext import fsmanage, gcutil
 
 from .fsbackend import FSBackend
 from .prefs import Preferences
-from . import guiutil, search, conf
+from . import guiutil, search, loader, conf
 from .conf import settings
+
+system = system()
+
+def mk_fn (cb, *cb_args):
+    def f (*args):
+        cb(*cb_args)
+    return f
+
+
+class MenuBar (gtk.MenuBar):
+    """Editor menu bar (Gtk.MenuBar subclass).
+
+Takes the current Editor instance.
+
+"""
+    def __init__ (self, editor):
+        gtk.MenuBar.__init__(self)
+        self.accel_group = accel_group = gtk.AccelGroup()
+        for title, items in (
+            (gtk.STOCK_FILE, ({
+                'widget': gtk.STOCK_OPEN,
+                'tooltip': _('Close this file and load a different one'),
+                'cb': editor.browse,
+                'accel': '<ctrl>o'
+            }, {
+                'widget': (_('Back to _Loader'), gtk.STOCK_HOME),
+                'tooltip': _('Go back to the list of recently opened files'),
+                'cb': editor.back_to_loader
+            }, {
+                'widget': gtk.STOCK_QUIT,
+                'tooltip': _('Quit the application'),
+                'cb': editor.quit,
+                'accel': '<ctrl>q'
+            })), (gtk.STOCK_EDIT, ({
+                'widget': gtk.STOCK_UNDO,
+                'tooltip': _('Undo the last change'),
+                'cb': editor.fs_backend.undo,
+                'accel': '<ctrl>z'
+            }, {
+                'widget': gtk.STOCK_REDO,
+                'tooltip': _('Redo the next change'),
+                'cb': editor.fs_backend.redo,
+                'accel': '<ctrl>y' if system == 'Windows' else '<ctrl><shift>z'
+            }, None,
+            #   cut
+            #   copy
+            #   delete
+            #   rename
+            #   new
+            None, {
+                'widget': (_('_Import Files'), gtk.STOCK_HARDDISK),
+                # NOTE: tooltip on the 'Import Files' button
+                'tooltip': _('Import files from outside'),
+                'cb': (editor.fs_backend.do_import, False),
+                'accel': '<ctrl><shift>i'
+            }, {
+                'widget': (_('I_mport Directories'), gtk.STOCK_HARDDISK),
+                # NOTE: tooltip on the 'Import Directories' button
+                'tooltip': _('Import directories from outside'),
+                'cb': (editor.fs_backend.do_import, True),
+                'accel': '<ctrl>i'
+            }, {
+                'widget': (_('_Extract'), gtk.STOCK_EXECUTE),
+                'tooltip': _('Extract the selected files'),
+                'cb': editor.extract,
+                'accel': '<ctrl>e'
+            }, None, {
+                'widget': gtk.STOCK_SELECT_ALL,
+                'tooltip': _('Select all files'),
+                'cb': editor.file_manager.get_selection().select_all,
+                'accel': '<ctrl>a',
+            }, None, {
+                'widget': gtk.STOCK_FIND,
+                'tooltip': _('Search for files in the disk'),
+                'cb': editor.start_find,
+                'accel': '<ctrl>f'
+            }, None, {
+                'widget': gtk.STOCK_PREFERENCES,
+                'tooltip': _('Open the preferences window'),
+                'cb': editor.open_prefs,
+                'accel': '<ctrl>p'
+            })), (_('_Disk'), (
+            )), (_('_View'), (
+            )), (gtk.STOCK_HELP, (
+            ))
+# disk
+#   discard changes
+#       fs.update(), manager.refresh()
+#   compress
+#   decompress
+#   write
+# view
+#   back
+#   forward
+#   up
+#   ----
+#   split horizontally
+#   split vertically
+#   close split
+# help
+#   about
+        ):
+            # menu button
+            title_item = guiutil.MenuItem(title)
+            if title.startswith('gtk-'):
+                title_item.set_image(None)
+            self.append(title_item)
+            menu = gtk.Menu()
+            # needs accel group so accels work
+            menu.set_accel_group(accel_group)
+            title_item.set_submenu(menu)
+            menu_accel_path = '<GCEdit>/' + title_item.get_label()
+            # menu items
+            for data in items:
+                if data is None:
+                    # separator
+                    data = {'widget': None}
+                item = guiutil.MenuItem(data['widget'],
+                                        data.get('tooltip', None))
+                menu.append(item)
+                # callback
+                try:
+                    cb = data['cb']
+                except KeyError:
+                    pass
+                else:
+                    if callable(cb):
+                        args = ()
+                    else:
+                        cb, *args = cb
+                    item.connect('activate', mk_fn(cb, *args))
+                # accelerator
+                try:
+                    accel = data['accel']
+                except KeyError:
+                    pass
+                else:
+                    accel_path = menu_accel_path + '/' + item.get_label()
+                    item.set_accel_path(accel_path)
+                    key, mods = gtk.accelerator_parse(accel)
+                    gtk.AccelMap.add_entry(accel_path, key, mods)
 
 
 class Editor (guiutil.Window):
@@ -51,6 +194,8 @@ Takes a gcutil.GCFS instance.
     METHODS
 
 hist_update
+browse
+back_to_loader
 start_find
 end_find
 extract
@@ -89,34 +234,24 @@ search_manager: fsmanage.Manager instance for search results, or None.
         self.file_manager = m
         m.set_tooltip_column(fsmanage.COL_LAST + 2)
         self.set_sel_on_drag(settings['sel_on_drag'])
+        menu_bar = MenuBar(self)
         # window
         guiutil.Window.__init__(self, 'main')
-        self.set_border_width(12)
         self._update_title()
         self.connect('delete-event', self.quit)
         # shortcuts
-        group = gtk.AccelGroup()
-        accels = (
-            ('<ctrl>z', self.fs_backend.undo),
-            ('<ctrl><shift>z', self.fs_backend.redo),
-            ('<ctrl>y', self.fs_backend.redo),
-            ('<ctrl>f', self.start_find),
-            ('F3', self.start_find)
-        )
-        def mk_fn (cb, *cb_args):
-            def f (*args):
-                cb(*cb_args)
-            return f
-        for accel, cb, *args in accels:
-            key, mods = gtk.accelerator_parse(accel)
-            group.connect(key, mods, 0, mk_fn(cb, *args))
-        self.add_accel_group(group)
+        self.add_accel_group(menu_bar.accel_group)
         self.add_accel_group(self.file_manager.accel_group)
         # contents
-        self._grid = g = gtk.Grid()
+        g = gtk.Grid()
         self.add(g)
         g.set_column_spacing(12)
         g.set_row_spacing(6)
+        g.set_margin_bottom(12)
+        g.attach(menu_bar, -1, -1, 4, 1)
+        for x in (-1, 2):
+            a = gtk.Alignment()
+            g.attach(a, x, 0, 1, 1)
         # left
         self.buttons = btns = []
         f = lambda widget, cb, *args: cb(*args)
@@ -134,10 +269,7 @@ search_manager: fsmanage.Manager instance for search results, or None.
             ((_('_Extract'), gtk.STOCK_EXECUTE),
              _('Extract the selected files'), self.extract),
             ((_('_Write'), gtk.STOCK_SAVE),
-             _('Write changes to the disk image'), self.write),
-            (gtk.STOCK_PREFERENCES, _('Open the preferences window'),
-             self.open_prefs),
-            (gtk.STOCK_QUIT, _('Quit the application'), self.quit)
+             _('Write changes to the disk image'), self.write)
         ):
             if btn_data is None:
                 for b in fsmanage.buttons(m):
@@ -183,6 +315,30 @@ search_manager: fsmanage.Manager instance for search results, or None.
         self.buttons[0].set_sensitive(self.fs_backend.can_undo())
         self.buttons[1].set_sensitive(self.fs_backend.can_redo())
         self._update_title()
+
+    def _confirm_open (self):
+        """Asks to open a different file and returns the answer."""
+        if self.fs_backend.can_undo() or self.fs_backend.can_redo():
+            msg = _('The changes you\'ve made will be lost if you open a '
+                    'different file.  Are you sure you want to continue?')
+            if 'open_with_changes' not in settings['disabled_warnings']:
+                btns = (gtk.STOCK_CANCEL, _('_Open Anyway'))
+                # NOTE: confirmation dialogue title
+                if guiutil.question(_('Confirm Open'), msg, btns, self, None,
+                                    True, ('open_with_changes', 1)) != 1:
+                    return False
+        return True
+
+    def browse (self):
+        """Open a new disk image."""
+        if self._confirm_open():
+            loader.browse(None, self)
+
+    def back_to_loader (self):
+        """Go back to the disk loader."""
+        if self._confirm_open():
+            self.destroy()
+            loader.LoadDisk().show()
 
     def start_find (self):
         """Open the search bar."""
@@ -391,12 +547,12 @@ err: whether the method raised an exception (to make it possible to distingish
         if len(files) == 1:
             # ask for filename to extract to
             # NOTE: title for a file chooser dialogue
-            label = _('Choose where to extract to')
+            label = _('Choose Where to Extract to')
             action = gtk.FileChooserAction.SAVE
         else:
             # ask for directory to extract all files to
             # NOTE: title for a file chooser dialogue
-            label = _('Choose a directory to extract all items to')
+            label = _('Choose a Directory to Extract All Items to')
             action = gtk.FileChooserAction.SELECT_FOLDER
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
         d = gtk.FileChooserDialog(label, self, action, buttons)
@@ -507,9 +663,9 @@ err: whether the method raised an exception (to make it possible to distingish
             msg = _('The changes you\'ve made will be lost if you quit.  Are '
                     'you sure you want to continue?')
             if 'quit_with_changes' not in settings['disabled_warnings']:
+                btns = (gtk.STOCK_CANCEL, _('_Quit Anyway'))
                 # NOTE: confirmation dialogue title
-                if guiutil.question(_('Confirm Quit'), msg,
-                                    (gtk.STOCK_CANCEL, _('_Quit Anyway')), self,
-                                    None, True, ('quit_with_changes', 1)) != 1:
+                if guiutil.question(_('Confirm Quit'), msg, btns, self, None,
+                                    True, ('quit_with_changes', 1)) != 1:
                     return True
         gtk.main_quit()

@@ -1,6 +1,6 @@
 #! /bin/bash
 
-# generate the POT file for translations and update PO files
+# generate the POT file for translations and update PO files from Launchpad
 
 # takes 'src' dir, defaulting to the parent dir of this file
 
@@ -11,6 +11,13 @@ else
     src_dir="$1"
 fi
 po_dir="`dirname "$0"`/po"
+repo_dir="$src_dir/../translations"
+# pull changes
+pushd "$repo_dir"
+bzr pull
+popd
+# update PO
+cp "$repo_dir"/i18n/po/* "$po_dir"
 # generate POT
 version=`head -n1 "$src_dir/README" | sed "s/$prog \(.*\)\./\1/"`
 find "$src_dir/gcedit" -regex ".*\.py" -print0 | xargs -0 xgettext -cNOTE \
@@ -28,7 +35,7 @@ tail -n+10 "$po_dir/messages.pot.tmp" >> "$po_dir/messages.pot"
 rm "$po_dir/messages.pot.tmp"
 # update PO
 for po in "$po_dir/"*.po; do
-    msgmerge "$po" "$po_dir/messages.pot" -o "$po.tmp"
+    msgmerge -N "$po" "$po_dir/messages.pot" -o "$po.tmp"
     rm "$po"
     mv "$po.tmp" "$po"
 done

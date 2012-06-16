@@ -247,10 +247,10 @@ Takes an argument indicating whether to import directories (else files).
         buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
         if dirs:
             # NOTE: the title for a file open dialogue
-            title = _('Choose directories')
+            title = _('Choose Directories')
         else:
             # NOTE: the title for a file open dialogue
-            title = _('Choose files')
+            title = _('Choose Files')
         d = gtk.FileChooserDialog(title, self.editor, action, buttons)
         d.set_current_folder(settings['import_path'])
         d.set_select_multiple(True)

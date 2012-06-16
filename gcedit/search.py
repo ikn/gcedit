@@ -130,12 +130,12 @@ entry: the gtk.Entry used for the search text.
         self.entry = e = gtk.Entry()
         e.set_completion(c)
         e.set_hexpand(True)
-        g.attach(e, 0, 1, 1, 1)
+        g.attach(e, 0, 3, 1, 1)
         e.connect('activate', self.search) # activating default is slow...?
         # buttons
         bb = gtk.ButtonBox(gtk.Orientation.HORIZONTAL)
         bb.set_spacing(6)
-        g.attach(bb, 1, 1, 1, 1)
+        g.attach(bb, 1, 3, 1, 1)
         b = guiutil.Button(gtk.STOCK_FIND)
         b.set_can_default(True)
         bb.pack_start(b, False, False, 0)
@@ -145,7 +145,7 @@ entry: the gtk.Entry used for the search text.
         bb.pack_start(b, False, False, 0)
         b.connect('clicked', self._close)
         b = gtk.Button()
-        g.attach(b, 2, 1, 1, 1)
+        g.attach(b, 2, 3, 1, 1)
         # extra options
         self._options = options = {}
         option_widgets = []
@@ -162,7 +162,7 @@ entry: the gtk.Entry used for the search text.
              _('Python regular expressions (like Perl\'s)'))
         ))):
             h = gtk.Box(False, 6)
-            g.attach(h, 0, 2 + y, 3, 1)
+            g.attach(h, 0, 1 + y, 3, 1)
             option_widgets.append(h)
             for key, label, tooltip in row:
                 c = gtk.CheckButton.new_with_mnemonic(label)
@@ -212,7 +212,7 @@ entry: the gtk.Entry used for the search text.
             hidden = not hidden
         for h in options:
             h.set_visible(not hidden)
-        b.set_label('\u25bc' if hidden else '\u25b2')
+        b.set_label('\u25b2' if hidden else '\u25bc')
         tooltip = _('More options') if hidden else _('Hide extra options')
         b.set_tooltip_text(tooltip)
         self._options_hidden = hidden

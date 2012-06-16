@@ -555,10 +555,9 @@ widgets: setting_ID: widget dict of settings widgets.
                     w.set_hexpand(True)
                     w.set_halign(gtk.Align.START)
                 if do_spacer:
-                    # HACK: there's no way to set a single column's width?
-                    i = gtk.Box()
-                    page.attach(i, 0, y, 1, 1)
-                    i.set_border_width(3) # 2 * 3 + 6 (column spacing) = 12
+                    a = gtk.Alignment()
+                    page.attach(a, 0, y, 1, 1)
+                    a.set_size_request(6, -1)
                     done_spacer = True
                 y += 1
         self.show_all()

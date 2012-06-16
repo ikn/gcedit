@@ -69,7 +69,8 @@ by ['some', 'path', 'current_dir'].
     CONSTRUCTOR
 
 Manager(backend, path = [], read_only = False, cache = False,
-        allow_nav = True, extra_cols = [], identifier = 'fsmanage')
+        allow_nav = True, extra_cols = [], identifier = 'fsmanage',
+        disabled_accels = ())
 
 backend: an object with methods as follows.  Any method that changes the
          directory tree should not return until any call to list_dir will
@@ -137,9 +138,33 @@ identifier: this is some (picklable) data that is passed to the copy method of
             Manager instance.  This can optionally be a function instead, that
             takes the path of the dragged file and returns such an identifier
             string.
+disabled_accels: you might want to disable some keyboard accelerators and not
+                 others - maybe you want to reimplement some yourself, and make
+                 them remappable or something.  This is a list of (string)
+                 accelerators to disable, from the following:
+    F5: refresh
+    Menu: show context menu
+    <ctrl>l: focus address bar
+    BackSpace: go up a directory
+    <alt>Up: go up a directory
+    <alt>Left: go back
+    <alt>Right: go forwards
+    <ctrl>x: cut
+    Escape: cancel cut
+    <ctrl>c: copy
+    <ctrl>v: paste
+    Delete: delete
+    F2: rename
+    <ctrl>n: new directory
 
     METHODS
 
+cut
+copy
+paste
+delete
+rename
+new_dir
 refresh
 set_path
 up
@@ -179,7 +204,8 @@ extra_cols argument.
 """
 
     def __init__ (self, backend, path = [], read_only = False, cache = False,
-                  allow_nav = True, extra_cols = [], identifier = 'fsmanage'):
+                  allow_nav = True, extra_cols = [], identifier = 'fsmanage',
+                  disabled_accels = ()):
         self.backend = backend
         self.path = list(path)
         self.read_only = read_only
@@ -273,12 +299,13 @@ extra_cols argument.
             ]
         if not self.read_only:
             accels += [
-                ('F2', self._rename_selected),
-                ('<ctrl>x', self._copy, None, True),
-                ('Escape', self._uncut, True),
-                ('<ctrl>c', self._copy),
-                ('<ctrl>v', self._paste),
-                ('Delete', self._delete)
+                ('<ctrl>x', self.cut),
+                ('Escape', self.uncut, True),
+                ('<ctrl>c', self.copy),
+                ('<ctrl>v', self.paste),
+                ('Delete', self.delete),
+                ('F2', self.rename),
+                ('<ctrl>n', self.new_dir)
             ]
         def mk_fn (cb, *cb_args):
             def f (*args):
@@ -286,8 +313,9 @@ extra_cols argument.
                     cb(*cb_args)
             return f
         for accel, cb, *args in accels:
-            key, mods = gtk.accelerator_parse(accel)
-            group.connect(key, mods, 0, mk_fn(cb, *args))
+            if accel not in disabled_accels:
+                key, mods = gtk.accelerator_parse(accel)
+                group.connect(key, mods, 0, mk_fn(cb, *args))
 
         self.refresh()
 
@@ -334,11 +362,11 @@ extra_cols argument.
         actions = []
         if not self.read_only:
             actions.append((gtk.STOCK_NEW, _('Create directory'),
-                            self._new_dir))
+                            self.new_dir))
             # only show paste if clipboard has something in it
             if self._clipboard is not None:
                 actions.append((gtk.STOCK_PASTE,
-                                _('Paste cut or copied files'), self._paste))
+                                _('Paste cut or copied files'), self.paste))
             actions.append(None)
         if self.get_selection().get_mode() == gtk.SelectionMode.MULTIPLE:
             actions.append((gtk.STOCK_SELECT_ALL, _('Select all files'),
@@ -398,12 +426,12 @@ extra_cols argument.
             # only show paste if clipboard has something in it
             if self._clipboard is not None:
                 actions.append((gtk.STOCK_PASTE,
-                                _('Paste cut or copied files'), self._paste))
+                                _('Paste cut or copied files'), self.paste))
             actions += [
                 (gtk.STOCK_DELETE, _('Delete selected files'),
-                 self._delete) + tuple(item_paths),
+                 self.delete) + tuple(item_paths),
                 ('_Rename', _('Rename selected files'), self._rename, paths),
-                (gtk.STOCK_NEW, _('Create directory'), self._new_dir),
+                (gtk.STOCK_NEW, _('Create directory'), self.new_dir),
                 None
             ]
         if self.get_selection().get_mode() == gtk.SelectionMode.MULTIPLE:
@@ -561,7 +589,7 @@ extra_cols argument.
             else:
                 f(item)
 
-    def _uncut (self, this_dir_only = False):
+    def uncut (self, this_dir_only = False):
         """Cancel cut selection."""
         if self.read_only:
             return
@@ -579,14 +607,22 @@ extra_cols argument.
             paths = self.get_selection().get_selected_rows()[1]
         files = [self.path + [self._model[path][COL_NAME]] for path in paths]
         if files:
-            self._uncut()
+            self.uncut()
             self._clipboard = [files, cut]
             if cut:
                 # grey text for cut files
                 for path in paths:
                     self._model[path][COL_COLOUR] = NAME_COLOUR_CUT
 
-    def _paste (self):
+    def cut (self):
+        """Cut the selected files."""
+        self._copy(None, True)
+
+    def copy (self):
+        """Copy the selected files."""
+        self._copy()
+
+    def paste (self):
         """Paste files in the clipboard."""
         if self.read_only:
             return
@@ -599,9 +635,9 @@ extra_cols argument.
                 self.get_selection().unselect_all()
                 self._refresh(True, *((None, old[-1]) for old in files))
                 if cut:
-                    self._uncut()
+                    self.uncut()
 
-    def _delete (self, *files):
+    def delete (self, *files):
         """Delete given files, else selected files, if any."""
         if self.read_only:
             return
@@ -639,24 +675,6 @@ extra_cols argument.
                 # refresh
                 self._refresh(True, *changes)
 
-    def _rename_selected (self):
-        """Rename the selected files."""
-        self._rename(self._get_selected_paths())
-
-    def _edit (self, path):
-        """Edit the name at the given TreeModel path."""
-        if not isinstance(path, gtk.TreePath):
-            path = gtk.TreePath(path)
-        self.set_cursor(path, self.get_column(1), True)
-
-    def _rename (self, paths):
-        """Rename the first of the given TreeModel paths."""
-        if not paths:
-            return
-        path = paths[0]
-        self._model[path][COL_EDITABLE] = True
-        self._edit(path)
-
     def _cancel_rename (self, renderer):
         """Cancel renaming callback."""
         name = renderer.get_property('text')
@@ -680,7 +698,25 @@ extra_cols argument.
             # failed; reselect
             self._edit(path)
 
-    def _new_dir (self, *args):
+    def _edit (self, path):
+        """Edit the name at the given TreeModel path."""
+        if not isinstance(path, gtk.TreePath):
+            path = gtk.TreePath(path)
+        self.set_cursor(path, self.get_column(1), True)
+
+    def _rename (self, paths):
+        """Rename the first of the given TreeModel paths."""
+        if not paths:
+            return
+        path = paths[0]
+        self._model[path][COL_EDITABLE] = True
+        self._edit(path)
+
+    def rename (self):
+        """Rename the selected files."""
+        self._rename(self._get_selected_paths())
+
+    def new_dir (self, *args):
         """Create a new directory here."""
         if self.read_only:
             return
@@ -1244,7 +1280,7 @@ button_list: a list of Gtk.Button instances: back, forward, up, new, in that
     ]
     # only show new if not read-only
     if not m.read_only:
-        button_data.append((gtk.STOCK_NEW, _('Create directory'), m._new_dir))
+        button_data.append((gtk.STOCK_NEW, _('Create directory'), m.new_dir))
     # create and add buttons
     f = lambda widget, cb, *args: cb(*args)
     for name, tooltip, cb, *cb_args in button_data:

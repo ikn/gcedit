@@ -61,6 +61,11 @@ Takes the current Editor instance.
     def __init__ (self, editor):
         gtk.MenuBar.__init__(self)
         self.accel_group = accel_group = gtk.AccelGroup()
+
+        def in_manager (cb, *args):
+            editor.file_manager.grab_focus()
+            cb(*args)
+
         for title, items in (
             (gtk.STOCK_FILE, ({
                 'widget': gtk.STOCK_OPEN,
@@ -86,13 +91,37 @@ Takes the current Editor instance.
                 'tooltip': _('Redo the next change'),
                 'cb': editor.fs_backend.redo,
                 'accel': '<ctrl>y' if system == 'Windows' else '<ctrl><shift>z'
-            }, None,
-            #   cut
-            #   copy
-            #   delete
-            #   rename
-            #   new
-            None, {
+            }, None, {
+                'widget': gtk.STOCK_CUT,
+                'tooltip': _('Prepare to move selected files'),
+                'cb': (in_manager, editor.file_manager.cut),
+                'accel': '<ctrl>x'
+            }, {
+                'widget': gtk.STOCK_COPY,
+                'tooltip': _('Prepare to copy selected files'),
+                'cb': (in_manager, editor.file_manager.copy),
+                'accel': '<ctrl>c'
+            }, {
+                'widget': gtk.STOCK_PASTE,
+                'tooltip': _('Paste cut or copied files'),
+                'cb': (in_manager, editor.file_manager.paste),
+                'accel': '<ctrl>v'
+            }, {
+                'widget': gtk.STOCK_DELETE,
+                'tooltip': _('Delete selected files'),
+                'cb': (in_manager, editor.file_manager.delete),
+                'accel': 'Delete'
+            }, {
+                'widget': '_Rename',
+                'tooltip': _('Rename selected files'),
+                'cb': (in_manager, editor.file_manager.rename),
+                'accel': 'F2'
+            }, {
+                'widget': gtk.STOCK_NEW,
+                'tooltip': _('Create directory'),
+                'cb': (in_manager, editor.file_manager.new_dir),
+                'accel': '<ctrl>n'
+            }, None, {
                 'widget': (_('_Import Files'), gtk.STOCK_HARDDISK),
                 # NOTE: tooltip on the 'Import Files' button
                 'tooltip': _('Import files from outside'),
@@ -112,7 +141,8 @@ Takes the current Editor instance.
             }, None, {
                 'widget': gtk.STOCK_SELECT_ALL,
                 'tooltip': _('Select all files'),
-                'cb': editor.file_manager.get_selection().select_all,
+                'cb': (in_manager,
+                       editor.file_manager.get_selection().select_all),
                 'accel': '<ctrl>a',
             }, None, {
                 'widget': gtk.STOCK_FIND,
@@ -124,26 +154,42 @@ Takes the current Editor instance.
                 'tooltip': _('Open the preferences window'),
                 'cb': editor.open_prefs,
                 'accel': '<ctrl>p'
-            })), (_('_Disk'), (
-            )), (_('_View'), (
+            })), (_('_Disk'), ({
+                'widget': (_('_Discard Changes'), gtk.STOCK_CLEAR),
+                'tooltip': _('Undo all changes that have been made since the '
+                             'last write'),
+                'cb': editor.discard_changes
+            },
+            #   compress
+            #   decompress (need backend support)
+            {
+                'widget': (_('_Write'), gtk.STOCK_SAVE),
+                'tooltip': _('Write changes to the disk image'),
+                'cb': editor.write,
+                'accel': '<ctrl>s'
+            })), (_('_View'), ({
+                'widget': gtk.STOCK_GO_BACK,
+                'tooltip': _('Go to the previous directory'),
+                'cb': (in_manager, editor.file_manager.back),
+                'accel': '<alt>Left'
+            }, {
+                'widget': gtk.STOCK_GO_FORWARD,
+                'tooltip': _('Go to the next directory in history'),
+                'cb': (in_manager, editor.file_manager.forwards),
+                'accel': '<alt>Right'
+            }, {
+                'widget': gtk.STOCK_GO_UP,
+                'tooltip': _('Go to parent directory'),
+                'cb': (in_manager, editor.file_manager.up),
+                'accel': '<alt>Up'
+            }
+            # ----
+            # split horizontally
+            # split vertically
+            # close split
             )), (gtk.STOCK_HELP, (
+            # about
             ))
-# disk
-#   discard changes
-#       fs.update(), manager.refresh()
-#   compress
-#   decompress
-#   write
-# view
-#   back
-#   forward
-#   up
-#   ----
-#   split horizontally
-#   split vertically
-#   close split
-# help
-#   about
         ):
             # menu button
             title_item = guiutil.MenuItem(title)
@@ -198,6 +244,7 @@ browse
 back_to_loader
 start_find
 end_find
+discard_changes
 extract
 write
 set_sel_on_drag
@@ -228,9 +275,13 @@ search_manager: fsmanage.Manager instance for search results, or None.
         self.update_bs()
         self.fs_backend = FSBackend(fs, self)
         ident = (conf.IDENTIFIER, self.fs.fn, id(self))
+        disabled_accels = ('F5', '<alt>Up', '<alt>Left', '<alt>Right',
+                           '<ctrl>x', '<ctrl>c', '<ctrl>v', 'Delete', 'F2',
+                           '<ctrl>n')
         m = fsmanage.Manager(self.fs_backend, identifier = ident,
                              # NOTE: filesize
-                             extra_cols = [(_('Size'), None), None])
+                             extra_cols = [(_('Size'), None), None],
+                             disabled_accels = disabled_accels)
         self.file_manager = m
         m.set_tooltip_column(fsmanage.COL_LAST + 2)
         self.set_sel_on_drag(settings['sel_on_drag'])
@@ -358,6 +409,12 @@ search_manager: fsmanage.Manager instance for search results, or None.
             self.searching = False
             self.search.hide()
             self.search.cleanup()
+
+    def discard_changes (self):
+        """Discard all unwritten changes to the disk."""
+        b = self.fs_backend
+        while b.can_undo():
+            b.undo()
 
     def _run_with_progress_backend (self, q, method, progress, args, kwargs):
         """Wrapper that calls a backend function with a progress method.

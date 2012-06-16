@@ -1,4 +1,10 @@
 0.3.0-next:
+ * menus; this means:
+    * disk compression feature is exposed in the GUI
+    * search is now properly exposed
+    * more keyboard shortcuts
+    * old keyboard shortcuts are discoverable
+    * keyboard shortcuts are remappable
  * fix bug: pausing sometimes causes a crash
 
 0.3.0:

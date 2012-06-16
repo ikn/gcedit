@@ -13,8 +13,6 @@ Editor
 
 # TODO:
 # [FEA] menus
-#   - need to avoid having any other shortcuts defined, so that remappings don't clash with them
-#       - implement all of fsmanage's and don't add its accelgroup
 #   - save remapped shortcuts (can connect to a callback?)
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
@@ -159,8 +157,10 @@ Takes the current Editor instance.
                 'tooltip': _('Undo all changes that have been made since the '
                              'last write'),
                 'cb': editor.discard_changes
+            }, {
+                'widget': _('_Compress Disk'),
+                'cb': editor.compress
             },
-            #   compress
             #   decompress (need backend support)
             {
                 'widget': (_('_Write'), gtk.STOCK_SAVE),
@@ -654,9 +654,27 @@ err: whether the method raised an exception (to make it possible to distingish
                     'write here.')
             guiutil.error(msg, self, v)
 
+    def compress (self):
+        """Compress the disk image."""
+        btns = (gtk.STOCK_CANCEL, _('_Compress Anyway'))
+        # ask for confirmation
+        if 'compress' not in settings['disabled_warnings']:
+            msg = _('This will discard all changes that haven\'t been written '
+                    ' to the disk.  Are you sure you want to continue?')
+            if guiutil.question(_('Confirm Compress'), msg, btns,
+                                self,
+                                None, True, ('write', 1)) != 1:
+                return
+        # show progress dialogue
+        # NOTE: {} is an error message
+        msg = _('Couldn\'t compress: {}.')
+        tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
+        rtn, err = self._run_with_progress('compress', _('Compressing Disk'),
+                                           _('Moving file: {}'), msg)
+
     def write (self):
         """Write changes to the disk."""
-        confirm_buttons = (gtk.STOCK_CANCEL, _('_Write Anyway'))
+        btns = (gtk.STOCK_CANCEL, _('_Write Anyway'))
         if not self.fs.changed():
             # no need to write
             return
@@ -667,15 +685,15 @@ err: whether the method raised an exception (to make it possible to distingish
                         'you want to continue?')
                 ask_again = ('changed_write', 1)
                 # NOTE: confirmation dialogue title
-                if guiutil.question(_('Confirm Write'), msg, confirm_buttons,
-                                    self, None, True, ask_again) != 1:
+                if guiutil.question(_('Confirm Write'), msg, btns, self, None,
+                                    True, ask_again) != 1:
                     return
         # ask for confirmation
         if 'write' not in settings['disabled_warnings']:
             msg = _('Once your changes have been written to the disk, they '
                     'cannot be undone.  Are you sure you want to continue?')
-            if guiutil.question(_('Confirm Write'), msg, confirm_buttons, self,
-                                None, True, ('write', 1)) != 1:
+            if guiutil.question(_('Confirm Write'), msg, btns, self, None,
+                                True, ('write', 1)) != 1:
                 return
         # show progress dialogue
         # NOTE: {} is an error message

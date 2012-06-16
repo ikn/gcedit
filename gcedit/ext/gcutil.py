@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 14-dev.
+Release: 14.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -516,6 +516,7 @@ tree: a dict representing the root directory.  Each directory is a dict whose
 
       Note: bad things happen if you have an object (dict or list) in more than
       one place in the tree.
+
 """
 
     def __init__ (self, fn, sanity = True):
@@ -712,7 +713,7 @@ May raise DiskError (see constructor).
 """
         self._init()
         # build tree
-        self.tree = self.build_tree()
+        self.build_tree()
 
     def disk_changed (self, update = False):
         """Return whether changes have been made to the disk.
@@ -1430,10 +1431,12 @@ See compress for more details.
     def compress (self, progress = None):
         """Compress the image.
 
-compress([progress])
+compress([progress]) -> cancelled
 
 progress: a function to call to indicate progress.  See the same argument to
           the write method for details.
+
+cancelled: whether the action was cancelled (through the progress function).
 
 This function removes all free space in the image's filesystem to make it
 smaller.  GameCube images often have a load of free space between the
@@ -1469,8 +1472,7 @@ deletions or other editing.
 
 A quick compress may not remove all free space, but does well enough.  It
 should also be faster and doesn't use any extra disk space (or memory, if
-you're thinking of a ramdisk).  Unless you're obsessive-compulsive, this should
-be good enough.
+you're thinking of a ramdisk).  This should be good enough for most people.
 
 As implied above, a full compress may use some extra disk space.  While
 unlikely, this may be as much as the size of this disk image.  More
@@ -1485,9 +1487,19 @@ compressing.  Make sure you write everything you want to keep first.
 
 """
         # discard changes
-        self.tree = self.build_tree()
+        self.build_tree()
         if self._quick_compress():
-            self.write(progress = progress)
+            try:
+                rtn = self.write(progress = progress)
+            except Exception as e:
+                if hasattr(e, 'handled') and e.handled is True:
+                    # didn't finish: clean up tree
+                    self.build_tree()
+                    raise
+            if rtn is True:
+                # cancelled: clean up tree
+                self.build_tree()
+            return rtn
         #if quick:
             #if self._quick_compress():
                 #self.write(tmp_dir, progress)

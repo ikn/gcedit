@@ -44,6 +44,7 @@ for d in set((SHARE, CONF_DIR)):
         pass
 
 APPLICATION = _('GCEdit')
+VERSION = '0.3.0-next'
 UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})

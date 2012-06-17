@@ -12,7 +12,7 @@ FSBackend
 """
 
 # TODO:
-# [BUG] on import dir, can rename two invalid-named files to same name
+# [BUG] on import dir (only dir?), can rename two invalid-named files to same name
 # [ENH] dialogues should use primary text (brief summary - have no title)
 # [ENH] 'do this for all remaining conflicts' for move_conflict
 # [ENH] in overwrite with copy/import, have the deletion in the same history action

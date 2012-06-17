@@ -14,6 +14,7 @@ Editor
 # TODO:
 # [FEA] menus
 #   - save remapped shortcuts (can connect to a callback?)
+# [FEA] decompress (need backend support)
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
 # [ENH] include game name in window title (need BNR support)
@@ -65,7 +66,7 @@ Takes the current Editor instance.
             cb(*args)
 
         for title, items in (
-            (gtk.STOCK_FILE, ({
+        (gtk.STOCK_FILE, ({
                 'widget': gtk.STOCK_OPEN,
                 'tooltip': _('Close this file and load a different one'),
                 'cb': editor.browse,
@@ -79,7 +80,7 @@ Takes the current Editor instance.
                 'tooltip': _('Quit the application'),
                 'cb': editor.quit,
                 'accel': '<ctrl>q'
-            })), (gtk.STOCK_EDIT, ({
+        })), (gtk.STOCK_EDIT, ({
                 'widget': gtk.STOCK_UNDO,
                 'tooltip': _('Undo the last change'),
                 'cb': editor.fs_backend.undo,
@@ -152,22 +153,24 @@ Takes the current Editor instance.
                 'tooltip': _('Open the preferences window'),
                 'cb': editor.open_prefs,
                 'accel': '<ctrl>p'
-            })), (_('_Disk'), ({
+        })), (_('_Disk'), ({
                 'widget': (_('_Discard Changes'), gtk.STOCK_CLEAR),
                 'tooltip': _('Undo all changes that have been made since the '
                              'last write'),
                 'cb': editor.discard_changes
             }, {
                 'widget': _('_Compress Disk'),
+                'tooltip': _('Reorganise files in the disk to reduce free '
+                             'space'),
                 'cb': editor.compress
             },
-            #   decompress (need backend support)
+            # decompress
             {
                 'widget': (_('_Write'), gtk.STOCK_SAVE),
                 'tooltip': _('Write changes to the disk image'),
                 'cb': editor.write,
                 'accel': '<ctrl>s'
-            })), (_('_View'), ({
+        })), (_('_View'), ({
                 'widget': gtk.STOCK_GO_BACK,
                 'tooltip': _('Go to the previous directory'),
                 'cb': (in_manager, editor.file_manager.back),
@@ -187,10 +190,10 @@ Takes the current Editor instance.
             # split horizontally
             # split vertically
             # close split
-            )), (gtk.STOCK_HELP, (
-            # about
-            ))
-        ):
+        )), (gtk.STOCK_HELP, ({
+                'widget': gtk.STOCK_ABOUT,
+                'cb': editor.about
+        },))):
             # menu button
             title_item = guiutil.MenuItem(title)
             if title.startswith('gtk-'):
@@ -242,11 +245,13 @@ Takes a gcutil.GCFS instance.
 hist_update
 browse
 back_to_loader
+extract
 start_find
 end_find
 discard_changes
-extract
+compress
 write
+about
 set_sel_on_drag
 reset_warnings
 update_bs
@@ -379,42 +384,6 @@ search_manager: fsmanage.Manager instance for search results, or None.
                                     True, ('open_with_changes', 1)) != 1:
                     return False
         return True
-
-    def browse (self):
-        """Open a new disk image."""
-        if self._confirm_open():
-            loader.browse(None, self)
-
-    def back_to_loader (self):
-        """Go back to the disk loader."""
-        if self._confirm_open():
-            self.destroy()
-            loader.LoadDisk().show()
-
-    def start_find (self):
-        """Open the search bar."""
-        self.searching = True
-        if self.search is None:
-            # create window
-            self.search = w = search.SearchWindow(self)
-        else:
-            w = self.search
-        # show window
-        w.present()
-        w.entry.grab_focus()
-
-    def end_find (self):
-        """Close the search bar."""
-        if self.searching:
-            self.searching = False
-            self.search.hide()
-            self.search.cleanup()
-
-    def discard_changes (self):
-        """Discard all unwritten changes to the disk."""
-        b = self.fs_backend
-        while b.can_undo():
-            b.undo()
 
     def _run_with_progress_backend (self, q, method, progress, args, kwargs):
         """Wrapper that calls a backend function with a progress method.
@@ -586,6 +555,17 @@ err: whether the method raised an exception (to make it possible to distingish
             d.destroy()
         return (rtn, err is not None)
 
+    def browse (self):
+        """Open a new disk image."""
+        if self._confirm_open():
+            loader.browse(None, self)
+
+    def back_to_loader (self):
+        """Go back to the disk loader."""
+        if self._confirm_open():
+            self.destroy()
+            loader.LoadDisk().show()
+
     def extract (self, *files):
         """Extract the files at the given paths, else the selected files."""
         if not files:
@@ -654,6 +634,31 @@ err: whether the method raised an exception (to make it possible to distingish
                     'write here.')
             guiutil.error(msg, self, v)
 
+    def start_find (self):
+        """Open the search bar."""
+        self.searching = True
+        if self.search is None:
+            # create window
+            self.search = w = search.SearchWindow(self)
+        else:
+            w = self.search
+        # show window
+        w.present()
+        w.entry.grab_focus()
+
+    def end_find (self):
+        """Close the search bar."""
+        if self.searching:
+            self.searching = False
+            self.search.hide()
+            self.search.cleanup()
+
+    def discard_changes (self):
+        """Discard all unwritten changes to the disk."""
+        b = self.fs_backend
+        while b.can_undo():
+            b.undo()
+
     def compress (self):
         """Compress the disk image."""
         btns = (gtk.STOCK_CANCEL, _('_Compress Anyway'))
@@ -706,6 +711,27 @@ err: whether the method raised an exception (to make it possible to distingish
             # tree is different, so have to get rid of history
             self.fs_backend.reset()
             self.file_manager.refresh()
+
+    def about (self):
+        """Show About dialogue."""
+        d = gtk.AboutDialog()
+        for k, v in {
+            # NOTE: About dialogue title; {} becomes the program name
+            'program-name': conf.APPLICATION,
+            'version': conf.VERSION,
+            'title': _('About {}').format(conf.APPLICATION),
+            'copyright': _('Copyright 2012 Joseph Lansdowne'),
+            'comments': _('A GameCube disk editor'),
+            'license-type': gtk.License.GPL_3_0,
+            'website': 'http://i-know-nothing.co.cc/GCEdit',
+            'website-label': 'i-know-nothing.co.cc/GCEdit',
+            # NOTE: replace this with your name as you wish to be credited
+            'translator-credits': _('translator-credits'),
+            'logo-icon-name': conf.IDENTIFIER,
+        }.items():
+            d.set_property(k, v)
+        d.run()
+        d.destroy()
 
     def set_sel_on_drag (self, value):
         """Update value of select_on_drag of file manager."""

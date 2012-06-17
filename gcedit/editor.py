@@ -12,8 +12,6 @@ Editor
 """
 
 # TODO:
-# [FEA] menus
-#   - save remapped shortcuts (can connect to a callback?)
 # [FEA] decompress (need backend support)
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
@@ -345,9 +343,7 @@ search_manager: fsmanage.Manager instance for search results, or None.
                     b.connect('clicked', f, cb, *cb_args)
         for i, b in enumerate(btns):
             g.attach(b, 0, i, 1, 1)
-        # undo/redo insensitive
-        for b in btns[:2]:
-            b.set_sensitive(False)
+        self.hist_update()
         # right
         g_right = gtk.Grid()
         g.attach(g_right, 1, 0, 1, len(btns))
@@ -377,6 +373,7 @@ search_manager: fsmanage.Manager instance for search results, or None.
         """Update stuff when the history changes."""
         self.buttons[0].set_sensitive(self.fs_backend.can_undo())
         self.buttons[1].set_sensitive(self.fs_backend.can_redo())
+        self.buttons[-1].set_sensitive(self.fs.changed())
         self._update_title()
 
     def _confirm_open (self):
@@ -687,10 +684,7 @@ err: whether the method raised an exception (to make it possible to distingish
     def write (self):
         """Write changes to the disk."""
         btns = (gtk.STOCK_CANCEL, _('_Write Anyway'))
-        if not self.fs.changed():
-            # no need to write
-            return
-        elif self.fs.disk_changed():
+        if self.fs.disk_changed():
             if 'changed_write' not in settings['disabled_warnings']:
                 msg = _('The contents of the disk have been changed by '
                         'another program since it was loaded.  Are you sure '

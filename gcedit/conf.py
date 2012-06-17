@@ -44,7 +44,7 @@ for d in set((SHARE, CONF_DIR)):
         pass
 
 APPLICATION = _('GCEdit')
-VERSION = '0.3.0-next'
+VERSION = '0.4.0'
 UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})
@@ -53,13 +53,14 @@ _defaults = {
     # automatic/interface
     'win_size_main': (450, 450),
     'win_max_main': False,
-    'win_size_loader': (400, 225),
-    'win_max_loader': False,
-    'win_size_search': (600, 300),
-    'win_max_search': False,
     'import_path': HOME,
     'extract_path': HOME,
+    # automatic/interface/loader
+    'win_size_loader': (400, 225),
+    'win_max_loader': False,
     # automatic/interface/search
+    'win_size_search': (600, 300),
+    'win_max_search': False,
     'search_options_hidden': True,
     'case_sensitive': False,
     'whole_name': False,
@@ -87,13 +88,14 @@ _types = {
     # automatic/interface
     'win_size_main': list,
     'win_max_main': bool,
-    'win_size_loader': list,
-    'win_max_loader': bool,
-    'win_size_search': list,
-    'win_max_search': bool,
     'import_path': str,
     'extract_path': str,
+    # automatic/interface/loader
+    'win_size_loader': list,
+    'win_max_loader': bool,
     # automatic/interface/search
+    'win_size_search': list,
+    'win_max_search': bool,
     'search_options_hidden': bool,
     'case_sensitive': bool,
     'whole_name': bool,

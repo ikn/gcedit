@@ -1,4 +1,4 @@
-GCEdit 0.3.0-next.
+GCEdit 0.4.0.
 
 A GameCube disk editor.
 
@@ -51,4 +51,21 @@ by default).  Alternatively, you can run in-place without installing by
 
     FILES
 
-GCEdit creates ~/.config/gcedit for configuration.
+GCEdit some files during operation.  On Unix-like OSs:
+
+~/
+    .config/gcedit/
+        conf: configuration
+        accels: saved keyboard shortcuts
+    .local/share/gcedit/
+        disk_history: recently opened disks
+        search_history: saved searches
+
+On Windows:
+
+%APPDATA%/
+    gcedit/
+        conf: configuration
+        accels: saved keyboard shortcuts
+        disk_history: recently opened disks
+        search_history: saved searches

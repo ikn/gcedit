@@ -33,8 +33,8 @@ if system() == 'Windows':
 else:
     HOME = os.path.expanduser('~')
     SHARE = join_path(HOME, '.local', 'share', IDENTIFIER)
-    CONF_DIR = join_path(HOME, '.config')
-    CONF = join_path(CONF_DIR, IDENTIFIER)
+    CONF_DIR = join_path(HOME, '.config', IDENTIFIER)
+    CONF = join_path(CONF_DIR, 'conf')
 
 for d in set((SHARE, CONF_DIR)):
     try:

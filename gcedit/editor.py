@@ -233,6 +233,13 @@ Takes the current Editor instance.
                     item.set_accel_path(accel_path)
                     key, mods = gtk.accelerator_parse(accel)
                     gtk.AccelMap.add_entry(accel_path, key, mods)
+        # restore accels
+        gtk.AccelMap.load(os.path.join(conf.CONF_DIR, 'accels'))
+        gtk.AccelMap.get().connect('changed', self._save_accels)
+
+    def _save_accels (self, *args):
+        """Save accels when changed."""
+        gtk.AccelMap.save(os.path.join(conf.CONF_DIR, 'accels'))
 
 
 class Editor (guiutil.Window):

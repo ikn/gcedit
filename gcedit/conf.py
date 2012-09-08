@@ -203,11 +203,14 @@ To restore a setting to its default value, set it to None.
     def __init__ (self, fn, defaults):
         self.fn = fn
         self.defaults = defaults
+        settings = {}
         try:
             with open(self.fn) as f:
                 settings = json.load(f)
-        except (IOError, ValueError):
-            settings = {}
+        except IOError:
+            pass
+        except ValueError:
+            print('warning: invalid settings file')
         settings = dict((k, settings.get(k, v)) for k, v in defaults.items())
         dict.__init__(self, settings)
 

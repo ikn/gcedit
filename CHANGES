@@ -1,5 +1,7 @@
 0.4.0-next:
+ * if an operation can't be cancelled, offer a Force Cancel button
  * show game name in window title
+ * bug: sometimes trying to cancel an operation causes random errors
 
 0.4.0:
  * menus; this means:
@@ -8,7 +10,7 @@
     * more keyboard shortcuts
     * old keyboard shortcuts are discoverable
     * keyboard shortcuts are remappable
- * fix bug: pausing sometimes causes a crash
+ * bug: pausing sometimes causes a crash
 
 0.3.0:
  * start with a list of previously opened disk images

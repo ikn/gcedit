@@ -15,9 +15,6 @@ Editor
 # [FEA] decompress (need backend support)
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
-# [ENH] Force Cancel button on write
-#   - replaces Cancel if try to cancel but can't
-#   - gives warning: may mess things up
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
 # [ENH] progress windows: remaining time estimation
 # [ENH] import/export via drag-and-drop
@@ -450,26 +447,24 @@ err: whether the method raised an exception (to make it possible to distingish
             if args[0] is not None:
                 q.put(('progress', args))
             if status['cancelled'] == 1:
-                # cancelled
+                # clicked cancel: request from worker
                 status['cancelled'] = 2
                 return 2
+            elif status['cancelled'] == 4:
+                # clicked force cancel: check with user
+                status['cancelled'] += 1
+                q.put(('force_cancel', None))
+            elif status['cancelled'] == 5:
+                # waiting for force cancel confirmation: pause
+                return 1
+            elif status['cancelled'] == 6:
+                # confirmed force cancel: request from worker
+                return 3
             else:
                 if status['cancelled'] == 2:
-                    # cancel attempted, but unsuccessful
-                    status['cancelled'] = False
-                    status['cancel_btn'].set_sensitive(False)
-                    # do silly stuff
-                    err = _('Cannot cancel: files have been overwritten.')
-                    err = gtk.Label('<i>{}</i>'.format(escape(err)))
-                    err.set_use_markup(True)
-                    bb = d.get_action_area()
-                    bs = bb.get_children()
-                    bb.pack_start(err, True, True, 0)
-                    for b in bs:
-                        bb.remove(b)
-                    for b in reversed(bs):
-                        bb.pack_end(b, False, False, 0)
-                    err.show()
+                    # cancel request to worker denied
+                    status['cancelled'] += 1
+                    q.put(('failed_cancel', None))
                 if status['paused']:
                     # paused
                     return 1
@@ -481,8 +476,13 @@ err: whether the method raised an exception (to make it possible to distingish
             status['paused'] = False
 
         def cancel_cb (b):
-            status['cancelled'] = 1
-            status['cancel_btn'] = b
+            if status['cancelled'] == 3:
+                # already tried to cancel: force cancel
+                status['cancelled'] += 1
+            else:
+                # request cancel
+                status['cancelled'] = 1
+                status['cancel_btn'] = b
             d.set_item(_('Cancelling...'))
 
         # create dialogue
@@ -511,6 +511,37 @@ err: whether the method raised an exception (to make it possible to distingish
                 d.bar.set_text(_('Completed {} of {}').format(done, total))
                 if not status['cancelled']:
                     d.set_item(item_text.format(name))
+            elif action == 'failed_cancel':
+                # a cancel attempt failed: change button to Force Cancel
+                b = status['cancel_btn']
+                b.set_label(_('Force _Cancel'))
+                img = gtk.Image.new_from_stock(gtk.STOCK_CANCEL,
+                                               gtk.IconSize.BUTTON)
+                b.set_image(img)
+                # show error message next to buttons
+                err_msg = _('Cannot cancel: files have been overwritten.')
+                err_msg = gtk.Label('<i>{}</i>'.format(escape(err_msg)))
+                err_msg.set_use_markup(True)
+                bb = d.get_action_area()
+                bs = bb.get_children()
+                bb.pack_start(err_msg, True, True, 0)
+                for b in bs:
+                    bb.remove(b)
+                for b in reversed(bs):
+                    bb.pack_end(b, False, False, 0)
+                err_msg.show()
+            elif action == 'force_cancel':
+                # ask user to confirm force cancel request
+                msg = _('Forcing the process to cancel may corrupt the disk ' \
+                        'image or the files on it.  Are you sure you want ' \
+                        'to  continue?')
+                btns = (_('Continue _Working'), _('_Cancel Anyway'))
+                if 'force_cancel' in settings['disabled_warnings'] or \
+                   guiutil.question(_('Confirm Force Cancel'), msg, btns, self,
+                                    None, True, ('force_cancel', 1)) == 1:
+                    status['cancelled'] += 1
+                else:
+                    status['cancelled'] = 3
             elif action == 'handled_err':
                 err = data
                 err_handled = True
@@ -546,7 +577,7 @@ err: whether the method raised an exception (to make it possible to distingish
         elif failed is not None and failed(rtn):
             d.destroy()
         else:
-            if rtn is True:
+            if rtn and isinstance(rtn, int):
                 # cancelled
                 d.set_item(_('Cancelled.'))
             else:
@@ -625,7 +656,7 @@ err: whether the method raised an exception (to make it possible to distingish
                 f = self.fs_backend.get_file(f)[1][1]
             args.append((f, d))
         # show progress dialogue
-        failed_cb = lambda rtn: rtn and rtn is not True
+        failed_cb = lambda rtn: rtn and not isinstance(rtn, int)
         # NOTE: {} is an error message
         msg = _('Couldn\'t extract: {}.')
         handled = {IOError: _('reading or writing failed')}
@@ -674,8 +705,7 @@ err: whether the method raised an exception (to make it possible to distingish
             msg = _('This will discard all changes that haven\'t been written '
                     ' to the disk.  Are you sure you want to continue?')
             if guiutil.question(_('Confirm Compress'), msg, btns,
-                                self,
-                                None, True, ('write', 1)) != 1:
+                                self, None, True, ('compress', 1)) != 1:
                 return
         # show progress dialogue
         # NOTE: {} is an error message
@@ -683,6 +713,10 @@ err: whether the method raised an exception (to make it possible to distingish
         tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
         rtn, err = self._run_with_progress('compress', _('Compressing Disk'),
                                            _('Moving file: {}'), msg)
+        if not rtn and not err:
+            # forget history, refresh tree
+            self.fs_backend.reset()
+            self.file_manager.refresh()
 
     def write (self):
         """Write changes to the disk."""
@@ -694,10 +728,9 @@ err: whether the method raised an exception (to make it possible to distingish
                 msg = _('The contents of the disk have been changed by '
                         'another program since it was loaded.  Are you sure '
                         'you want to continue?')
-                ask_again = ('changed_write', 1)
                 # NOTE: confirmation dialogue title
                 if guiutil.question(_('Confirm Write'), msg, btns, self, None,
-                                    True, ask_again) != 1:
+                                    True, ('changed_write', 1)) != 1:
                     return
         # ask for confirmation
         if 'write' not in settings['disabled_warnings']:

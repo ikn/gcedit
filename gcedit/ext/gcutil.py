@@ -218,6 +218,9 @@ progress: a function to periodically pass the current progress to.  It takes 3
           safely cancelled, some cleanup will be performed and the function
           will return True.  If the progress function is called again, you may
           assume that the copy cannot be cancelled.
+
+          You can force cancelling the copy by returning 3.  This can
+          potentially lead to a corrupted disk image.
 names: a list filenames corresponding to elements of the files list to pass to
        progress as the third argument, or 0 or 1 to use the names of the src or
        dest files respectively.
@@ -230,7 +233,7 @@ can_cancel: whether cancelling this copy operation (by returning 2 from the
 
 failed: a list of indices in the given files list for copies that failed.  Or,
         if this function is cancelled (see the progress and can_cancel
-        arguments), the return value is True.
+        arguments), the return value is the value used to cancel it (2 or 3).
 
 """
     string = (bytes, str)
@@ -320,6 +323,8 @@ failed: a list of indices in the given files list for copies that failed.  Or,
                         # paused
                         sleep(PAUSED_WAIT)
                         result = progress(None, None, None)
+                    if result == 3:
+                        return False
                     if result == 2 and can_cancel:
                         # cancel
                         return True
@@ -945,8 +950,8 @@ failed: a list of files and directories that could not be created.  This is in
     - an imported file in a given tree is being extracted back out to itself
 
        Or, if this function is cancelled (through the progress function), the
-       return value is True; in this case, the destinations of files that have
-       already been extracted are not removed.
+       return value is the value used to cancel (2 or 3); in this case, the
+       destinations of files that have already been extracted are not removed.
 
 Like the entries attribute itself, this method does not take into account
 modifications made to the tree attribute that have not been written to the
@@ -1026,9 +1031,9 @@ Directories are extracted recursively.
                     failed_pool.append((orig_i, dest))
             # extract files
             failed = copy(to_copy, progress, to_copy_names, overwrite, True)
-            if failed is True:
+            if isinstance(failed, int):
                 # cancelled
-                return True
+                return failed
         return [failed_pool[i] for i in failed]
 
     def _align_4B (self, x):
@@ -1050,7 +1055,8 @@ progress: a function to call to indicate progress.  See the same argument to
           attribute) will be left unaltered (for all intents and purposes,
           anyway).
 
-cancelled: whether the write was cancelled (through the progress function).
+cancelled: whether the write was cancelled (through the progress function).  If
+           so, this is the value used to cancel it (2 or 3).
 
 This function looks at the current state of the tree and amends the filesystem
 in the GameCube image to be the same, copying files from the real filesystem as
@@ -1202,10 +1208,10 @@ be imported in the same call to this function.
                         # put in old_files
                         old_files.append((start, i, old_i, size))
                     failed = copy(to_copy, progress, names, can_cancel = True)
-                    if failed is True:
+                    if isinstance(failed, int):
                         # cancelled
                         cleanup(f)
-                        return True
+                        return failed
                     elif failed:
                         msg = _('couldn\'t read from and write to the disk '
                                 'image')
@@ -1372,10 +1378,10 @@ be imported in the same call to this function.
                             entries[i] = (False, str_start, start, size)
                         failed = copy(to_copy, p_clean if clean else p_dirty,
                                       to_copy_names, can_cancel = clean)
-                        if failed is True:
+                        if isinstance(failed, int):
                             # cancelled
                             cleanup(f)
-                            return True
+                            return failed
                         elif failed:
                             msg = _('either couldn\'t read from \'{}\' or '
                                     'couldn\'t write to the disk image')

@@ -18,7 +18,9 @@ browse
 """
 
 # TODO:
-# [ENH] show name, banner, size, other details (need BNR support)
+# [ENH] show banner image, name, size (need BNR support)
+#   - on startup, need to check, then, that all disk images are valid
+#   - description on hover
 # [ENH] button to add all files in a directory
 
 from os.path import abspath, basename

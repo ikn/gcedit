@@ -15,12 +15,14 @@ Editor
 # [FEA] decompress (need backend support)
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
-# [ENH] include game name in window title (need BNR support)
 # [ENH] Force Cancel button on write
 #   - replaces Cancel if try to cancel but can't
 #   - gives warning: may mess things up
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
 # [ENH] progress windows: remaining time estimation
+# [FEA] import/export via drag-and-drop
+# [FEA] open archives inline (reuse GCFS code, probably)
+# ? changed check for write button sensitivity should apply to menu item/shortcut too
 
 import os
 from platform import system
@@ -123,13 +125,13 @@ Takes the current Editor instance.
                 # NOTE: tooltip on the 'Import Files' button
                 'tooltip': _('Import files from outside'),
                 'cb': (editor.fs_backend.do_import, False),
-                'accel': '<ctrl><shift>i'
+                'accel': '<ctrl>i'
             }, {
                 'widget': (_('I_mport Directories'), gtk.STOCK_HARDDISK),
                 # NOTE: tooltip on the 'Import Directories' button
                 'tooltip': _('Import directories from outside'),
                 'cb': (editor.fs_backend.do_import, True),
-                'accel': '<ctrl>i'
+                'accel': '<ctrl><shift>i'
             }, {
                 'widget': (_('_Extract'), gtk.STOCK_EXECUTE),
                 'tooltip': _('Extract the selected files'),
@@ -298,6 +300,7 @@ search_manager: fsmanage.Manager instance for search results, or None.
         menu_bar = MenuBar(self)
         # window
         guiutil.Window.__init__(self, 'main')
+        self._name = self.fs.get_info()['name']
         self._update_title()
         self.connect('delete-event', self.quit)
         # shortcuts
@@ -365,9 +368,10 @@ search_manager: fsmanage.Manager instance for search results, or None.
 
     def _update_title (self):
         """Set the window title based on the current state."""
-        fn = os.path.basename(self.fs.fn)
+        fn = os.path.abspath(self.fs.fn)
         changed = '*' if self.fs_backend.can_undo() else ''
-        self.set_title('{}{} - {}'.format(changed, fn, conf.APPLICATION))
+        self.set_title('{}{} ({}) - {}'.format(changed, self._name, fn,
+                                               conf.APPLICATION))
 
     def hist_update (self):
         """Update stuff when the history changes."""

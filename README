@@ -51,7 +51,7 @@ by default).  Alternatively, you can run in-place without installing by
 
     FILES
 
-GCEdit some files during operation.  On Unix-like OSs:
+GCEdit creates some files during operation.  On Unix-like OSs:
 
 ~/
     .config/gcedit/

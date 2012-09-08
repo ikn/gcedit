@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 14.
+Release: 16-dev.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -14,9 +14,11 @@ DiskError
 
     FUNCTIONS
 
+valid_name
 read
 write
 copy
+rgb5a1_to_rgba32
 tree_from_dir
 search_tree
 
@@ -36,10 +38,12 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 """
 
 # TODO:
+# - put code that gets gaps in fs in a function (used twice)
 # - decompress function
-# - BNR support
+#   - if last file ends past end, do _quick_compress
+#   - if last file still ends past end, restore tree and throw error
+#   - else write then truncate to ISO size
 # - don't load fst on startup: have .load_fst; replaces .update
-# BNR: http://hitmen.c02.at/files/yagcd/yagcd/chap14.html#sec14.1
 # RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
 # Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
 # BTI: http://www.amnoid.de/gc/bti.txt
@@ -66,9 +70,11 @@ _encode = lambda s: s.encode(CODEC)
 _decoded = lambda s: _decode(s) if isinstance(s, bytes) else s
 _sep = lambda s: _encode(os.sep) if isinstance(s, bytes) else os.sep
 
+
 def _join (*dirs):
     """Like os.path.join, but handles mismatched bytes/str args."""
     return os.sep.join(_decode(d) if isinstance(d, bytes) else d for d in dirs)
+
 
 def valid_name (name):
     """Check whether a file/directory name is valid.
@@ -85,6 +91,7 @@ valid.  A valid name can be safely added to the tree of a GCFS instance.
         return False
     else:
         return True
+
 
 def read (f, start, size = None, num = False, until = None, block_size = 0x10):
     """Read data from a file object.
@@ -150,6 +157,7 @@ Data is always measured in bytes.
         data = sum(j * 256 ** (size - i - 1) for i, j in enumerate(data))
     return data
 
+
 def write (data, f, pos, size = None):
     """Copy data to a file object.
 
@@ -173,6 +181,7 @@ size: if converting from an int, pad it to this size in bytes by prepending by
         data = b'\0' * max(size - len(data), 0) + bytes(data)
     f.seek(pos)
     f.write(data)
+
 
 def copy (files, progress = None, names = None, overwrite = True,
           can_cancel = False):
@@ -339,6 +348,44 @@ failed: a list of indices in the given files list for copies that failed.  Or,
                 dest_f.close()
     return failed
 
+
+def rgb5a1_to_rgba32 (img_data):
+    """This function converts RGB5A1 image data to RGBA32.
+
+RGB5A1 is used in BNR files, and those are this function's intended use.  The
+argument is an iterable containing the data (probably bytes), and the returned
+image is a bytearray.
+
+(RGB5A1 is 2B per pixel with bits RRRRRGGGGGBBBBBA, and RGBA32 is 4B per pixel
+with RRRRRRRRGGGGGGGGBBBBBBBBAAAAAAAA.)
+
+"""
+    # create destination array
+    target_bits = 8
+    w, h = 96, 32
+    dest = bytearray()
+    # split image data into 2-byte integers
+    src = array('H')
+    src.fromstring(img_data)
+    # iterate over pixbuf pixels
+    for rgba in src:
+        # unpack colours and place in pixel
+        # stored, bitwise, as R5G5B5A
+        pwr = 16
+        for n_bits in (5, 5, 5, 1):
+            pwr -= n_bits
+            mod = 2 ** pwr
+            # get this colour's value
+            v = (rgba // mod)
+            # scale to target bits
+            v *= (2 ** target_bits - 1) / (2 ** n_bits - 1)
+            # round and add
+            dest.append(int(round(v)))
+            # remove from pixel
+            rgba %= mod
+    return dest
+
+
 def tree_from_dir (root, walk_iter = None):
     """Build a tree from a directory on the real filesystem.
 
@@ -361,6 +408,7 @@ That is, you can place it directly in such a tree to import lots of files.
         for d in dirs:
             tree[(d, None)] = tree_from_dir(d, walk_iter)
     return tree
+
 
 def _match (term, name, case_sensitive, whole_name, regex):
     """Used by search_tree to check if a name matches.
@@ -389,6 +437,7 @@ If case_sensitive is False, term should be lower-case.
             return term == name
         else:
             return name.find(term) != -1
+
 
 def search_tree (tree, term = '', case_sensitive = False, whole_name = False,
                  regex = False, dirs = True, files = True, current_dir = None,
@@ -470,12 +519,14 @@ sanity: perform some sanity checks when loading the filesystem.  If any fail,
 
 build_tree
 tree_size
+flatten_tree
 update
 disk_changed
 changed
 get_info
-get_file_tree_locations
+get_bnr_info
 get_extra_files
+read_file
 extract_extra_files
 extract
 write
@@ -705,6 +756,28 @@ size: the number of children in the tree or the total file size, or a dict of
         else:
             return size
 
+    def flatten_tree (self, tree = None):
+        """Get a list of files in the given tree with their parent trees.
+
+flatten_tree([tree]) -> files
+
+tree: the tree to look in; defaults to this instance's tree attribute.
+
+files: list of (file, tree, index) tuples, where tree[None][index] == file.
+
+"""
+        if tree is None:
+            tree = self.tree
+        files = []
+        # files
+        for i, f in enumerate(tree[None]):
+            files.append((f, tree, i))
+        # dirs
+        for k, t in tree.items():
+            if k is not None:
+                files += self.flatten_tree(t)
+        return files
+
     def update (self):
         """Re-read data from the disk.  Discards all changes to the tree.
 
@@ -754,7 +827,7 @@ most recently loaded filesystem data.
         """Get basic information about a GameCube image.
 
 Returns a dict containing 'code', 'version' (int), 'name' and
-'apploader version'.  Strings are bytes objects.
+'apploader version'.
 
 """
         fields = (
@@ -767,30 +840,57 @@ Returns a dict containing 'code', 'version' (int), 'name' and
         data = {}
         with open(self.fn, 'rb') as f:
             for name, *args in fields:
-                data[name] = read(f, *args)
+                this_data = read(f, *args)
+                if isinstance(this_data, bytes):
+                    this_data = _decode(this_data)
+                data[name] = this_data
         return data
 
-    def get_file_tree_locations (self, tree = None):
-        """Get a list of files in the given tree with their parent trees.
+    def get_bnr_info (self, index = None):
+        """Get game information from a BNR file.
 
-get_file_tree_locations([tree]) -> files
+With no arguments, looks for opening.bnr, else takes the index of the file in
+this GCFS instance's entries attribute.  Raises ValueError if the file doesn't
+exist or is invalid.
 
-tree: the tree to look in; defaults to this instance's tree attribute.
-
-files: list of (file, tree, index) tuples, where tree[None][index] == file.
+Returns a dict with 'img' (bytes), 'name', 'developer', 'full name',
+'full developer', 'description'.
 
 """
-        if tree is None:
-            tree = self.tree
-        files = []
-        # files
-        for i, f in enumerate(tree[None]):
-            files.append((f, tree, i))
-        # dirs
-        for k, t in tree.items():
-            if k is not None:
-                files += self.get_file_tree_locations(t)
-        return files
+        if index is None:
+            # find file
+            matches = [f for f in self.tree[None] if f[0] == 'opening.bnr']
+            if matches:
+                index = matches[0][1]
+            else:
+                raise ValueError('disk has no \'opening.bnr\' file')
+        # get file details
+        try:
+            is_dir, str_start, offset, size = self.entries[index]
+        except (TypeError, IndexError):
+            raise ValueError('there is no file with index {0}'.format(index))
+        if is_dir:
+            raise ValueError('given file index corresponds to a directory')
+        # read data
+        fields = (
+            ('img', 0x20, 0x1800),
+            ('name', 0x1820, 0x20, False, b'\0', 0x20),
+            ('developer', 0x1840, 0x20, False, b'\0', 0x20),
+            ('full name', 0x1860, 0x40, False, b'\0', 0x40),
+            ('full developer', 0x18a0, 0x40, False, b'\0', 0x40),
+            ('description', 0x18e0, 0x80, False, b'\0', 0x80),
+        )
+        data = {}
+        with open(self.fn, 'rb') as f:
+            # check for magic word
+            if read(f, offset, 0x4) not in (b'BNR1', b'BNR2'):
+                raise ValueError('invalid BNR file')
+            for name, start, *args in fields:
+                this_data = read(f, offset + start, *args)
+                if name != 'img':
+                    this_data = _decode(this_data)
+                data[name] = this_data
+        return data
 
     def get_extra_files (self):
         """Get a list of files in the image that aren't in the filesystem.
@@ -802,6 +902,22 @@ Each file is a (name, start, size) tuple.
             appldr_size = read(f, 0x2454, 0x4, True)
         return [('boot.bin', 0x0, 0x440), ('bi2.bin', 0x440, 0x2000),
                 ('appldr.bin', 0x2440, 0x2440 + appldr_size)]
+
+    def read_file (self, index):
+        """Read a file from the disk image.
+
+Takes the index of the file in this GCFS instance's entries attribute and
+returns the entire file contents as bytes.
+
+"""
+        try:
+            is_dir, str_start, start, size = self.entries[index]
+        except (TypeError, IndexError):
+            raise ValueError('there is no file with index {0}'.format(index))
+        if is_dir:
+            raise ValueError('given file index corresponds to a directory')
+        with open(self.fn, 'rb') as f:
+            return read(f, start, size)
 
     def extract_extra_files (self, files, overwrite = False):
         """Extract files from the image that aren't in the filesystem.
@@ -1354,7 +1470,7 @@ See compress for more details.
 
 """
         # get files, sorted by reverse position
-        files = self.get_file_tree_locations()
+        files = self.flatten_tree()
         entries = self.entries
         files = [(entries[i][2], entries[i][3], i, name, tree[None], tree_i)
                  for (name, i), tree, tree_i in files]

@@ -41,7 +41,6 @@ for d in set((SHARE, CONF_DIR)):
         os.makedirs(d, exist_ok = True)
     except OSError:
         print('warning: can\'t create directory: \'{}\''.format(d))
-        pass
 
 APPLICATION = _('GCEdit')
 VERSION = '0.4.0'
@@ -151,7 +150,6 @@ Takes the filename under conf.SHARE and the list of strings.
             f.write('\n'.join(l))
     except IOError:
         print('warning: can\'t write to file: \'{}\''.format(fn))
-        pass
 
 def mru_add (l, x):
     """Add an item to a most-recently-used list.
@@ -188,7 +186,7 @@ class _JSONEncoder (json.JSONEncoder):
         if isinstance(o, set):
             return list(o)
         else:
-            return json.JSONEncoder.default(o)
+            return json.JSONEncoder.default(self, o)
 
 
 class _SettingsManager (dict):
@@ -237,7 +235,6 @@ To restore a setting to its default value, set it to None.
                 json.dump(self, f, indent = 4, cls = _JSONEncoder)
         except IOError:
             print('warning: can\'t write to file: \'{}\''.format(self.fn))
-            pass
 
 
 settings = _SettingsManager(CONF, _defaults)

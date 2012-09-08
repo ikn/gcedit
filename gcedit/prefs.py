@@ -36,8 +36,8 @@ t: a string that indicates the type of setting (see list below).
 label: a string for the widget's label.  If it contains '_', it is treated as
        using underline.
 tooltip: tooltip to show when hovering over the widget.
-data: data that affects the behaviour of the setting; if the required
-           value in the list below is not specified, this is ignored.
+data: data that affects the behaviour of the setting; if the required value in
+      the list below is not specified, this is ignored.
 cb: a function that is passed the running Editor instance and the new value of
     the setting when it is changed (only for types with value).  Returns True
     to indicate that updating the setting has been handled (or should not be
@@ -455,7 +455,7 @@ quit
 
     ATTRIBUTES
 
-widgets: setting_ID: widget dict of settings widgets.
+widgets: {setting_ID: widget} dict of settings widgets.
 
 """
 

@@ -20,9 +20,8 @@ Editor
 #   - gives warning: may mess things up
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
 # [ENH] progress windows: remaining time estimation
-# [FEA] import/export via drag-and-drop
+# [ENH] import/export via drag-and-drop
 # [FEA] open archives inline (reuse GCFS code, probably)
-# ? changed check for write button sensitivity should apply to menu item/shortcut too
 
 import os
 from platform import system
@@ -526,7 +525,7 @@ err: whether the method raised an exception (to make it possible to distingish
                 break
         t.join()
         # save autoclose setting
-        settings['autoclose_progress'] = d.autoclose.get_active()
+        self._set_autoclose(d.autoclose.get_active())
         if err is not None:
             d.destroy()
             # show error
@@ -559,7 +558,7 @@ err: whether the method raised an exception (to make it possible to distingish
             # wait for user to close dialogue
             if not autoclose:
                 if d.run() == 0:
-                    settings['autoclose_progress'] = True
+                    self._set_autoclose(True)
             d.destroy()
         return (rtn, err is not None)
 
@@ -687,6 +686,8 @@ err: whether the method raised an exception (to make it possible to distingish
 
     def write (self):
         """Write changes to the disk."""
+        if not self.fs.changed():
+            return
         btns = (gtk.STOCK_CANCEL, _('_Write Anyway'))
         if self.fs.disk_changed():
             if 'changed_write' not in settings['disabled_warnings']:
@@ -754,6 +755,13 @@ err: whether the method raised an exception (to make it possible to distingish
             bs, exp = value
         bs *= 1024 ** exp
         gcutil.BLOCK_SIZE = int(bs)
+
+    def _set_autoclose (self, value):
+        """Change the autoclose setting."""
+        if self.prefs is None:
+            settings['autoclose_progress'] = value
+        else:
+            self.prefs.widgets['autoclose_progress'].set_active(value)
 
     def open_prefs (self):
         """Open the preferences window."""

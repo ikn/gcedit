@@ -301,7 +301,7 @@ Takes an argument indicating whether to import directories (else files).
                     if dirs:
                         tree = tree_from_dir(f)
                         # check contained items' names' validity
-                        items = self.editor.fs.get_file_tree_locations(tree)
+                        items = self.editor.fs.flatten_tree(tree)
                         for (this_name, fn), parent, k in items:
                             while guiutil.invalid_name(this_name):
                                 action = guiutil.move_conflict(fn, this_name,

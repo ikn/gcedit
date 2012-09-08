@@ -18,7 +18,6 @@ valid_name
 read
 write
 copy
-rgb5a1_to_rgba32
 tree_from_dir
 search_tree
 
@@ -46,7 +45,6 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 # - don't load fst on startup: have .load_fst; replaces .update
 # RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
 # Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
-# BTI: http://www.amnoid.de/gc/bti.txt
 
 import os
 from os.path import getsize, exists, dirname, basename
@@ -347,43 +345,6 @@ failed: a list of indices in the given files list for copies that failed.  Or,
             if dest_open and dest_f is not None:
                 dest_f.close()
     return failed
-
-
-def rgb5a1_to_rgba32 (img_data):
-    """This function converts RGB5A1 image data to RGBA32.
-
-RGB5A1 is used in BNR files, and those are this function's intended use.  The
-argument is an iterable containing the data (probably bytes), and the returned
-image is a bytearray.
-
-(RGB5A1 is 2B per pixel with bits RRRRRGGGGGBBBBBA, and RGBA32 is 4B per pixel
-with RRRRRRRRGGGGGGGGBBBBBBBBAAAAAAAA.)
-
-"""
-    # create destination array
-    target_bits = 8
-    w, h = 96, 32
-    dest = bytearray()
-    # split image data into 2-byte integers
-    src = array('H')
-    src.fromstring(img_data)
-    # iterate over pixbuf pixels
-    for rgba in src:
-        # unpack colours and place in pixel
-        # stored, bitwise, as R5G5B5A
-        pwr = 16
-        for n_bits in (5, 5, 5, 1):
-            pwr -= n_bits
-            mod = 2 ** pwr
-            # get this colour's value
-            v = (rgba // mod)
-            # scale to target bits
-            v *= (2 ** target_bits - 1) / (2 ** n_bits - 1)
-            # round and add
-            dest.append(int(round(v)))
-            # remove from pixel
-            rgba %= mod
-    return dest
 
 
 def tree_from_dir (root, walk_iter = None):

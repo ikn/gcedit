@@ -2,6 +2,7 @@
  * if an operation can't be cancelled, offer a Force Cancel button
  * show game name in window title
  * bug: sometimes trying to cancel an operation causes random errors
+ * bug: overwriting a directory with itself makes bad things happen
 
 0.4.0:
  * menus; this means:

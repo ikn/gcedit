@@ -12,6 +12,7 @@ FSBackend
 """
 
 # TODO:
+# [BUG] if choose cancel on bad name dialogue, it imports it anyway
 # [BUG] on import dir (only dir?), can rename two invalid-named files to same name
 # [ENH] dialogues should use primary text (brief summary - have no title)
 # [ENH] 'do this for all remaining conflicts' for move_conflict
@@ -414,8 +415,12 @@ Takes an argument indicating whether to import directories (else files).
                     break
                 # handle action
                 if action is True:
-                    self.delete(new)
-                    current_items.remove(new[-1])
+                    if old == new:
+                        # same file: do nothing
+                        break
+                    else:
+                        self.delete(new)
+                        current_items.remove(new[-1])
                 elif action:
                     new[-1] = action
                 else:
@@ -423,7 +428,7 @@ Takes an argument indicating whether to import directories (else files).
                     break
             if this_failed:
                 failed.append(old)
-            else:
+            elif old != new:
                 # copy
                 if is_dir:
                     # copy tree so they can be modified independently
@@ -435,7 +440,7 @@ Takes an argument indicating whether to import directories (else files).
             v = guiutil.text_viewer('\n'.join(cannot_copy), gtk.WrapMode.NONE)
             guiutil.error(_('Couldn\'t copy some items:'), self.editor, v)
         # add to history
-        succeeded = [x for x in data if x[0] not in failed]
+        succeeded = [x for x in data if x[0] not in failed and x[0] != x[1]]
         if succeeded:
             if update_sizes:
                 self._update_sizes(*(new for old, new in succeeded))

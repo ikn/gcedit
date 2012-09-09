@@ -376,6 +376,11 @@ That is, you can place it directly in such a tree to import lots of files.
     return tree
 
 
+def tree_names (tree):
+    """Get the top-level names in a tree (including files and directories)."""
+    return [x[0] for x in list(tree.keys()) + tree[None] if x is not None]
+
+
 def _match (term, name, case_sensitive, whole_name, regex):
     """Used by search_tree to check if a name matches.
 
@@ -722,27 +727,34 @@ size: the number of children in the tree or the total file size, or a dict of
         else:
             return size
 
-    def flatten_tree (self, tree = None):
+    def flatten_tree (self, tree = None, files = True, dirs = True):
         """Get a list of files in the given tree with their parent trees.
 
-flatten_tree([tree]) -> files
+flatten_tree([tree], files = True, dirs = True) -> items
 
 tree: the tree to look in; defaults to this instance's tree attribute.
+files, dirs: whether to include files/directories.
 
-files: list of (file, tree, index) tuples, where tree[None][index] == file.
+items: list of (is_dir, item, parent, index) tuples, where, if is_dir,
+       parent[index] == item (and item is a tree), else
+       parent[None][index] == item.  If files or dirs is False, is_dir is
+       omitted.
 
 """
         if tree is None:
             tree = self.tree
-        files = []
+        items = []
         # files
-        for i, f in enumerate(tree[None]):
-            files.append((f, tree, i))
+        if files:
+            for i, f in enumerate(tree[None]):
+                items.append(((False,) if dirs else ()) + (f, tree, i))
         # dirs
         for k, t in tree.items():
             if k is not None:
-                files += self.flatten_tree(t)
-        return files
+                if dirs:
+                    items.append(((True,) if files else ()) + (t, tree, k))
+                items += self.flatten_tree(t, files, dirs)
+        return items
 
     def update (self):
         """Re-read data from the disk.  Discards all changes to the tree.
@@ -1437,10 +1449,10 @@ See compress for more details.
 
 """
         # get files, sorted by reverse position
-        files = self.flatten_tree()
+        files = self.flatten_tree(dirs = False)
         entries = self.entries
-        files = [(entries[i][2], entries[i][3], i, name, tree[None], tree_i)
-                 for (name, i), tree, tree_i in files]
+        files = [(entries[i][2], entries[i][3], i, name, parent[None], tree_i)
+                 for (name, i), path, parent, tree_i in files]
         files.sort(reverse = True)
         # get start of file data
         data_start, i = max((0, -1),

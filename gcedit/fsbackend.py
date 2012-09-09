@@ -12,8 +12,6 @@ FSBackend
 """
 
 # TODO:
-# [BUG] if choose cancel on bad name dialogue, it imports it anyway
-# [BUG] on import dir (only dir?), can rename two invalid-named files to same name
 # [ENH] dialogues should use primary text (brief summary - have no title)
 # [ENH] 'do this for all remaining conflicts' for move_conflict
 # [ENH] in overwrite with copy/import, have the deletion in the same history action
@@ -25,7 +23,7 @@ from copy import deepcopy
 from html import escape
 
 from gi.repository import Gtk as gtk
-from .ext.gcutil import tree_from_dir
+from .ext import gcutil
 
 from . import guiutil
 from . import conf
@@ -143,12 +141,13 @@ _get_size(is_dir, path) -> size
 If no paths are given, update all sizes.
 
 """
-        if not paths:
+        if paths:
+            paths = {path[0] for path in paths}
+        else:
             # get all toplevel paths
-            paths = [[x[0]] for x in self.fs.tree.keys() if x is not None] + \
-                    [[name] for name, i in self.fs.tree[None]]
+            paths = gcutil.tree_names(self.fs.tree)
         # update sizes for toplevel parents of paths
-        for name in {path[0] for path in paths}:
+        for name in paths:
             path = (name,)
             try:
                 parent, key = self.get_tree(path, True)
@@ -234,6 +233,79 @@ If no paths are given, update all sizes.
         self._hist_pos += 1
         self.editor.hist_update()
 
+    def _validate_tree (self, tree, src, dest):
+        """Clean up a tree, fixing invalid names."""
+        names = {}
+        for k in tree:
+            if k is not None:
+                names[k[0]] = (True, k)
+        for k in tree[None]:
+            names[k[0]] = (False, k)
+        # check each item
+        to_check = list(names.keys())
+        while to_check:
+            name = to_check.pop(0)
+            is_dir, k = names[name]
+            want_name = name
+            this_src = os.path.join(src, name)
+            while True:
+                this_dest = dest + [want_name]
+                p_dest = guiutil.printable_path(this_dest)
+                if want_name != name:
+                    # want to rename
+                    if want_name in names:
+                        # target exists
+                        action = guiutil.move_conflict(this_src, p_dest,
+                                                       self.editor)
+                    else:
+                        # allow rename
+                        action = None
+                elif guiutil.invalid_name(name):
+                    # invalid name
+                    action = guiutil.move_conflict(this_src, p_dest,
+                                                   self.editor, True)
+                else:
+                    break
+                if action is True:
+                    # overwrite: remove target
+                    target_is_dir, target_k = names[want_name]
+                    if target_is_dir:
+                        del tree[target_k]
+                    else:
+                        tree[None].remove(target_k)
+                    del names[want_name]
+                    if want_name in to_check:
+                        to_check.remove(want_name)
+                    # rename
+                    action = None
+                if action:
+                    # request rename
+                    want_name = action
+                elif action is None:
+                    # rename
+                    del names[name]
+                    name = want_name
+                    new_k = (name, k[1])
+                    names[name] = new_k
+                    if is_dir:
+                        data = tree[k]
+                        del tree[k]
+                        tree[new_k] = data
+                    else:
+                        tree[None][tree[None].index(k)] = new_k
+                    k = new_k
+                else: # action is False
+                    # don't copy
+                    if is_dir:
+                        del tree[k]
+                    else:
+                        tree[None].remove(k)
+                    del names[name]
+                    break
+            # validate subdirs (but might have been removed from tree)
+            if is_dir and k in tree:
+                self._validate_tree(tree[k], this_src, this_dest)
+
     def do_import (self, dirs):
         """Open an import dialogue.
 
@@ -270,8 +342,7 @@ Takes an argument indicating whether to import directories (else files).
                 d.destroy()
                 guiutil.error(_('Can\'t import to a non-existent directory.'))
                 return
-            current_names = [name for name, i in current[None]]
-            current_names += [x[0] for x in current if x is not None]
+            current_names = gcutil.tree_names(current)
             new = []
             new_names = []
             for f in fs:
@@ -300,19 +371,8 @@ Takes an argument indicating whether to import directories (else files).
                 if not failed:
                     # add to tree
                     if dirs:
-                        tree = tree_from_dir(f)
-                        # check contained items' names' validity
-                        items = self.editor.fs.flatten_tree(tree)
-                        for (this_name, fn), parent, k in items:
-                            while guiutil.invalid_name(this_name):
-                                action = guiutil.move_conflict(fn, this_name,
-                                                               self.editor,
-                                                               True)
-                                if action:
-                                    this_name = action
-                                    parent[None][k] = (this_name, fn)
-                                else:
-                                    break
+                        tree = gcutil.tree_from_dir(f)
+                        self._validate_tree(tree, f, current_path + [name])
                         current[(name, None)] = f = tree
                     else:
                         current[None].append((name, f))

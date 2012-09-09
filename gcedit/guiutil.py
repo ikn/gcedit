@@ -360,7 +360,7 @@ action: True to overwrite (not for an invalid name), False to cancel the move,
             action = True
         elif response == 0:
             action = e.get_text()
-            if conf.INVALID_FN_CHARS[isinstance(action, str)].intersection(action):
+            if invalid_name(action):
                 e.grab_focus()
                 err.show()
                 continue

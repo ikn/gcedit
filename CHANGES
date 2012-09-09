@@ -3,6 +3,9 @@
  * show game name in window title
  * bug: sometimes trying to cancel an operation causes random errors
  * bug: overwriting a directory with itself makes bad things happen
+ * bug: cancelling a directory import because of an invalid name doesn't work
+ * bug: on import, a file can overwrite another without a warning if renamed
+        through the dialogue for invalid names
 
 0.4.0:
  * menus; this means:

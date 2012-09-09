@@ -379,12 +379,13 @@ search_manager: fsmanage.Manager instance for search results, or None.
     def _confirm_open (self):
         """Asks to open a different file and returns the answer."""
         if self.fs_backend.can_undo() or self.fs_backend.can_redo():
-            msg = _('The changes you\'ve made will be lost if you open a '
-                    'different file.  Are you sure you want to continue?')
+            msg1 = _('Close this file and open another?')
+            msg2 = _('The changes you\'ve made will be lost if you open a '
+                     'different file.')
             if 'open_with_changes' not in settings['disabled_warnings']:
                 btns = (gtk.STOCK_CANCEL, _('_Open Anyway'))
                 # NOTE: confirmation dialogue title
-                if guiutil.question(_('Confirm Open'), msg, btns, self, None,
+                if guiutil.question((msg1, msg2), btns, self, None,
                                     True, ('open_with_changes', 1)) != 1:
                     return False
         return True
@@ -532,13 +533,13 @@ err: whether the method raised an exception (to make it possible to distingish
                 err_msg.show()
             elif action == 'force_cancel':
                 # ask user to confirm force cancel request
-                msg = _('Forcing the process to cancel may corrupt the disk ' \
-                        'image or the files on it.  Are you sure you want ' \
-                        'to  continue?')
+                msg1 = _('Force this operation to cancel?')
+                msg2 = _('Doing this may corrupt the  disk image or the files '
+                         'on it.')
                 btns = (_('Continue _Working'), _('_Cancel Anyway'))
                 if 'force_cancel' in settings['disabled_warnings'] or \
-                   guiutil.question(_('Confirm Force Cancel'), msg, btns, self,
-                                    None, True, ('force_cancel', 1)) == 1:
+                   guiutil.question((msg1, msg2), btns, self, None, True,
+                                    ('force_cancel', 1)) == 1:
                     status['cancelled'] += 1
                 else:
                     status['cancelled'] = 3
@@ -702,10 +703,11 @@ err: whether the method raised an exception (to make it possible to distingish
         btns = (gtk.STOCK_CANCEL, _('_Compress Anyway'))
         # ask for confirmation
         if 'compress' not in settings['disabled_warnings']:
-            msg = _('This will discard all changes that haven\'t been written '
-                    ' to the disk.  Are you sure you want to continue?')
-            if guiutil.question(_('Confirm Compress'), msg, btns,
-                                self, None, True, ('compress', 1)) != 1:
+            msg1 = _('Compress this disk?')
+            msg2 = _('This will discard all changes that haven\'t been '
+                     'written to the disk.')
+            if guiutil.question((msg1, msg2), btns, self, None, True,
+                                ('compress', 1)) != 1:
                 return
         # show progress dialogue
         # NOTE: {} is an error message
@@ -725,19 +727,21 @@ err: whether the method raised an exception (to make it possible to distingish
         btns = (gtk.STOCK_CANCEL, _('_Write Anyway'))
         if self.fs.disk_changed():
             if 'changed_write' not in settings['disabled_warnings']:
-                msg = _('The contents of the disk have been changed by '
-                        'another program since it was loaded.  Are you sure '
-                        'you want to continue?')
+                msg1 = _('The disk has been changed by another program; write '
+                         'anyway?')
+                msg2 = _('Writing your changes now may corrupt some files in '
+                         'the disk.')
                 # NOTE: confirmation dialogue title
-                if guiutil.question(_('Confirm Write'), msg, btns, self, None,
+                if guiutil.question((msg1, msg2), btns, self, None,
                                     True, ('changed_write', 1)) != 1:
                     return
         # ask for confirmation
         if 'write' not in settings['disabled_warnings']:
-            msg = _('Once your changes have been written to the disk, they '
-                    'cannot be undone.  Are you sure you want to continue?')
-            if guiutil.question(_('Confirm Write'), msg, btns, self, None,
-                                True, ('write', 1)) != 1:
+            msg1 = _('Write changes to the disk?')
+            msg2 = _('Once your changes have been written to the disk, they '
+                     'cannot be undone.')
+            if guiutil.question((msg1, msg2), btns, self, None, True,
+                                ('write', 1)) != 1:
                 return
         # show progress dialogue
         # NOTE: {} is an error message
@@ -807,12 +811,13 @@ err: whether the method raised an exception (to make it possible to distingish
         """Quit the program."""
         if self.fs_backend.can_undo() or self.fs_backend.can_redo():
             # confirm
-            msg = _('The changes you\'ve made will be lost if you quit.  Are '
-                    'you sure you want to continue?')
+            msg1 = _('Are you sure you want to quit?')
+            msg2 = _('If you don\'t write the changes you\'ve made to the '
+                     'disk first, they will be lost.')
             if 'quit_with_changes' not in settings['disabled_warnings']:
                 btns = (gtk.STOCK_CANCEL, _('_Quit Anyway'))
                 # NOTE: confirmation dialogue title
-                if guiutil.question(_('Confirm Quit'), msg, btns, self, None,
-                                    True, ('quit_with_changes', 1)) != 1:
+                if guiutil.question((msg1, msg2), btns, self, None, True,
+                                    ('quit_with_changes', 1)) != 1:
                     return True
         gtk.main_quit()

@@ -1452,7 +1452,7 @@ See compress for more details.
         files = self.flatten_tree(dirs = False)
         entries = self.entries
         files = [(entries[i][2], entries[i][3], i, name, parent[None], tree_i)
-                 for (name, i), path, parent, tree_i in files]
+                 for (name, i), parent, tree_i in files]
         files.sort(reverse = True)
         # get start of file data
         data_start, i = max((0, -1),

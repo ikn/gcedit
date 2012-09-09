@@ -258,8 +258,8 @@ Each is as stored in the history.
             btns = (gtk.STOCK_CANCEL, _('_Remove Anyway'))
             if 'rm_disk' not in settings['disabled_warnings']:
                 msg = _('Remove the selected file from this list?')
-                if guiutil.question(_('Confirm Remove'), msg, btns, self, None,
-                                    True, ('rm_disk', 1)) != 1:
+                if guiutil.question(msg, btns, self, None, True,
+                                    ('rm_disk', 1)) != 1:
                     return
             self._fn_hist.remove(fn)
             conf.write_lines('disk_history', self._fn_hist)
@@ -271,8 +271,8 @@ Each is as stored in the history.
             btns = (gtk.STOCK_CANCEL, _('_Remove Anyway'))
             if 'rm_all_disks' not in settings['disabled_warnings']:
                 msg = _('Remove all files from this list?')
-                if guiutil.question(_('Confirm Remove'), msg, btns, self, None,
-                                    True, ('rm_all_disks', 1)) != 1:
+                if guiutil.question(msg, btns, self, None, True,
+                                    ('rm_all_disks', 1)) != 1:
                     return
             self._fn_hist = []
             conf.write_lines('disk_history', [])

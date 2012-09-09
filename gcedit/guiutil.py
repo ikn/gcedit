@@ -83,7 +83,7 @@ wrap_mode: GTK wrap mode to use.
     v.show()
     return w
 
-def question (title, msg, options, parent = None, default = None,
+def question (msg, options, parent = None, default = None,
               warning = False, ask_again = None, return_dialogue = False):
     """Show a dialogue asking a question.
 
@@ -91,7 +91,7 @@ question(title, msg, options[, parent][, default], warning = False[,
          ask_again], return_dialogue = False) -> response
 
 title: dialogue title text.
-msg: text to display.
+msg: text to display; just a string or (primary, secondary).
 options: a list of options to present as buttons, where each is the button text
          or a stock ID.
 parent: dialogue parent.
@@ -109,11 +109,14 @@ response: The index of the clicked button in the list, or a number less than 0
           if the dialogue was closed.
 
 """
+    if isinstance(msg, str):
+        msg = (msg,)
     mt = gtk.MessageType.WARNING if warning else gtk.MessageType.QUESTION
     d = gtk.MessageDialog(parent, gtk.DialogFlags.DESTROY_WITH_PARENT,
-                          mt, gtk.ButtonsType.NONE, msg)
+                          mt, gtk.ButtonsType.NONE, msg[0])
+    if len(msg) >= 2:
+        d.format_secondary_text(msg[1])
     d.add_buttons(*(sum(((o, i) for i, o in enumerate(options)), ())))
-    d.set_title(title)
     # FIXME: sets default to 0 if we don't set it here
     if default is not None:
         d.set_default_response(default)
@@ -485,6 +488,7 @@ autoclose: the checkbox.
         head = gtk.Label(head)
         head.set_use_markup(True)
         head.set_alignment(0, .5)
+        head.set_selectable(True)
         v.pack_start(head, False, False, 0)
         # bar
         self.bar = gtk.ProgressBar()

@@ -18,13 +18,13 @@ browse
 """
 
 # TODO:
-# [ENH] show banner image, size
-#   - on startup, need to check, then, that all disk images are valid
-#   - description on hover
+# [ENH] show banner image
 # [ENH] button to add all files in a directory
 
 from os.path import abspath, basename, getsize
 from html import escape
+from threading import Thread
+from queue import Queue
 
 from gi.repository import Gtk as gtk, Pango as pango
 from .ext.gcutil import GCFS, DiskError
@@ -129,6 +129,7 @@ fn_hist: current disk image history; must have at least one item.  If not
 """
 
     def __init__ (self, fn_hist = None):
+        self.do_quit = False
         if fn_hist is None:
             self._fn_hist = conf.read_lines('disk_history')
         else:
@@ -170,7 +171,6 @@ fn_hist: current disk image history; must have at least one item.  If not
             for k, v in props:
                 r.set_property(k, v)
             tree.append_column(gtk.TreeViewColumn(name, r, text = col))
-        self._add_fns(*self._fn_hist)
         # add to window
         s = gtk.ScrolledWindow()
         g.attach(s, 0, 1, 3, 1)
@@ -207,7 +207,7 @@ fn_hist: current disk image history; must have at least one item.  If not
         b.connect('clicked', self._browse)
 
         self.show_all()
-        self.hide()
+        self._add_fns(*self._fn_hist)
 
     def _get_selected (self):
         """Get (model, iter, file_path) for the selected disk image.
@@ -221,6 +221,21 @@ i and file_path are None if nothing is selected.
         else:
             return (m, i, m[i][COL_PATH])
 
+    def _get_disk_info (self, q, fns):
+        for fn in fns:
+            try:
+                fs = GCFS(fn)
+            except (IOError, DiskError):
+                info = None
+            else:
+                info = fs.get_info()
+                info.update(fs.get_bnr_info())
+            try:
+                size = getsize(fn)
+            except OSError:
+                size = None
+            q.put((size, info))
+
     def _add_fns (self, *fns):
         """Add the given disk images to the tree.
 
@@ -228,18 +243,39 @@ Each is as stored in the history.
 
 """
         m = self._model
+        # fill in basic data
         for fn in fns:
-            # get name
+            m.append((basename(fn), '', fn, ''))
+        # disable sorting
+        # FIXME: -2 should be UNSORTED_SORT_COLUMN_ID, but I can't find it
+        m.set_sort_column_id(-2, gtk.SortType.ASCENDING)
+        i = len(m) - len(fns)
+        # can't do model slices for some reason
+        fns = [row[COL_PATH] for j, row in enumerate(m) if j >= i]
+        # start data-loading thread
+        q = Queue()
+        t = Thread(target = self._get_disk_info, args = (q, fns))
+        t.start()
+        fns = iter(fns)
+        while True:
             try:
-                fs = GCFS(fn)
-            except (IOError, DiskError):
-                name = basename(fn)
+                fn = next(fns)
+            except StopIteration:
+                # finished
+                break
+            while q.empty():
+                while gtk.events_pending():
+                    gtk.main_iteration()
+            data = q.get()
+            size, info = data
+            if size is None:
                 size = ''
+            else:
+                size = guiutil.printable_filesize(size)
+            if info is None:
+                name = basename(fn)
                 tooltip = escape(fn)
             else:
-                size = guiutil.printable_filesize(getsize(fn))
-                info = fs.get_info()
-                info.update(fs.get_bnr_info())
                 name = info['name']
                 tooltip = '<b>{} ({}, {})</b>\n{}'
                 tooltip = tooltip.format(*(escape(arg) for arg in (
@@ -248,7 +284,13 @@ Each is as stored in the history.
                 desc = ' '.join(info['description'].splitlines()).strip()
                 if desc:
                     tooltip += '\n\n' + desc
-            m.append((name, size, fn, tooltip))
+            m[i] = (name, size, fn, tooltip)
+            i += 1
+        # re-enable sorting
+        # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
+        m.set_sort_column_id(-1, gtk.SortType.DESCENDING)
+        # wait for thread
+        t.join()
 
     def _open (self, fn):
         """Open the given disk image."""
@@ -356,4 +398,8 @@ path: Gtk.TreePath for the row to show a menu for, or False to show a menu for
 
     def quit (self, *args):
         """Quit the application."""
-        gtk.main_quit()
+        if gtk.main_level():
+            gtk.main_quit()
+        else:
+            self.do_quit = True
+            return True

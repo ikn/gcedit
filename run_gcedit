@@ -22,22 +22,26 @@ gtk.Window.set_default_icon_name(conf.IDENTIFIER)
 
 fn_hist = conf.read_lines('disk_history')
 if __name__ == '__main__':
+    # initialise threading support
+    gobject.threads_init()
+    gdk.threads_init()
+    gdk.threads_enter()
+    ldr = None
     try:
         # use the first argument as a filename to load, if given
         fn = sys.argv[1]
     except IndexError:
         # ask for a disk image
-        loader.LoadDisk().show()
+        ldr = loader.LoadDisk(fn_hist)
     else:
         # try to load given file
         if loader.run_editor(fn):
             loader.add_to_hist(fn, fn_hist)
         else:
             # failed: fall back to loader
-            loader.LoadDisk(fn_hist).show()
-    # start GTK main loop
-    gobject.threads_init()
-    gdk.threads_init()
-    gdk.threads_enter()
-    gtk.main()
+            ldr = loader.LoadDisk(fn_hist)
+    # kind of hacky
+    if ldr is None or not ldr.do_quit:
+        # start GTK main loop
+        gtk.main()
     gdk.threads_leave()

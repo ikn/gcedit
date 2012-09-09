@@ -57,6 +57,7 @@ _defaults = {
     # automatic/interface/loader
     'win_size_loader': (400, 225),
     'win_max_loader': False,
+    'loader_path': HOME,
     # automatic/interface/search
     'win_size_search': (600, 300),
     'win_max_search': False,
@@ -92,6 +93,7 @@ _types = {
     # automatic/interface/loader
     'win_size_loader': list,
     'win_max_loader': bool,
+    'loader_path': str,
     # automatic/interface/search
     'win_size_search': list,
     'win_max_search': bool,

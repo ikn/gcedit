@@ -1,6 +1,8 @@
 0.4.0-next:
+ * show more information in the initial window
  * if an operation can't be cancelled, offer a Force Cancel button
  * show game name in window title
+ * remember browse path for disk images
  * bug: sometimes trying to cancel an operation causes random errors
  * bug: overwriting a directory with itself makes bad things happen
  * bug: cancelling a directory import because of an invalid name doesn't work

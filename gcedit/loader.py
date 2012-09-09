@@ -18,12 +18,12 @@ browse
 """
 
 # TODO:
-# [ENH] show banner image, name, size (need BNR support)
+# [ENH] show banner image, size
 #   - on startup, need to check, then, that all disk images are valid
 #   - description on hover
 # [ENH] button to add all files in a directory
 
-from os.path import abspath, basename
+from os.path import abspath, basename, getsize
 from html import escape
 
 from gi.repository import Gtk as gtk, Pango as pango
@@ -32,9 +32,10 @@ from .ext.gcutil import GCFS, DiskError
 from . import conf, guiutil
 from .conf import settings
 
-COL_FN = 0
-COL_PATH = 1
-COL_PATH_ESC = 2
+COL_NAME = 0
+COL_SIZE = 1
+COL_PATH = 2
+COL_INFO = 3
 
 def run_editor (fn, parent = None):
     """Start and display the editor.
@@ -95,9 +96,12 @@ opened: whether the disk image was opened in the editor.
     # NOTE: the title for a file open dialogue
     load = gtk.FileChooserDialog(_('Open Disk Image'), parent,
                                  gtk.FileChooserAction.OPEN, buttons)
+    load.set_current_folder(settings['loader_path'])
     if load.run() == rt.OK:
         # got one
         fn = load.get_filename()
+        # remember dir
+        settings['loader_path'] = load.get_current_folder()
     else:
         fn = None
     load.destroy()
@@ -144,24 +148,28 @@ fn_hist: current disk image history; must have at least one item.  If not
         l.set_alignment(0, .5)
         g.attach(l, 0, 0, 3, 1)
         # treeview
-        self._model = m = gtk.ListStore(str, str, str)
-        self._model.set_default_sort_func(self._sort_tree)
+        self._model = m = gtk.ListStore(str, str, str, str)
+        m.set_default_sort_func(self._sort_tree)
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
-        self._model.set_sort_column_id(-1, gtk.SortType.DESCENDING)
+        m.set_sort_column_id(-1, gtk.SortType.DESCENDING)
         self._tree = tree = gtk.TreeView(m)
         tree.set_headers_visible(False)
-        tree.set_search_column(COL_FN)
+        tree.set_search_column(COL_NAME)
         tree.set_rules_hint(True)
-        tree.set_tooltip_column(COL_PATH_ESC)
-        open_cb = lambda t, path, c: self._open(self._model[path][COL_PATH])
+        tree.set_tooltip_column(COL_INFO)
+        open_cb = lambda t, path, c: self._open(m[path][COL_PATH])
         tree.connect('row-activated', open_cb)
         tree.connect('button-press-event', self._click)
         # content
-        r = gtk.CellRendererText()
-        r.set_property('ellipsize', pango.EllipsizeMode.END)
-        c = gtk.TreeViewColumn(_('Filename'), r, text = COL_FN)
-        c.set_expand(True)
-        tree.append_column(c)
+        for name, col, *props in (
+            (_('Filename'), COL_NAME),
+            (_('Size'), COL_SIZE),
+            (_('Path'), COL_PATH, ('ellipsize', pango.EllipsizeMode.START))
+        ):
+            r = gtk.CellRendererText()
+            for k, v in props:
+                r.set_property(k, v)
+            tree.append_column(gtk.TreeViewColumn(name, r, text = col))
         self._add_fns(*self._fn_hist)
         # add to window
         s = gtk.ScrolledWindow()
@@ -209,9 +217,9 @@ i and file_path are None if nothing is selected.
 """
         m, i = self._tree.get_selection().get_selected()
         if i is None:
-            return m, None, None
+            return (m, None, None)
         else:
-            return m, i, m[i][COL_PATH]
+            return (m, i, m[i][COL_PATH])
 
     def _add_fns (self, *fns):
         """Add the given disk images to the tree.
@@ -221,7 +229,26 @@ Each is as stored in the history.
 """
         m = self._model
         for fn in fns:
-            m.append((basename(fn), fn, escape(fn)))
+            # get name
+            try:
+                fs = GCFS(fn)
+            except (IOError, DiskError):
+                name = basename(fn)
+                size = ''
+                tooltip = escape(fn)
+            else:
+                size = guiutil.printable_filesize(getsize(fn))
+                info = fs.get_info()
+                info.update(fs.get_bnr_info())
+                name = info['name']
+                tooltip = '<b>{} ({}, {})</b>\n{}'
+                tooltip = tooltip.format(*(escape(arg) for arg in (
+                    info['full name'], info['code'], info['full developer'], fn
+                )))
+                desc = ' '.join(info['description'].splitlines()).strip()
+                if desc:
+                    tooltip += '\n\n' + desc
+            m.append((name, size, fn, tooltip))
 
     def _open (self, fn):
         """Open the given disk image."""

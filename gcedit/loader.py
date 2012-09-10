@@ -19,7 +19,9 @@ browse
 
 # TODO:
 # [ENH] show banner image
-# [ENH] button to add all files in a directory
+# [ENH] allow selecting multiple disks and removing them all at once
+#   - change text in rm confirmation to indicate multiple
+#   - open the first selected (warn if more than one)
 
 from os.path import abspath, basename, getsize
 from html import escape
@@ -67,28 +69,31 @@ valid: whether the file was found to be valid (if not, an error dialogue is
         Editor(fs).show()
         return True
 
-def add_to_hist (fn, fn_hist):
-    """Add a disk image filename to the history.
+def add_to_hist (fn_hist, *fns):
+    """Add disk image filenames to the history.
 
-add_to_hist(fn, fn_hist)
+add_to_hist(fn_hist, *fns)
 
-fn: filename to add.
 fn_hist: current disk image history.
+fns: filenames to add.
 
 """
-    fn = abspath(fn)
-    if conf.mru_add(fn_hist, fn)[0]:
+    if any([conf.mru_add(fn_hist, abspath(fn))[0] for fn in fns]):
         conf.write_lines('disk_history', fn_hist)
 
-def browse (fn_hist = None, parent = None):
+def browse (fn_hist = None, parent = None, allow_multi = False):
     """Browse for a disk image and open it in the editor.
 
-browse(fn_hist[, parent]) -> opened
+browse([fn_hist][, parent], allow_multi = False) -> opened
 
-fn_hist: current disk image history.
+fn_hist: current disk image history; if not given, it is loaded from disk.
 parent: a window for the dialogue's parent.
+allow_multi: whether to allow loading multiple files.
 
-opened: whether the disk image was opened in the editor.
+opened: If True, one disk was chosen, added to the history and opened in the
+        editor, and parent was destroyed.  If False, the action was cancelled,
+        or one disk was chosen and it was invalid.  If a list of filenames,
+        each one was added to the history.
 
 """
     rt = gtk.ResponseType
@@ -96,24 +101,30 @@ opened: whether the disk image was opened in the editor.
     # NOTE: the title for a file open dialogue
     load = gtk.FileChooserDialog(_('Open Disk Image'), parent,
                                  gtk.FileChooserAction.OPEN, buttons)
+    if allow_multi:
+        load.set_select_multiple(True)
     load.set_current_folder(settings['loader_path'])
     if load.run() == rt.OK:
         # got one
-        fn = load.get_filename()
+        fns = load.get_filenames() if allow_multi else [load.get_filename()]
         # remember dir
         settings['loader_path'] = load.get_current_folder()
     else:
-        fn = None
+        fns = []
     load.destroy()
-    # open file if given
-    if fn is not None:
-        if fn_hist is None:
-            # load history first
-            fn_hist = conf.read_lines('disk_history')
-        if run_editor(fn, parent):
-            add_to_hist(fn, fn_hist)
+    if not fns:
+        return False
+    # add to history
+    if fn_hist is None:
+        fn_hist = conf.read_lines('disk_history')
+    add_to_hist(fn_hist, *fns)
+    if len(fns) == 1:
+        if run_editor(fns[0], parent):
             return True
-    return False
+        else:
+            return False
+    else:
+        return fns
 
 
 class LoadDisk (guiutil.Window):
@@ -123,8 +134,7 @@ class LoadDisk (guiutil.Window):
 
 LoadDisk([fn_hist])
 
-fn_hist: current disk image history; must have at least one item.  If not
-         given, it is loaded from disk.
+fn_hist: current disk image history; if not given, it is loaded from disk.
 
 """
 
@@ -242,6 +252,8 @@ i and file_path are None if nothing is selected.
 Each is as stored in the history.
 
 """
+        if not fns:
+            return
         m = self._model
         # fill in basic data
         for fn in fns:
@@ -249,20 +261,21 @@ Each is as stored in the history.
         # disable sorting
         # FIXME: -2 should be UNSORTED_SORT_COLUMN_ID, but I can't find it
         m.set_sort_column_id(-2, gtk.SortType.ASCENDING)
-        i = len(m) - len(fns)
-        # can't do model slices for some reason
-        fns = [row[COL_PATH] for j, row in enumerate(m) if j >= i]
+        # get new order
+        old_fns, fns = fns, []
+        rows = []
+        for i, row in enumerate(m):
+            fn = row[COL_PATH]
+            if fn in old_fns:
+                rows.append(i)
+                fns.append(fn)
+        # select first new row
+        self._tree.get_selection().select_path(rows[0])
         # start data-loading thread
         q = Queue()
         t = Thread(target = self._get_disk_info, args = (q, fns))
         t.start()
-        fns = iter(fns)
-        while True:
-            try:
-                fn = next(fns)
-            except StopIteration:
-                # finished
-                break
+        for i, fn in zip(rows, fns):
             while q.empty():
                 while gtk.events_pending():
                     gtk.main_iteration()
@@ -285,7 +298,6 @@ Each is as stored in the history.
                 if desc:
                     tooltip += '\n\n' + desc
             m[i] = (name, size, fn, tooltip)
-            i += 1
         # re-enable sorting
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
         m.set_sort_column_id(-1, gtk.SortType.DESCENDING)
@@ -295,7 +307,7 @@ Each is as stored in the history.
     def _open (self, fn):
         """Open the given disk image."""
         if run_editor(fn, self):
-            add_to_hist(fn, self._fn_hist)
+            add_to_hist(self._fn_hist, fn)
 
     def _open_current (self, *args):
         """Open the currently selected disk image."""
@@ -384,7 +396,10 @@ path: Gtk.TreePath for the row to show a menu for, or False to show a menu for
 
     def _browse (self, b):
         """Show a file chooser to find a disk image."""
-        browse(self._fn_hist, self)
+        old_fns = list(self._fn_hist)
+        fns = browse(self._fn_hist, self, True)
+        if fns not in (True, False):
+            self._add_fns(*(fn for fn in fns if fn not in old_fns))
 
     def _sort_tree (self, model, iter1, iter2, data):
         """Sort callback."""

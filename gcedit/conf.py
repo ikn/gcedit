@@ -55,7 +55,7 @@ _defaults = {
     'import_path': HOME,
     'extract_path': HOME,
     # automatic/interface/loader
-    'win_size_loader': (400, 225),
+    'win_size_loader': (600, 300),
     'win_max_loader': False,
     'loader_path': HOME,
     # automatic/interface/search

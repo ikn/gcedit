@@ -36,7 +36,7 @@ if __name__ == '__main__':
     else:
         # try to load given file
         if loader.run_editor(fn):
-            loader.add_to_hist(fn, fn_hist)
+            loader.add_to_hist(fn_hist, fn)
         else:
             # failed: fall back to loader
             ldr = loader.LoadDisk(fn_hist)

@@ -16,13 +16,12 @@ Editor
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
-# [ENH] progress windows: remaining time estimation
 # [ENH] import/export via drag-and-drop
 # [FEA] open archives inline (reuse GCFS code, probably)
 
 import os
 from platform import system
-from time import sleep
+from time import sleep, time
 from traceback import format_exc
 try:
     from threading import Thread
@@ -496,6 +495,12 @@ err: whether the method raised an exception (to make it possible to distingish
                    args = (q, method, progress, args, kwargs))
         t.start()
         err = None
+        ptbl = guiutil.printable_filesize
+        smoothing = conf.PROGRESS_SPEED_SMOOTHING
+        avg_speed = None
+        start_avging = False
+        t_next = time() + conf.PROGRESS_SPEED_UPDATE_INTERVAL
+        done_last = 0
         while True:
             while q.empty():
                 while gtk.events_pending():
@@ -503,13 +508,37 @@ err: whether the method raised an exception (to make it possible to distingish
                 sleep(conf.SLEEP_INTERVAL)
             action, data = q.get()
             if action == 'progress':
-                # update progress bar
                 done, total, name = data
+                t_now = time()
+                if (done_last == 0 and avg_speed is None) or t_now >= t_next:
+                    # estimate speed
+                    t_now += conf.PROGRESS_SPEED_UPDATE_INTERVAL
+                    speed = (done - done_last) / (t_now - t_next)
+                    if avg_speed is None:
+                        if done_last != 0:
+                            avg_speed = speed
+                    else:
+                        # exponential moving average
+                        avg_speed *= smoothing
+                        avg_speed += (1 - smoothing) * speed
+                    if avg_speed is not None:
+                        t_left = '{:.0f}'.format((total - done) / avg_speed)
+                    done_last = done
+                    t_next = t_now
+                if avg_speed is not None:
+                    # show speed/time remaining
+                    # NOTE: eg. 'Completed 5MiB of 34MiB at 4MiB/s; 7s
+                    # remaining'
+                    text = _('Completed {} of {} at {}/s; {}s remaining')
+                    text = text.format(ptbl(done), ptbl(total),
+                                       ptbl(avg_speed), t_left)
+                else:
+                    # NOTE: eg. 'Completed 5MiB of 34MiB'
+                    text = _('Completed {} of {}').format(ptbl(done),
+                                                          ptbl(total))
+                # update progress bar
                 d.bar.set_fraction(done / total)
-                done = guiutil.printable_filesize(done)
-                total = guiutil.printable_filesize(total)
-                # NOTE: eg. 'Completed 5MiB of 34MiB'
-                d.bar.set_text(_('Completed {} of {}').format(done, total))
+                d.bar.set_text(text)
                 if not status['cancelled']:
                     d.set_item(item_text.format(name))
             elif action == 'failed_cancel':

@@ -42,7 +42,6 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 #   - if last file ends past end, do _quick_compress
 #   - if last file still ends past end, restore tree and throw error
 #   - else write then truncate to ISO size
-# - don't load fst on startup: have .load_fst; replaces .update
 # RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
 # Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
 

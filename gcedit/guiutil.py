@@ -83,8 +83,8 @@ wrap_mode: GTK wrap mode to use.
     v.show()
     return w
 
-def question (msg, options, parent = None, default = None,
-              warning = False, ask_again = None, return_dialogue = False):
+def question (msg, options, parent = None, default = None, warning = False,
+              ask_again = None, return_dialogue = False):
     """Show a dialogue asking a question.
 
 question(title, msg, options[, parent][, default], warning = False[,
@@ -316,17 +316,18 @@ action: True to overwrite (not for an invalid name), False to cancel the move,
 """
     # get dialogue
     if invalid:
-        msg = _('The file \'{}\' cannot be moved to \'{}\' because the '
-                'destination name is invalid.')
+        msg1 = _('Invalid filename')
+        msg2 = _('The file \'{}\' cannot be moved to \'{}\' because the '
+                 'destination name is invalid.')
     else:
-        msg = _('The file \'{}\' cannot be moved to \'{}\' because the '
-                'destination file exists.')
-    msg = msg.format(fn_from, f_to)
-    buttons = ['_Rename', gtk.STOCK_CANCEL]
+        msg1 = _('File exists at destination')
+        msg2 = _('The file \'{}\' cannot be moved to \'{}\' because the '
+                 'destination file exists.')
+    msg2 = msg2.format(fn_from, f_to)
+    buttons = [_('_Rename'), gtk.STOCK_CANCEL]
     if not invalid:
-        buttons.append('_Overwrite')
-    d = question('Filename Conflict', msg, buttons, parent, 1, warning = True,
-                 return_dialogue = True)
+        buttons.append(_('_Overwrite'))
+    d = question((msg1, msg2), buttons, parent, 1, True, None, True)
     # rename button sensitivity
     d.set_response_sensitive(0, False)
     def set_sensitive (e, *args):

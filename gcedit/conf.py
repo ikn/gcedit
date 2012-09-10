@@ -47,6 +47,8 @@ VERSION = '0.4.0'
 UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})
+PROGRESS_SPEED_SMOOTHING = .7
+PROGRESS_SPEED_UPDATE_INTERVAL = 3
 
 _defaults = {
     # automatic/interface

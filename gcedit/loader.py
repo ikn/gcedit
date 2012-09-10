@@ -64,7 +64,7 @@ valid: whether the file was found to be valid (if not, an error dialogue is
     else:
         if parent:
             parent.destroy()
-        # start the editor
+        # start the editor (import here because editor imports this module)
         from .editor import Editor
         Editor(fs).show()
         return True
@@ -218,6 +218,7 @@ fn_hist: current disk image history; if not given, it is loaded from disk.
 
         self.show_all()
         self._add_fns(*self._fn_hist)
+        tree.grab_focus()
 
     def _get_selected (self):
         """Get (model, iter, file_path) for the selected disk image.

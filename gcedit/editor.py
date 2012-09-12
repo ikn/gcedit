@@ -12,7 +12,6 @@ Editor
 """
 
 # TODO:
-# [FEA] decompress (need backend support)
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
 # [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
@@ -472,10 +471,12 @@ err: whether the method raised an exception (to make it possible to distingish
                     return 1
 
         def pause_cb (b):
-            status['paused'] = True
+            status['paused'] = time()
 
         def unpause_cb (b):
-            status['paused'] = False
+            if status['paused']:
+                status['t_next'] += time() - status['paused']
+                status['paused'] = False
 
         def cancel_cb (b):
             if status['cancelled'] == 3:
@@ -501,7 +502,7 @@ err: whether the method raised an exception (to make it possible to distingish
         smoothing = conf.PROGRESS_SPEED_SMOOTHING
         avg_speed = None
         start_avging = False
-        t_next = time() + conf.PROGRESS_SPEED_UPDATE_INTERVAL
+        status['t_next'] = time() + conf.PROGRESS_SPEED_UPDATE_INTERVAL
         done_last = 0
         while True:
             while q.empty():
@@ -512,10 +513,11 @@ err: whether the method raised an exception (to make it possible to distingish
             if action == 'progress':
                 done, total, name = data
                 t_now = time()
-                if (done_last == 0 and avg_speed is None) or t_now >= t_next:
+                if (done_last == 0 and avg_speed is None) or \
+                   t_now >= status['t_next']:
                     # estimate speed
                     t_now += conf.PROGRESS_SPEED_UPDATE_INTERVAL
-                    speed = (done - done_last) / (t_now - t_next)
+                    speed = (done - done_last) / (t_now - status['t_next'])
                     if avg_speed is None:
                         if done_last != 0:
                             avg_speed = speed
@@ -526,7 +528,7 @@ err: whether the method raised an exception (to make it possible to distingish
                     if avg_speed is not None:
                         t_left = '{:.0f}'.format((total - done) / avg_speed)
                     done_last = done
-                    t_next = t_now
+                    status['t_next'] = t_now
                 if avg_speed is not None:
                     # show speed/time remaining
                     # NOTE: eg. 'Completed 5MiB of 34MiB at 4MiB/s; 7s

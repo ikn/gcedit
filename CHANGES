@@ -1,6 +1,7 @@
 0.4.0-next:
  * show more information in the initial window
  * allow loading more than one disk at once
+ * disk decompression
  * if an operation can't be cancelled, offer a Force Cancel button
  * copy speed/remaining time estimation in progress windows
  * show game name in window title

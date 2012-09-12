@@ -158,9 +158,11 @@ Takes the current Editor instance.
                 'tooltip': _('Reorganise files in the disk to reduce free '
                              'space'),
                 'cb': editor.compress
-            },
-            # decompress
-            {
+            }, {
+                'widget': _('Decom_press Disk'),
+                'tooltip': _('Expand or compress the disk to a standard size'),
+                'cb': editor.decompress
+            }, {
                 'widget': (_('_Write'), gtk.STOCK_SAVE),
                 'tooltip': _('Write changes to the disk image'),
                 'cb': editor.write,
@@ -727,27 +729,40 @@ err: whether the method raised an exception (to make it possible to distingish
         while b.can_undo():
             b.undo()
 
-    def compress (self):
-        """Compress the disk image."""
-        btns = (gtk.STOCK_CANCEL, _('_Compress Anyway'))
+    def _compress (self, confirm_button_label, warning_setting,
+                   warning_heading, method, progress_heading, error_msg):
+        """Used by compress and decompress."""
+        btns = (gtk.STOCK_CANCEL, confirm_button_label)
         # ask for confirmation
-        if 'compress' not in settings['disabled_warnings']:
-            msg1 = _('Compress this disk?')
-            msg2 = _('This will discard all changes that haven\'t been '
-                     'written to the disk.')
-            if guiutil.question((msg1, msg2), btns, self, None, True,
-                                ('compress', 1)) != 1:
+        warning_body = _('This will discard all changes that haven\'t been '
+                         'written to the disk.')
+        if warning_setting not in settings['disabled_warnings']:
+            if guiutil.question((warning_heading, warning_body), btns, self,
+                                None, True, (warning_setting, 1)) != 1:
                 return
         # show progress dialogue
         # NOTE: {} is an error message
-        msg = _('Couldn\'t compress: {}.')
-        tmp_dir = settings['tmp_dir'] if settings['set_tmp_dir'] else None
-        rtn, err = self._run_with_progress('compress', _('Compressing Disk'),
-                                           _('Moving file: {}'), msg)
+        rtn, err = self._run_with_progress(method, progress_heading,
+                                           _('Moving file: {}'), error_msg)
         if not rtn and not err:
             # forget history, refresh tree
             self.fs_backend.reset()
             self.file_manager.refresh()
+
+    def compress (self):
+        """Compress the disk image."""
+        self._compress(
+            _('_Compress Anyway'), 'compress', _('Compress this disk?'),
+            'compress', _('Compressing Disk'), _('Couldn\'t compress: {}.')
+        )
+
+    def decompress (self):
+        """Decompress the disk image."""
+        self._compress(
+            _('_Decompress Anyway'), 'decompress', _('Decompress this disk?'),
+            'decompress', _('Decompressing Disk'),
+            _('Couldn\'t decompress: {}.')
+        )
 
     def write (self):
         """Write changes to the disk."""

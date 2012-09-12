@@ -236,11 +236,10 @@ i and file_path are None if nothing is selected.
         for fn in fns:
             try:
                 fs = GCFS(fn)
-            except (IOError, DiskError):
-                info = None
-            else:
                 info = fs.get_info()
                 info.update(fs.get_bnr_info())
+            except (IOError, DiskError, ValueError):
+                info = None
             try:
                 size = getsize(fn)
             except OSError:

@@ -1,4 +1,4 @@
-0.4.0-next:
+0.4.1:
  * show more information in the initial window
  * allow loading more than one disk at once
  * disk decompression

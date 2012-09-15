@@ -1,3 +1,6 @@
+0.4.1-next:
+ * show banner images in the initial window
+
 0.4.1:
  * show more information in the initial window
  * allow loading more than one disk at once

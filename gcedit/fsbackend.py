@@ -55,6 +55,12 @@ fs, editor: the arguments given to the constructor.
     def __init__ (self, fs, editor):
         self.fs = fs
         self.editor = editor
+        self._init()
+        # initial file list
+        self._files = self._get_files()
+
+    def _init (self):
+        """Do some initialisation."""
         self._hist_pos = 0
         self._hist = []
         self._sizes = {}
@@ -62,11 +68,24 @@ fs, editor: the arguments given to the constructor.
 
     def reset (self):
         """Forget all history."""
-        self._hist_pos = 0
-        self._hist = []
+        self._init()
         self.editor.hist_update()
-        self._sizes = {}
-        self._update_sizes()
+
+    def _get_files (self):
+        """Get files in the current tree as an {entries index: path} dict."""
+        return {index: path + [name] for (name, index), parent, i, path
+                in self.fs.flatten_tree(dirs = False)
+                if isinstance(index, int)}
+
+    def get_deleted (self):
+        """Returns files that have been deleted since the disk was opened.
+
+This is an {entries index: path} dict.
+
+"""
+        old_files = self._files
+        files = set(self._get_files())
+        return {i: old_files[i] for i in set(old_files) - files}
 
     def get_tree (self, path, return_parent = False):
         """Get the tree for the given path.

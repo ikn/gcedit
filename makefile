@@ -36,8 +36,6 @@ install-%.png:
 uninstall-%.png:
 	$(RM) $(DESTDIR)$(datarootdir)/$(ICON_PATH_UNINSTALL)
 
-aoeu: $(patsubst $(ICON_PATTERN),uninstall-%.png,$(ICONS))
-
 install: $(patsubst $(ICON_PATTERN),install-%.png,$(ICONS))
 	@ # executable
 	./set_prefix "$(prefix)"

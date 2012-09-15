@@ -14,9 +14,10 @@ Editor
 # TODO:
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager
-# [FEA] track deleted files (not dirs) (get paths recursively) and put in trash when write
+# [FEA] trash
 # [ENH] import/export via drag-and-drop
 # [FEA] open archives inline (reuse GCFS code, probably)
+# [ENH] drag-and-drop between instances
 
 import os
 from platform import system
@@ -770,6 +771,7 @@ err: whether the method raised an exception (to make it possible to distingish
         """Write changes to the disk."""
         if not self.fs.changed():
             return
+        # check if disk changed
         btns = (gtk.STOCK_CANCEL, _('_Write Anyway'))
         if self.fs.disk_changed():
             if 'changed_write' not in settings['disabled_warnings']:
@@ -781,6 +783,13 @@ err: whether the method raised an exception (to make it possible to distingish
                 if guiutil.question((msg1, msg2), btns, self, None,
                                     True, ('changed_write', 1)) != 1:
                     return
+        # add deleted files to trash
+        #deleted = self.fs_backend.get_deleted()
+        #if deleted:
+            #fields = (self.fs.fn, self._name, time())
+            #print(fields, deleted)
+            # for each file, extract to trash/.new and hash at the same time
+            # then move to new filename
         # ask for confirmation
         if 'write' not in settings['disabled_warnings']:
             msg1 = _('Write changes to the disk?')

@@ -28,16 +28,18 @@ from html import escape
 from threading import Thread
 from queue import Queue
 
-from gi.repository import Gtk as gtk, Pango as pango
-from .ext.gcutil import GCFS, DiskError
+from gi.repository import Gtk as gtk, Pango as pango, GdkPixbuf as pixbuf
+from gi.repository.GLib import GError
+from .ext.gcutil import GCFS, DiskError, bnr_to_pnm
 
 from . import conf, guiutil
 from .conf import settings
 
 COL_NAME = 0
-COL_SIZE = 1
-COL_PATH = 2
-COL_INFO = 3
+COL_ICON = 1
+COL_SIZE = 2
+COL_PATH = 3
+COL_INFO = 4
 
 def run_editor (fn, parent = None):
     """Start and display the editor.
@@ -159,7 +161,7 @@ fn_hist: current disk image history; if not given, it is loaded from disk.
         l.set_alignment(0, .5)
         g.attach(l, 0, 0, 3, 1)
         # treeview
-        self._model = m = gtk.ListStore(str, str, str, str)
+        self._model = m = gtk.ListStore(str, pixbuf.Pixbuf, str, str, str)
         m.set_default_sort_func(self._sort_tree)
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
         m.set_sort_column_id(-1, gtk.SortType.DESCENDING)
@@ -172,15 +174,20 @@ fn_hist: current disk image history; if not given, it is loaded from disk.
         tree.connect('row-activated', open_cb)
         tree.connect('button-press-event', self._click)
         # content
+        cols = []
         for name, col, *props in (
-            (_('Filename'), COL_NAME),
+            (_('Name'), COL_NAME),
             (_('Size'), COL_SIZE),
             (_('Path'), COL_PATH, ('ellipsize', pango.EllipsizeMode.START))
         ):
             r = gtk.CellRendererText()
             for k, v in props:
                 r.set_property(k, v)
-            tree.append_column(gtk.TreeViewColumn(name, r, text = col))
+            cols.append(gtk.TreeViewColumn(name, r, text = col))
+        r = gtk.CellRendererPixbuf()
+        cols.insert(1, gtk.TreeViewColumn(_('Banner'), r, pixbuf = COL_ICON))
+        for col in cols:
+            tree.append_column(col)
         # add to window
         s = gtk.ScrolledWindow()
         g.attach(s, 0, 1, 3, 1)
@@ -240,6 +247,16 @@ i and file_path are None if nothing is selected.
                 info.update(fs.get_bnr_info())
             except (IOError, DiskError, ValueError):
                 info = None
+            else:
+                # load image into pixbuf
+                try:
+                    img = bnr_to_pnm(info['img'])
+                    ldr = pixbuf.PixbufLoader.new_with_type('pnm')
+                    ldr.write(img)
+                    info['img'] = ldr.get_pixbuf()
+                    ldr.close()
+                except GError:
+                    info['img'] = None
             try:
                 size = getsize(fn)
             except OSError:
@@ -257,7 +274,7 @@ Each is as stored in the history.
         m = self._model
         # fill in basic data
         for fn in fns:
-            m.append((basename(fn), '', fn, ''))
+            m.append((basename(fn), None, '', fn, ''))
         # disable sorting
         # FIXME: -2 should be UNSORTED_SORT_COLUMN_ID, but I can't find it
         m.set_sort_column_id(-2, gtk.SortType.ASCENDING)
@@ -297,7 +314,7 @@ Each is as stored in the history.
                 desc = ' '.join(info['description'].splitlines()).strip()
                 if desc:
                     tooltip += '\n\n' + desc
-            m[i] = (name, size, fn, tooltip)
+            m[i] = (name, info['img'], size, fn, tooltip)
         # re-enable sorting
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
         m.set_sort_column_id(-1, gtk.SortType.DESCENDING)

@@ -18,6 +18,7 @@ valid_name
 read
 write
 copy
+bnr_to_pnm
 tree_from_dir
 search_tree
 
@@ -37,14 +38,18 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 """
 
 # TODO:
+# - read should use struct.unpack for ints (do some timings)
 # - put code that gets gaps in fs in a function (used twice)
+# - compress should truncate if possible
 # RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
 # Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
 
+from sys import byteorder
 import os
 from os.path import getsize, exists, dirname, basename
 from time import sleep
 from copy import deepcopy
+from array import array
 import re
 from shutil import rmtree
 import tempfile
@@ -182,16 +187,15 @@ def copy (files, progress = None, names = None, overwrite = True,
 
 copy(files[, progress, names], overwrite = True, can_cancel = False) -> failed
 
-files: a list of (source, dest) tuples to copy from source to dest.  source is
-       (filename, file, start, size) and dest is (filename, file, start),
-       where, in each case, file is a file object file_obj open in binary
-       read/write mode, or None if this function should open the file.  If a
-       file object is given to write to, it will not be truncated so that it is
-       large enough to be able to seek to start.
+files: a list of (source, *dests) tuples to copy from source to dest.  source
+       is (file, start, size) and each dest is (file, start), where, in each
+       case, file is a file object open in binary read/write mode (only needs a
+       read/write method), or a filename to open.  If a file object is given to
+       write to, it will not be truncated so that it is large enough to be able
+       to seek to start.
 
-       file, start and size may be omitted: file defaults to None, start
-       defaults to 0 and size defaults to (file_size - start).  If all three
-       are omitted, source/dest can be just filename.
+       start and size may be omitted: start defaults to 0 and size defaults to
+       (file_size - start).  If both are omitted, source/dest can be just file.
 progress: a function to periodically pass the current progress to.  It takes 3
           arguments: the amount of data that has been copied in bytes, the
           total amount of data to copy in bytes, and the name of the current
@@ -217,12 +221,14 @@ progress: a function to periodically pass the current progress to.  It takes 3
           You can force cancelling the copy by returning 3.  This can
           potentially lead to a corrupted disk image.
 names: a list filenames corresponding to elements of the files list to pass to
-       progress as the third argument, or 0 or 1 to use the names of the src or
-       dest files respectively.
+       progress as the third argument, or an integer to use the names of the
+       src or dest files with that index in each element of files.  If an
+       integer (and progress is given), each corresponding file object must
+       have a 'name' attribute containing its filename.
 overwrite: whether to overwrite any destination files that exist (if False and
            a file exists, it will be in the failed list).  Of course, this only
-           makes sense for files where only the filename and not the open file
-           is given.
+           makes sense for files where the filename and not the open file is
+           given.
 can_cancel: whether cancelling this copy operation (by returning 2 from the
             progress function) is allowed.
 
@@ -232,88 +238,96 @@ failed: a list of indices in the given files list for copies that failed.  Or,
 
 """
     string = (bytes, str)
-    if progress is not None and isinstance(names, int):
-        # fill out names
-        names = [basename(f[names][0]) for f in files]
-    # make every src/dest a list
-    to_copy = []
-    for src, dest in files:
-        if isinstance(src, string):
-            src = [src]
-        else:
-            src = list(src)
-        if isinstance(dest, string):
-            dest = [dest]
-        else:
-            dest = list(dest)
-        to_copy.append((src, dest))
-    # get file sizes/locations
-    sizes = {}
-    locations = {}
-    sep = os.sep
 
     def get_size (f):
         # return the size of the given file (and cache the results)
         size = sizes.get(f, None)
         if size is None:
             try:
-                stat = os.stat(f)
+                size = getsize(f)
             except OSError:
                 size = 0
-            else:
-                size = stat.st_size
             # store in cache
             sizes[f] = size
-        else:
-            # retrieve from cache
-            size = sizes[f]
         return size
 
-    # fill in default values
+    # make every src/dest a list and fill in default values
+    sizes = {}
     total_size = 0
-    for src, dest in to_copy:
+    to_copy = []
+    for src, *dests in files:
+        if isinstance(src, string) or hasattr(src, 'read'):
+            src = [src]
+        else:
+            src = list(src)
         if len(src) == 1:
-            src.append(None)
-        if len(src) == 2:
             src.append(0)
-        if len(src) == 3:
-            size = get_size(src[0])
-            src.append(size - src[2])
-        total_size += src[3]
-        if len(dest) == 1:
-            dest.append(None)
-        if len(dest) == 2:
-            dest.append(0)
+        if len(src) == 2:
+            src.append(get_size(src[0]) - src[1])
+        total_size += src[2]
+        f = [src]
+        for dest in dests:
+            if isinstance(dest, string) or hasattr(dest, 'write'):
+                dest = [dest]
+            else:
+                dest = list(dest)
+            if len(dest) == 1:
+                dest.append(0)
+            f.append(dest)
+        to_copy.append(f)
+    if progress is not None and isinstance(names, int):
+        # fill out names
+        i, names = names, []
+        for f in to_copy:
+            f = f[i][0]
+            if not isinstance(f, string):
+                f = basename(f.name)
+            names.append(f)
     # actual copy
     failed = []
     total_done = 0
     progress_update = BLOCK_SIZE
-    for i, (src, dest) in enumerate(to_copy):
-        src_fn, src_f, src_start, size = src
-        src_open = src_f is None
-        dest_fn, dest_f, dest_start = dest
-        dest_open = dest_f is None
+    for file_i, (src, *dests) in enumerate(to_copy):
+        src_f, src_start, size = src
+        src_open = isinstance(src_f, string)
+        dest_fs = []
+        dest_starts = []
+        dest_opens = []
+        for dest in dests:
+            dest_f, dest_start = dest
+            dest_fs.append(dest_f)
+            dest_starts.append(dest_start)
+            dest_opens.append(isinstance(dest_f, string))
         try:
             # open files
             if src_open:
-                src_f = open(src_fn, 'rb')
-            if dest_open:
-                if not overwrite and exists(dest_fn):
-                    # exists and don't want to overwrite
-                    failed.append(i)
-                    continue
-                dest_f = open(dest_fn, 'wb')
+                src_f = open(src_f, 'rb')
+            this_failed = False
+            for i, (dest_f, dest_open) in enumerate(zip(dest_fs, dest_opens)):
+                if dest_open:
+                    if not overwrite and exists(dest_f):
+                        # exists and don't want to overwrite
+                        failed.append(i)
+                        this_failed = True
+                        break
+                    dest_fs[i] = open(dest_f, 'wb')
+            if this_failed:
+                continue
             # seek
-            same = src_f is dest_f
-            if not same:
+            sames = []
+            for dest_f in dest_fs:
+                same = src_f is dest_f
+                sames.append(same)
+                if not same:
+                    dest_f.seek(dest_start)
+            if not any(sames):
                 src_f.seek(src_start)
-                dest_f.seek(dest_start)
             # copy
             done = 0
             while size:
                 if progress is not None and total_done >= progress_update:
                     # update progress
-                    result = progress(total_done, total_size, names[i])
+                    result = progress(total_done, total_size, names[file_i])
                     while result == 1:
                         # paused
                         sleep(PAUSED_WAIT)
@@ -326,25 +340,84 @@ failed: a list of indices in the given files list for copies that failed.  Or,
                     progress_update += BLOCK_SIZE
                 # read and write the next block
                 amount = min(size, BLOCK_SIZE)
-                if same:
+                if any(sames):
                     src_f.seek(src_start + done)
                 data = src_f.read(amount)
-                if same:
-                    dest_f.seek(dest_start + done)
-                dest_f.write(data)
+                for dest_f, dest_start, same in zip(dest_fs, dest_starts,
+                                                    sames):
+                    if same:
+                        dest_f.seek(dest_start + done)
+                    dest_f.write(data)
                 size -= amount
                 done += amount
                 total_done += amount
         except IOError:
-            failed.append(i)
+            failed.append(file_i)
             continue
         finally:
             # clean up
-            if src_open and src_f is not None:
+            if src_open and not isinstance(src_f, string):
                 src_f.close()
-            if dest_open and dest_f is not None:
-                dest_f.close()
+            for dest_f, dest_open in zip(dest_fs, dest_opens):
+                if dest_open and not isinstance(dest_f, string):
+                    dest_f.close()
     return failed
+
+
+def bnr_to_pnm (img_data):
+    """This function converts BNR image data to PNM (PPM, to be exact).
+
+BNR files use little-endian 1RGB5 (1RRRRRGGGGGBBBBB) or 0A3RGB4
+(0AAARRRRGGGGBBBB) (each pixel may vary) with an assumed black background and
+pixels arranged in 4x4 blocks.  The argument is an iterable containing this
+data (probably as bytes), and the returned image is bytes.
+
+"""
+    w, h = 96, 32
+    target_bits = 8
+    # create header
+    header = 'P6 {} {} {} '.format(w, h, 2 ** target_bits - 1).encode('ascii')
+    # create destination array
+    dest = bytearray(w * h * 3)
+    # split image data into 2-byte integers
+    src = array('H')
+    src.fromstring(img_data)
+    if byteorder == 'little':
+        # switch endianness
+        src.byteswap()
+    src = iter(src)
+    # iterate over pixels
+    for y in range(0, h, 4):
+        for x in range(0, w, 4):
+            for iy in range(4):
+                for ix in range(4):
+                    index = 3 * ((y + iy) * w + x + ix)
+                    pixel = next(src)
+                    # unpack colours and place in output
+                    # we want (RRRRR, GGGGG, BBBBB)
+                    if pixel >> 15:
+                        # got (ARRRRRGG, GGGBBBBB)
+                        bit_counts = (5, 5, 5)
+                        alpha = 1
+                        pwr = 15
+                    else:
+                        # got (0AAARRRR, GGGGBBBB)
+                        bit_counts = (4, 4, 4)
+                        alpha = (pixel >> 12) / 8
+                        pwr = 12
+                    pixel %= (2 ** pwr)
+                    for i, n_bits in enumerate(bit_counts):
+                        pwr -= n_bits
+                        mod = 2 ** pwr
+                        # get this colour's value
+                        c = alpha * (pixel // mod)
+                        # scale to target bits
+                        c *= (2 ** target_bits - 1) / (2 ** n_bits - 1)
+                        # round and add
+                        dest[index + i] = int(round(c))
+                        # remove from pixel
+                        pixel %= mod
+    return header + dest
 
 
 def tree_from_dir (root, walk_iter = None):
@@ -723,7 +796,7 @@ size: the number of children in the tree or the total file size, or a dict of
         else:
             return size
 
-    def flatten_tree (self, tree = None, files = True, dirs = True):
+    def flatten_tree (self, tree = None, files = True, dirs = True, path = []):
         """Get a list of files in the given tree with their parent trees.
 
 flatten_tree([tree], files = True, dirs = True) -> items
@@ -731,10 +804,11 @@ flatten_tree([tree], files = True, dirs = True) -> items
 tree: the tree to look in; defaults to this instance's tree attribute.
 files, dirs: whether to include files/directories.
 
-items: list of (is_dir, item, parent, index) tuples, where, if is_dir,
+items: list of (is_dir, item, parent, index, path) tuples, where, if is_dir,
        parent[index] == item (and item is a tree), else
        parent[None][index] == item.  If files or dirs is False, is_dir is
-       omitted.
+       omitted.  path is a list of parent directories containing this item, the
+       last its direct parent.  items never includes the root directory.
 
 """
         if tree is None:
@@ -743,13 +817,14 @@ items: list of (is_dir, item, parent, index) tuples, where, if is_dir,
         # files
         if files:
             for i, f in enumerate(tree[None]):
-                items.append(((False,) if dirs else ()) + (f, tree, i))
+                items.append(((False,) if dirs else ()) + (f, tree, i, path))
         # dirs
         for k, t in tree.items():
             if k is not None:
                 if dirs:
-                    items.append(((True,) if files else ()) + (t, tree, k))
-                items += self.flatten_tree(t, files, dirs)
+                    items.append(((True,) if files else ()) + \
+                                 (t, tree, k, path))
+                items += self.flatten_tree(t, files, dirs, path + [k[0]])
         return items
 
     def update (self):
@@ -921,7 +996,7 @@ failed: a list of indices in the given files list for files that could not be
                     # unknown file
                     failed.append(i)
                 else:
-                    to_copy = [((self.fn, f, start, size), dest)]
+                    to_copy = [((f, start, size), dest)]
                     if copy(to_copy, None, None, overwrite):
                         failed.append(i)
         return failed
@@ -1030,7 +1105,7 @@ Directories are extracted recursively.
                     if isinstance(i, int):
                         # extract
                         start, size = entries[i][2:]
-                        to_copy.append(((disk_fn, f, start, size), dest))
+                        to_copy.append(((f, start, size), dest))
                         to_copy_names.append(names[i])
                     else:
                         # copy
@@ -1210,8 +1285,7 @@ be imported in the same call to this function.
                     to_copy = []
                     to_copy_names = []
                     for old_i, i, old_start, start, size in moving_files:
-                        to_copy.append(((fn, f, old_start, size),
-                                        (fn, f, start)))
+                        to_copy.append(((f, old_start, size), (f, start)))
                         to_copy_names.append(names[i])
                         # put in old_files
                         old_files.append((start, i, old_i, size))
@@ -1380,8 +1454,7 @@ be imported in the same call to this function.
                         to_copy_names = []
                         for start, i in (nf_clean if clean else nf_dirty):
                             is_dir, str_start, this_fn, size = entries[i]
-                            to_copy.append(((this_fn, None, 0, size),
-                                            (fn, f, start)))
+                            to_copy.append(((this_fn, 0, size), (f, start)))
                             to_copy_names.append(names[i])
                             entries[i] = (False, str_start, start, size)
                         failed = copy(to_copy, p_clean if clean else p_dirty,
@@ -1455,7 +1528,7 @@ See compress for more details.
             return (False, None, None)
         entries = self.entries
         files = [[entries[i][2], entries[i][3], i, name, parent[None], tree_i]
-                 for (name, i), parent, tree_i in files]
+                 for (name, i), parent, tree_i, path in files]
         files.sort(reverse = True)
         orig_size = sum(files[0][:2])
         # get start of file data
@@ -1602,7 +1675,7 @@ compressing.  Make sure you write everything you want to keep first.
                 if hasattr(e, 'handled') and e.handled is True:
                     # didn't finish: clean up tree
                     self.build_tree()
-                    raise
+                raise
             if rtn is True:
                 # cancelled: clean up tree
                 self.build_tree()

@@ -29,14 +29,15 @@ if system() == 'Windows':
     HOME = os.environ['USERPROFILE']
     SHARE = join_path(os.environ['APPDATA'], IDENTIFIER)
     CONF_DIR = SHARE
-    CONF = join_path(CONF_DIR, 'conf')
 else:
     HOME = os.path.expanduser('~')
     SHARE = join_path(HOME, '.local', 'share', IDENTIFIER)
     CONF_DIR = join_path(HOME, '.config', IDENTIFIER)
-    CONF = join_path(CONF_DIR, 'conf')
+CONF = join_path(CONF_DIR, 'conf')
+TRASH_INDEX = join_path(SHARE, 'trash_index')
+TRASH_DIR = join_path(SHARE, 'trash')
 
-for d in set((SHARE, CONF_DIR)):
+for d in set((TRASH_DIR, CONF_DIR)):
     try:
         os.makedirs(d, exist_ok = True)
     except OSError:

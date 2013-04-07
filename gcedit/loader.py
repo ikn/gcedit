@@ -56,12 +56,12 @@ valid: whether the file was found to be valid (if not, an error dialogue is
 """
     try:
         fs = GCFS(fn)
+    except DiskError as e:
+        guiutil.error(_('Invalid file: {}').format(e), parent)
+        return False
     except IOError as e:
         e = e.strerror[0].lower() + e.strerror[1:]
         guiutil.error(_('Couldn\'t read the file: {}').format(e), parent)
-        return False
-    except DiskError as e:
-        guiutil.error(_('Invalid file: {}').format(e), parent)
         return False
     else:
         if parent:

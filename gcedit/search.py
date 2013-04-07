@@ -12,6 +12,9 @@ SearchWindow
 
 """
 
+# TODO:
+# [ENH] search within a directory
+
 from html import escape
 
 from gi.repository import Gtk as gtk, Pango as pango

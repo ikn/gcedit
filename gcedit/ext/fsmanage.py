@@ -25,6 +25,7 @@ buttons
 # - multi-DND
 # - allow resizing of breadcrumbs (gtk.Grid) smaller than its current size
 # - escape with address bar focused does self.grab_focus()
+# - sort options: natural, case-sensitive
 
 from pickle import dumps, loads
 from base64 import encodebytes, decodebytes
@@ -988,7 +989,7 @@ selects and focuses it, and scrolls so that it is in view.
         if None in (name1, name2):
             return 0
         # alphabetical
-        return (name1 > name2) - (name1 < name2)
+        return 1 if name1 > name2 else (0 if name1 is name2 else -1)
 
 
 class AddressBar (gtk.Box):

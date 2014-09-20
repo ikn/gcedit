@@ -23,8 +23,8 @@ all: inplace
 	./setup build
 
 clean:
-	- $(RM) -r build
-	- $(RM) -r gcedit/locale
+	$(RM) -r build
+	$(RM) -r gcedit/locale
 
 distclean: clean
 	@ ./unconfigure
@@ -53,11 +53,11 @@ install: $(patsubst $(ICON_PATTERN),install-%.png,$(ICONS))
 
 uninstall: $(patsubst $(ICON_PATTERN),uninstall-%.png,$(ICONS))
 	@ # executable
-	- $(RM) "$(DESTDIR)$(bindir)/gcedit"
+	$(RM) "$(DESTDIR)$(bindir)/gcedit"
 	@ # package
 	- ./setup remove --prefix="$(DESTDIR)$(prefix)" &> /dev/null || \
 	$(RM) -r $(python_lib)/{gcedit,gcedit-*.egg-info}
 	@ # readme
-	- $(RM) -r "$(DESTDIR)$(docdir)/"
+	$(RM) -r "$(DESTDIR)$(docdir)/"
 	@ # desktop file
-	- $(RM) "$(DESTDIR)$(datarootdir)/applications/gcedit.desktop"
+	$(RM) "$(DESTDIR)$(datarootdir)/applications/gcedit.desktop"

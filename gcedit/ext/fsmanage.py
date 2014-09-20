@@ -26,6 +26,7 @@ buttons
 # - allow resizing of breadcrumbs (gtk.Grid) smaller than its current size
 # - escape with address bar focused does self.grab_focus()
 # - sort options: natural, case-sensitive
+# - copy, move backend functions should return new files on success, and use this to end up with correct focus
 
 from pickle import dumps, loads
 from base64 import encodebytes, decodebytes

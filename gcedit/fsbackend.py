@@ -16,6 +16,7 @@ FSBackend
 # [ENH] in overwrite with copy/import, have the deletion in the same history action
 #   - history action can be list of actions
 #   - need to add copies/imports and deletes to this list in the right order
+# [BUG] can't undo moving a directory inside itself
 
 import os
 from copy import deepcopy

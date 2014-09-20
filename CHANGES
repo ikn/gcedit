@@ -1,5 +1,6 @@
 0.4.1-next:
  * show banner images in the initial window
+ * bug: crashes when given an invalid disk
 
 0.4.1:
  * show more information in the initial window

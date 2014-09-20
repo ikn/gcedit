@@ -18,7 +18,6 @@ browse
 """
 
 # TODO:
-# [ENH] show banner image
 # [ENH] allow selecting multiple disks and removing them all at once
 #   - change text in rm confirmation to indicate multiple
 #   - open the first selected (warn if more than one)

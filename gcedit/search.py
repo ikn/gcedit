@@ -14,6 +14,10 @@ SearchWindow
 
 # TODO:
 # [ENH] search within a directory
+# [BUG] handle ValueError from search_tree
+# [FEA] actions on results (like copy, move, extract)
+# [FEA] sorting
+# [IMP] show sizes (uses the same lister as main window)
 
 from html import escape
 

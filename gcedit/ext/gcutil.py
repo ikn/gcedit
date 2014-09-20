@@ -41,6 +41,7 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 # - read should use struct.unpack for ints (do some timings)
 # - put code that gets gaps in fs in a function (used twice)
 # - compress should truncate if possible
+# - compile regex in search_tree, and raise ValueError if fails
 # RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
 # Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
 

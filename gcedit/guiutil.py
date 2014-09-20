@@ -260,13 +260,13 @@ tooltip: a tooltip for the button (else don't have a tooltip).
     def __init__ (self, data, tooltip = None):
         if not isinstance(data, str):
             name, icon = data
-            gtk.Button.__init__(self, name, None, '_' in name)
+            gtk.Button.__init__(self, name, use_underline=('_' in name))
             img = gtk.Image.new_from_stock(icon, gtk.IconSize.BUTTON)
             self.set_image(img)
         elif data.startswith('gtk-'):
-            gtk.Button.__init__(self, None, data)
+            gtk.Button.__init__(self, stock=data)
         else:
-            gtk.Button.__init__(self, data, None, '_' in data)
+            gtk.Button.__init__(self, data, use_underline=('_' in data))
         if tooltip is not None:
             self.set_tooltip_text(tooltip)
 

@@ -1,6 +1,8 @@
 0.4.1-next:
  * show banner images in the initial window
  * bug: crashes when given an invalid disk
+ * bug: crashes on opening a disk with recent GTK3, and buttons display
+        incorrectly
 
 0.4.1:
  * show more information in the initial window

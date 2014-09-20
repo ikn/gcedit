@@ -4,7 +4,7 @@ A note on end-user usage: drag-and-drop moves with left-click, and copies with
 middle-click or ctrl-left-click.
 
 Python version: 3.
-Release: 8.
+Release: 9.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -22,6 +22,7 @@ buttons
 """
 
 # TODO:
+# - breadcrumbs don't start update to show/hide scrollback button properly when resizing the window
 # - multi-DND
 # - allow resizing of breadcrumbs (gtk.Grid) smaller than its current size
 # - escape with address bar focused does self.grab_focus()
@@ -1039,7 +1040,7 @@ path: the current path shown (in list form).
         self._working = False
         self.set_vexpand(False)
         # widgets
-        self.mode_button = mode_b = gtk.ToggleButton(None, gtk.STOCK_EDIT)
+        self.mode_button = mode_b = gtk.ToggleButton(stock=gtk.STOCK_EDIT)
         f = lambda b: self.set_mode(b.get_active(), False, True)
         mode_b.connect('toggled', f)
         self.pack_start(mode_b, False, False, 0)
@@ -1049,7 +1050,7 @@ path: the current path shown (in list form).
         self.entry = e = gtk.Entry()
         self.address.pack_start(e, True, True, 0)
         e.connect('activate', self._set_path_entry)
-        ok_b = gtk.Button(None, gtk.STOCK_OK)
+        ok_b = gtk.Button.new_from_stock(gtk.STOCK_OK)
         ok_b.connect('clicked', self._set_path_entry)
         self.address.pack_start(ok_b, False, False, 0)
         # breadcrumbs
@@ -1064,7 +1065,7 @@ path: the current path shown (in list form).
         sb.set_vexpand(True)
         sb.connect('clicked', self._scrollback_menu)
         sb.show()
-        self._root_b = root_b = gtk.ToggleButton(None, root_icon)
+        self._root_b = root_b = gtk.ToggleButton(stock=root_icon)
         root_b.set_vexpand(True)
         root_b.connect('toggled', self._breadcrumb_toggle, 0)
         root_b.show()
@@ -1287,9 +1288,9 @@ button_list: a list of Gtk.Button instances: back, forward, up, new, in that
     f = lambda widget, cb, *args: cb(*args)
     for name, tooltip, cb, *cb_args in button_data:
         if name.startswith('gtk-'):
-            b = gtk.Button(None, name)
+            b = gtk.Button(stock=name, use_stock=True)
         else:
-            b = gtk.Button(name, None, '_' in name)
+            b = gtk.Button(name, use_underline=('_' in name))
         buttons.append(b)
         b.set_tooltip_text(tooltip)
         b.connect('clicked', f, cb, *cb_args)

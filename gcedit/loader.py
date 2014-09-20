@@ -21,6 +21,7 @@ browse
 # [ENH] allow selecting multiple disks and removing them all at once
 #   - change text in rm confirmation to indicate multiple
 #   - open the first selected (warn if more than one)
+# [ENH] show 'invalid' image for missing file banner
 
 from os.path import abspath, basename, getsize
 from html import escape
@@ -304,6 +305,7 @@ Each is as stored in the history.
             if info is None:
                 name = basename(fn)
                 tooltip = escape(fn)
+                img = None
             else:
                 name = info['name']
                 tooltip = '<b>{} ({}, {})</b>\n{}'
@@ -313,7 +315,8 @@ Each is as stored in the history.
                 desc = ' '.join(info['description'].splitlines()).strip()
                 if desc:
                     tooltip += '\n\n' + desc
-            m[i] = (name, info['img'], size, fn, tooltip)
+                img = info['img']
+            m[i] = (name, img, size, fn, tooltip)
         # re-enable sorting
         # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
         m.set_sort_column_id(-1, gtk.SortType.DESCENDING)

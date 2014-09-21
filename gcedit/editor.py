@@ -12,6 +12,7 @@ Editor
 """
 
 # TODO:
+# [ENH] maybe use a library for remaining time estimation
 # [BUG] the fsmanage shortcuts we override have effect when editing in the address bar
 # [BUG] menu separators don't draw properly
 # [FEA] multi-paned file manager

@@ -6,42 +6,45 @@
 # version.
 
 import sys
+import os
+from platform import system
 from distutils import sysconfig
 
-_LIB_PREFIX = '/usr/local'
-sys.path.append(sysconfig.get_python_lib(prefix = _LIB_PREFIX))
+#_LIB_PREFIX = '/usr/local'
+#sys.path.append(sysconfig.get_python_lib(prefix = _LIB_PREFIX))
 
-# non-lowercase modules = evil
-from gi.repository import Gtk as gtk, Gdk as gdk, GObject as gobject
-from gcedit import conf
-from gcedit import loader
+from gcedit import conf, qt, loader
 
-# add icons under current dir to icon search path
-gtk.IconTheme.get_default().append_search_path('icons')
-gtk.Window.set_default_icon_name(conf.IDENTIFIER)
+# add the standard icon theme paths, since Qt doesn't seem to
+data_dirs = os.environ.get('XDG_DATA_DIRS', '/usr/local/share/:/usr/share/')
+qt.QIcon.setThemeSearchPaths(
+    qt.QIcon.themeSearchPaths() +
+    [os.path.expanduser(os.path.join('~', '.icons'))] +
+    [os.path.join(d, 'icons') for d in data_dirs.split(':')] +
+    # application icon for running in-place
+    [os.path.join(os.path.dirname(sys.argv[0]), 'icons')]
+)
+# if there's no theme name, no icon lookups are performed (not even in hicolor)
+if not qt.QIcon.themeName():
+    qt.QIcon.setThemeName('gcedit' if system() == 'Windows' else 'gnome')
 
-fn_hist = conf.read_lines('disk_history')
 if __name__ == '__main__':
-    # initialise threading support
-    gobject.threads_init()
-    gdk.threads_init()
-    gdk.threads_enter()
-    ldr = None
-    try:
-        # use the first argument as a filename to load, if given
-        fn = sys.argv[1]
-    except IndexError:
-        # ask for a disk image
-        ldr = loader.LoadDisk(fn_hist)
+    app = qt.QApplication([])
+    app.setApplicationName(conf.APPLICATION)
+    app.setApplicationVersion(conf.VERSION)
+    app.setWindowIcon(qt.QIcon.fromTheme(conf.IDENTIFIER))
+    main_window = None
+
+    # PyQt doesn't store the window, so Python destroys it
+    def set_main_window (w):
+        global main_window
+        main_window = w
+
+    if len(sys.argv) > 1:
+        # use the first argument as a filename to load
+        loader.load(sys.argv[1], set_main_window)
     else:
-        # try to load given file
-        if loader.run_editor(fn):
-            loader.add_to_hist(fn_hist, fn)
-        else:
-            # failed: fall back to loader
-            ldr = loader.LoadDisk(fn_hist)
-    # kind of hacky
-    if ldr is None or not ldr.do_quit:
-        # start GTK main loop
-        gtk.main()
-    gdk.threads_leave()
+        # ask for a disk image
+        loader.run(set_main_window)
+
+    app.exec()

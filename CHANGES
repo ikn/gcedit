@@ -1,3 +1,5 @@
+0.4.2-next:
+
 0.4.2:
  * show banner images in the initial window
  * bug: crashes when given an invalid disk

@@ -5,50 +5,49 @@ the terms of the GNU General Public License as published by the Free Software
 Foundation, either version 3 of the License, or (at your option) any later
 version.
 
-    CLASSES
-
-LoadDisk
-
-    FUNCTIONS
-
-run_editor
-add_to_hist
-browse
-
 """
+
+import os
+from html import escape
+
+from .ext.gcutil import GCFS, DiskError, bnr_to_pnm
+
+from . import conf, guiutil, qt
 
 # TODO:
 # [ENH] allow selecting multiple disks and removing them all at once
 #   - change text in rm confirmation to indicate multiple
 #   - open the first selected (warn if more than one)
-# [ENH] show 'invalid' image for missing file banner
-
-from os.path import abspath, basename, getsize
-from html import escape
-from threading import Thread
-from queue import Queue
-
-from gi.repository import Gtk as gtk, Pango as pango, GdkPixbuf as pixbuf
-from gi.repository.GLib import GError
-from .ext.gcutil import GCFS, DiskError, bnr_to_pnm
-
-from . import conf, guiutil
-from .conf import settings
+# [ENH] set 'open', 'remove' button sensitivity according to disk selection
+# [ENH] allow drag-and-drop of files onto the table (and out of, as files, into other programs?)
+# [ENH] browse on table activate with no selection (table could be empty)
 
 COL_NAME = 0
 COL_ICON = 1
 COL_SIZE = 2
 COL_PATH = 3
-COL_INFO = 4
 
-def run_editor (fn, parent = None):
+
+def add_to_hist (fn_hist, *fns):
+    """Add disk image filenames to the history.
+
+add_to_hist(fn_hist, *fns)
+
+fn_hist: current disk image history.
+fns: filenames to add.
+
+"""
+    if any([conf.mru_add(fn_hist, os.path.abspath(fn))[0] for fn in fns]):
+        conf.write_lines('disk_history', fn_hist)
+
+
+def run_editor (fn, parent=None):
     """Start and display the editor.
 
 run_editor(fn[, parent]) -> valid
 
 fn: filename to load as a disk image.
-parent: parent window for the error dialogue, if shown; this is destroyed if
-        the file is a valid disk image.
+parent: parent window for the error dialogue, if shown.
 
 valid: whether the file was found to be valid (if not, an error dialogue is
        shown and the editor isn't started).
@@ -64,69 +63,113 @@ valid: whether the file was found to be valid (if not, an error dialogue is
         guiutil.error(_('Couldn\'t read the file: {}').format(e), parent)
         return False
     else:
-        if parent:
-            parent.destroy()
         # start the editor (import here because editor imports this module)
-        from .editor import Editor
-        Editor(fs).show()
+        # TODO
+        #from .editor import Editor
+        #Editor(fs).show()
         return True
 
-def add_to_hist (fn_hist, *fns):
-    """Add disk image filenames to the history.
 
-add_to_hist(fn_hist, *fns)
-
-fn_hist: current disk image history.
-fns: filenames to add.
-
-"""
-    if any([conf.mru_add(fn_hist, abspath(fn))[0] for fn in fns]):
-        conf.write_lines('disk_history', fn_hist)
-
-def browse (fn_hist = None, parent = None, allow_multi = False):
+def browse (fn_hist, parent=None):
     """Browse for a disk image and open it in the editor.
 
-browse([fn_hist][, parent], allow_multi = False) -> opened
+browse(fn_hist[, parent]) -> opened
 
-fn_hist: current disk image history; if not given, it is loaded from disk.
+fn_hist: current disk image history.
 parent: a window for the dialogue's parent.
-allow_multi: whether to allow loading multiple files.
 
 opened: If True, one disk was chosen, added to the history and opened in the
-        editor, and parent was destroyed.  If False, the action was cancelled,
-        or one disk was chosen and it was invalid.  If a list of filenames,
-        each one was added to the history.
+        editor.  If False, no disks were chosen, or one disk was chosen and it
+        was invalid.  If a list of filenames, each one was added to the
+        history.
 
 """
-    rt = gtk.ResponseType
-    buttons = (gtk.STOCK_CLOSE, rt.CLOSE, gtk.STOCK_OK, rt.OK)
-    # NOTE: the title for a file open dialogue
-    load = gtk.FileChooserDialog(_('Open Disk Image'), parent,
-                                 gtk.FileChooserAction.OPEN, buttons)
-    if allow_multi:
-        load.set_select_multiple(True)
-    load.set_current_folder(settings['loader_path'])
-    if load.run() == rt.OK:
-        # got one
-        fns = load.get_filenames() if allow_multi else [load.get_filename()]
+    fns = qt.QFileDialog.getOpenFileNames(
+        # NOTE: the title for a file open dialogue
+        parent, _('Open Disk Image'), conf.settings['loader_path'], None, None,
+        qt.QFileDialog.DontResolveSymlinks
+    )[0]
+
+    if fns:
         # remember dir
-        settings['loader_path'] = load.get_current_folder()
-    else:
-        fns = []
-    load.destroy()
-    if not fns:
-        return False
-    # add to history
-    if fn_hist is None:
-        fn_hist = conf.read_lines('disk_history')
-    add_to_hist(fn_hist, *fns)
-    if len(fns) == 1:
-        if run_editor(fns[0], parent):
-            return True
+        conf.settings['loader_path'] = os.path.dirname(fns[0])
+        # add to history
+        add_to_hist(fn_hist, *fns)
+        if len(fns) == 1:
+            if run_editor(fns[0], parent):
+                return True
+            else:
+                return False
         else:
-            return False
+            return fns
     else:
-        return fns
+        return False
+
+
+def update_model_item (item, data):
+    if isinstance(data, str):
+        item.setText(data)
+    elif isinstance(data, qt.QIcon):
+        item.setIcon(data)
+    elif isinstance(data, qt.QPixmap):
+        if data.isNull():
+            item.setIcon(guiutil.invalid_icon())
+        else:
+            item.setData(data, qt.Qt.DecorationRole)
+
+
+def disk_tooltip (fn, info):
+    name = info['name']
+    tooltip = '<b>{} ({}, {})</b>\n{}'
+    tooltip = tooltip.format(*(escape(arg) for arg in (
+        info['full name'], info['code'], info['full developer'], fn
+    )))
+    desc = ' '.join(info['description'].splitlines()).strip()
+    if desc:
+        tooltip += '\n\n' + desc
+
+
+class LoadThreadSignals (qt.QObject):
+    # corresponds to the table columns, then tooltip
+    loaded = qt.pyqtSignal(str, qt.QPixmap, str, str, str)
+
+
+class LoadThread (qt.QRunnable):
+    def __init__ (self, fn):
+        qt.QRunnable.__init__(self)
+        self.fn = fn
+        self.signals = LoadThreadSignals()
+
+    def run (self):
+        fn = self.fn
+        try:
+            fs = GCFS(fn)
+            info = fs.get_info()
+            info.update(fs.get_bnr_info())
+
+        except (IOError, DiskError, ValueError):
+            name = os.path.basename(fn)
+            img = qt.QPixmap()
+            tooltip = escape(fn)
+
+        else:
+            # load image into pixbuf
+            name = info['name']
+            img_pnm = bnr_to_pnm(info['img'])
+            img = qt.QPixmap()
+            if not img.loadFromData(img_pnm, b'PPM'):
+                # loading failed
+                img = qt.QPixmap()
+            tooltip = disk_tooltip(fn, info)
+
+        try:
+            size = os.path.getsize(fn)
+        except OSError as e:
+            size = ''
+        else:
+            size = guiutil.printable_filesize(size)
+
+        self.signals.loaded.emit(name, img, size, fn, tooltip)
 
 
 class LoadDisk (guiutil.Window):
@@ -134,134 +177,172 @@ class LoadDisk (guiutil.Window):
 
     CONSTRUCTOR
 
-LoadDisk([fn_hist])
+LoadDisk(fn_hist)
 
-fn_hist: current disk image history; if not given, it is loaded from disk.
+fn_hist: current disk image history.
 
 """
 
-    def __init__ (self, fn_hist = None):
-        self.do_quit = False
-        if fn_hist is None:
-            self._fn_hist = conf.read_lines('disk_history')
-        else:
-            self._fn_hist = fn_hist
-        # window
+    def __init__ (self, fn_hist):
+        self._fn_hist = fn_hist
         guiutil.Window.__init__(self, 'loader')
-        self.set_border_width(12)
-        self.set_title(conf.APPLICATION)
-        self.connect('delete-event', self.quit)
-        g = gtk.Grid()
-        g.set_column_spacing(6)
-        g.set_row_spacing(6)
-        self.add(g)
+        self.setWindowTitle(conf.APPLICATION)
+
+        menu = qt.QMenu()
+        self._table = table = guiutil.DeselectableTableView(COL_NAME)
+
+        window_actions = guiutil.mk_actions({
+            'browse': {
+                'icon': 'edit-find',
+                'text': _('&Browse...'),
+                'tooltip': _('Load a new disk from the filesystem'),
+                'key': qt.QKeySequence.Open,
+                'clicked': self._browse
+            },
+            'quit': {
+                'icon': 'application-exit',
+                'text': _('&Quit'),
+                'tooltip': _('Quit the application'),
+                'key': qt.QKeySequence.Quit,
+                'clicked': self._quit
+            }
+        }, self)
+
+        table_actions = guiutil.mk_actions({
+            'open': {
+                'icon': 'document-open',
+                'text': _('&Open'),
+                'tooltip': _('Open the selected disk for editing'),
+                'clicked': self._open_current,
+            },
+            'remove': {
+                'icon': 'list-remove',
+                'text': _('&Remove'),
+                'tooltip': _('Remove the selected disk from the known disks '
+                             'list'),
+                'key': qt.QKeySequence.Delete,
+                'clicked': self._rm_current
+            },
+            'remove all': {
+                'icon': 'list-remove',
+                'text': _('Remove &All'),
+                'tooltip': _('Remove all disks from the known disks list'),
+                'clicked': self._rm_all
+            }
+        }, table)
+
+        # layout
+        g = qt.QGridLayout()
+        w = qt.QWidget(self)
+        w.setLayout(g)
+        self.setCentralWidget(w)
 
         # label
-        l = gtk.Label(_('Recent files:'))
-        l.set_alignment(0, .5)
-        g.attach(l, 0, 0, 3, 1)
-        # treeview
-        self._model = m = gtk.ListStore(str, pixbuf.Pixbuf, str, str, str)
-        m.set_default_sort_func(self._sort_tree)
-        # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
-        m.set_sort_column_id(-1, gtk.SortType.DESCENDING)
-        self._tree = tree = gtk.TreeView(m)
-        tree.set_headers_visible(False)
-        tree.set_search_column(COL_NAME)
-        tree.set_rules_hint(True)
-        tree.set_tooltip_column(COL_INFO)
-        open_cb = lambda t, path, c: self._open(m[path][COL_PATH])
-        tree.connect('row-activated', open_cb)
-        tree.connect('button-press-event', self._click)
-        # content
-        cols = []
-        for name, col, *props in (
-            (_('Name'), COL_NAME),
-            (_('Size'), COL_SIZE),
-            (_('Path'), COL_PATH, ('ellipsize', pango.EllipsizeMode.START))
-        ):
-            r = gtk.CellRendererText()
-            for k, v in props:
-                r.set_property(k, v)
-            cols.append(gtk.TreeViewColumn(name, r, text = col))
-        r = gtk.CellRendererPixbuf()
-        cols.insert(1, gtk.TreeViewColumn(_('Banner'), r, pixbuf = COL_ICON))
-        for col in cols:
-            tree.append_column(col)
-        # add to window
-        s = gtk.ScrolledWindow()
-        g.attach(s, 0, 1, 3, 1)
-        s.set_policy(gtk.PolicyType.NEVER, gtk.PolicyType.AUTOMATIC)
-        s.add(tree)
-        tree.set_hexpand(True)
-        tree.set_vexpand(True)
-        # accelerators
-        group = self.accel_group = gtk.AccelGroup()
-        accels = [
-            ('Menu', self._menu, 0, gtk.get_current_event_time()),
-            ('Delete', self._rm)
-        ]
-        def mk_fn (cb, *cb_args):
-            def f (*args):
-                if tree.is_focus():
-                    cb(*cb_args)
-            return f
-        for accel, cb, *args in accels:
-            key, mods = gtk.accelerator_parse(accel)
-            group.connect(key, mods, 0, mk_fn(cb, *args))
-        self.add_accel_group(group)
+        g.addWidget(qt.QLabel(_('Recent files:')), 0, 0, 1, 3)
+
+        # disks
+        self._model = model = qt.QStandardItemModel()
+        g.addWidget(table, 1, 0, 1, 3)
+        table.setModel(model)
+        table.setItemDelegate(guiutil.NoFocusItemDelegate())
+        table.setSelectionMode(qt.QAbstractItemView.SingleSelection)
+        table.setSelectionBehavior(qt.QAbstractItemView.SelectRows)
+        table.setHorizontalScrollMode(qt.QAbstractItemView.ScrollPerPixel)
+        table.setVerticalScrollMode(qt.QAbstractItemView.ScrollPerPixel)
+        table.activated.connect(
+            lambda m_idx: self._open(model.item(m_idx.row(), COL_PATH).text()))
+        table.right_click.connect(menu.popup)
+
+        table.setShowGrid(False)
+        table.setWordWrap(False)
+        # only affects the last column - no others have resize mode stretch
+        table.setTextElideMode(qt.Qt.ElideLeft)
+        h = table.horizontalHeader()
+        h.hide()
+        h.setSectionResizeMode(qt.QHeaderView.ResizeToContents)
+        h.setStretchLastSection(True)
+        table.verticalHeader().hide()
+
+        # disks menu
+        menu.setToolTipsVisible(True)
+        for action in table_actions.values():
+            menu.addAction(action)
+
         # buttons
-        for i, (data, cb) in enumerate((
-            (gtk.STOCK_OPEN, self._open_current),
-            (gtk.STOCK_REMOVE, self._rm),
-            ((_('Remove _All'), gtk.STOCK_REMOVE), self._rm_all)
-        )):
-            b = guiutil.Button(data)
-            g.attach(b, i, 2, 1, 1)
-            b.connect('clicked', cb)
-        b = guiutil.Button((_('_Browse...'), gtk.STOCK_FIND))
-        g.attach(b, 0, 3, 3, 1)
-        b.connect('clicked', self._browse)
+        for name, where in (
+            ('open', (2, 0)), ('remove', (2, 1)), ('remove all', (2, 2)),
+            ('browse', (3, 0, 1, 3))
+        ):
+            action = window_actions.get(name, table_actions.get(name))
+            g.addWidget(guiutil.ActionButton(action), *where)
 
-        self.show_all()
         self._add_fns(*self._fn_hist)
-        tree.grab_focus()
 
-    def _get_selected (self):
-        """Get (model, iter, file_path) for the selected disk image.
+    def _save_hist (self):
+        """Save the current known files list to disk."""
+        conf.write_lines('disk_history', self._fn_hist)
 
-i and file_path are None if nothing is selected.
+    def _open (self, fn):
+        """Open the given disk image."""
+        if run_editor(fn, self):
+            self._quit()
+            add_to_hist(self._fn_hist, fn)
 
-"""
-        m, i = self._tree.get_selection().get_selected()
-        if i is None:
-            return (m, None, None)
-        else:
-            return (m, i, m[i][COL_PATH])
+    def _get_selected_row (self):
+        """Get the index of the currently selected disks table row, or None."""
+        rows = self._table.selectionModel().selectedRows()
+        return rows[0].row() if len(rows) == 1 else None
 
-    def _get_disk_info (self, q, fns):
-        for fn in fns:
-            try:
-                fs = GCFS(fn)
-                info = fs.get_info()
-                info.update(fs.get_bnr_info())
-            except (IOError, DiskError, ValueError):
-                info = None
-            else:
-                # load image into pixbuf
-                try:
-                    img = bnr_to_pnm(info['img'])
-                    ldr = pixbuf.PixbufLoader.new_with_type('pnm')
-                    ldr.write(img)
-                    info['img'] = ldr.get_pixbuf()
-                    ldr.close()
-                except GError:
-                    info['img'] = None
-            try:
-                size = getsize(fn)
-            except OSError:
-                size = None
-            q.put((size, info))
+    def _open_current (self):
+        """Open the currently selected disk image."""
+        row = self._get_selected_row()
+        if row is not None:
+            self._open(self._model.item(row, COL_PATH).text())
+
+    def _rm_current (self):
+        """Remove the currently selected disk image."""
+        row = self._get_selected_row()
+        msg = _('Remove the selected file from this list?')
+        btns = ((_('&Cancel'), 'window-close', qt.QMessageBox.RejectRole),
+                (_('&Remove Anyway'), 'list-remove',
+                 qt.QMessageBox.DestructiveRole))
+        if (row is not None and guiutil.question(msg, btns, self, 0, True,
+                                                 ('rm_disk', 1)) == 1):
+            fn = self._model.item(row, COL_PATH).text()
+            if self._model.removeRow(row):
+                self._fn_hist.remove(fn)
+                self._save_hist()
+
+    def _rm_all (self):
+        """Remove all disk images."""
+        msg = _('Remove the selected file from this list?')
+        btns = ((_('&Cancel'), 'window-close', qt.QMessageBox.RejectRole),
+                (_('&Remove Anyway'), 'list-remove',
+                 qt.QMessageBox.DestructiveRole))
+        if (self._fn_hist and guiutil.question(msg, btns, self, 0, True,
+                                               ('rm_all_disks', 1)) == 1):
+            self._fn_hist = []
+            self._save_hist()
+            self._model.clear()
+
+    def _browse (self):
+        """Show a file chooser to find a disk image."""
+        fns = browse(self._fn_hist, self)
+        if fns is True:
+            self._quit()
+        elif fns:
+            self._add_fns(*fns)
+
+    def _add_details (self, name, icon, size, fn, tooltip):
+        """Fill out data for a disk in the known list."""
+        model = self._model
+        # update all rows containing this disk (should only be one anyway)
+        for row in range(model.rowCount()):
+            if model.item(row, COL_PATH).text() == fn:
+                for col, data in enumerate((name, icon, size, fn)):
+                    item = model.item(row, col)
+                    update_model_item(item, data)
+                    item.setToolTip(tooltip)
 
     def _add_fns (self, *fns):
         """Add the given disk images to the tree.
@@ -269,171 +350,45 @@ i and file_path are None if nothing is selected.
 Each is as stored in the history.
 
 """
-        if not fns:
-            return
-        m = self._model
-        # fill in basic data
+        model = self._model
+        old_fns = {model.item(i, COL_PATH).text()
+                   for i in range(model.rowCount())}
+
+        # insert new rows at the top
         for fn in fns:
-            m.append((basename(fn), None, '', fn, ''))
-        # disable sorting
-        # FIXME: -2 should be UNSORTED_SORT_COLUMN_ID, but I can't find it
-        m.set_sort_column_id(-2, gtk.SortType.ASCENDING)
-        # get new order
-        old_fns, fns = fns, []
-        rows = []
-        for i, row in enumerate(m):
-            fn = row[COL_PATH]
-            if fn in old_fns:
-                rows.append(i)
-                fns.append(fn)
-        # select first new row
-        self._tree.get_selection().select_path(rows[0])
-        # start data-loading thread
-        q = Queue()
-        t = Thread(target = self._get_disk_info, args = (q, fns))
-        t.start()
-        for i, fn in zip(rows, fns):
-            while q.empty():
-                while gtk.events_pending():
-                    gtk.main_iteration()
-            data = q.get()
-            size, info = data
-            if size is None:
-                size = ''
-            else:
-                size = guiutil.printable_filesize(size)
-            if info is None:
-                name = basename(fn)
-                tooltip = escape(fn)
-                img = None
-            else:
-                name = info['name']
-                tooltip = '<b>{} ({}, {})</b>\n{}'
-                tooltip = tooltip.format(*(escape(arg) for arg in (
-                    info['full name'], info['code'], info['full developer'], fn
-                )))
-                desc = ' '.join(info['description'].splitlines()).strip()
-                if desc:
-                    tooltip += '\n\n' + desc
-                img = info['img']
-            m[i] = (name, img, size, fn, tooltip)
-        # re-enable sorting
-        # FIXME: -1 should be DEFAULT_SORT_COLUMN_ID, but I can't find it
-        m.set_sort_column_id(-1, gtk.SortType.DESCENDING)
-        # wait for thread
-        t.join()
+            if fn not in old_fns:
+                # use a row with basic data until we've loaded the details
+                row = []
+                for data in (
+                    os.path.basename(fn), guiutil.invalid_icon(), None, fn
+                ):
+                    item = qt.QStandardItem()
+                    update_model_item(item, data)
+                    item.setEditable(False)
+                    row.append(item)
+                model.insertRow(0, row)
 
-    def _open (self, fn):
-        """Open the given disk image."""
-        if run_editor(fn, self):
-            add_to_hist(self._fn_hist, fn)
+                # start data-loading thread
+                run = LoadThread(fn)
+                run.signals.loaded.connect(self._add_details)
+                qt.QThreadPool.globalInstance().start(run)
 
-    def _open_current (self, *args):
-        """Open the currently selected disk image."""
-        m, i, fn = self._get_selected()
-        if fn is not None:
-            self._open(fn)
+    def _quit (self):
+        self.close()
 
-    def _click (self, tree, event):
-        """Callback for clicking the tree."""
-        if event.button not in (1, 3):
-            return
-        tree = self._tree
-        sel = tree.get_path_at_pos(int(event.x), int(event.y))
-        if sel is None:
-            # deselect
-            tree.get_selection().unselect_all()
-        if event.button == 3:
-            # right-click: show context menu
-            if sel is None:
-                # no-file context menu
-                self._menu(event.button, event.time, False)
-            else:
-                self._menu(event.button, event.time, sel[0])
 
-    def _rm (self, *args):
-        """Remove the currently selected disk image."""
-        m, i, fn = self._get_selected()
-        if fn is not None:
-            btns = (gtk.STOCK_CANCEL, _('_Remove Anyway'))
-            if 'rm_disk' not in settings['disabled_warnings']:
-                msg = _('Remove the selected file from this list?')
-                if guiutil.question(msg, btns, self, None, True,
-                                    ('rm_disk', 1)) != 1:
-                    return
-            self._fn_hist.remove(fn)
-            conf.write_lines('disk_history', self._fn_hist)
-            del m[i]
+def run (set_main_window):
+    fn_hist = conf.read_lines('disk_history')
+    ldr = LoadDisk(fn_hist)
+    ldr.show()
+    set_main_window(ldr)
 
-    def _rm_all (self, *args):
-        """Remove all disk images."""
-        if self._fn_hist:
-            btns = (gtk.STOCK_CANCEL, _('_Remove Anyway'))
-            if 'rm_all_disks' not in settings['disabled_warnings']:
-                msg = _('Remove all files from this list?')
-                if guiutil.question(msg, btns, self, None, True,
-                                    ('rm_all_disks', 1)) != 1:
-                    return
-            self._fn_hist = []
-            conf.write_lines('disk_history', [])
-            self._model.clear()
 
-    def _menu (self, btn = None, time = None, path = None):
-        """Show a context menu.
-
-_menu([btn][, time][, path])
-
-btn: event button, if any.
-time: event time, if any.
-path: Gtk.TreePath for the row to show a menu for, or False to show a menu for
-      no row; if not given, the current selection is used.
-
-"""
-        if path is None:
-            fn = self._get_selected()[2]
-        elif path is False:
-            fn = None
-        else:
-            fn = self._model[path][COL_PATH]
-        if fn is None:
-            items = []
-        else:
-            items = [(gtk.STOCK_OPEN, lambda *args: self._open(fn)),
-                     (gtk.STOCK_REMOVE, self._rm)]
-        items.append(((_('Remove _All'), gtk.STOCK_REMOVE), self._rm_all))
-        # create menu
-        # HACK: need to store the menu for some reason, else it doesn't show up
-        # - maybe GTK stores it in such a way that the garbage collector thinks
-        # it can get rid of it or something
-        menu = self._temp_menu = gtk.Menu()
-        for data, cb in items:
-            item = guiutil.MenuItem(data)
-            item.connect('activate', cb)
-            menu.append(item)
-        menu.show_all()
-        menu.popup(None, None, None, None, btn, time)
-
-    def _browse (self, b):
-        """Show a file chooser to find a disk image."""
-        old_fns = list(self._fn_hist)
-        fns = browse(self._fn_hist, self, True)
-        if fns not in (True, False):
-            self._add_fns(*(fn for fn in fns if fn not in old_fns))
-
-    def _sort_tree (self, model, iter1, iter2, data):
-        """Sort callback."""
-        path1 = model[iter1][COL_PATH]
-        path2 = model[iter2][COL_PATH]
-        if path1 == path2:
-            return 0
-        else:
-            h = self._fn_hist
-            return h.index(path1) - h.index(path2)
-
-    def quit (self, *args):
-        """Quit the application."""
-        if gtk.main_level():
-            gtk.main_quit()
-        else:
-            self.do_quit = True
-            return True
+def load (fn, set_main_window):
+    # try to load given file
+    if run_editor(fn):
+        fn_hist = conf.read_lines('disk_history')
+        add_to_hist(fn_hist, fn)
+    else:
+        # failed: fall back to loader
+        run(set_main_window)

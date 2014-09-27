@@ -16,6 +16,10 @@ settings: dict-like object to handle settings.
 
 """
 
+# TODO:
+# [ENH] use XDG_* for paths
+# [ENH] rate-limit saving settings
+
 from platform import system
 import os
 from os.path import join as join_path
@@ -44,7 +48,7 @@ for d in set((TRASH_DIR, CONF_DIR)):
         print('warning: can\'t create directory: \'{}\''.format(d))
 
 APPLICATION = _('GCEdit')
-VERSION = '0.4.0'
+VERSION = '0.4.2-next'
 UPDATE_ON_CHANGE = True
 SLEEP_INTERVAL = .02
 INVALID_FN_CHARS = ({b'/'}, {'/'})

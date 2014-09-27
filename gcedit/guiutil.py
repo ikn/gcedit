@@ -25,39 +25,16 @@ Progress
 
 """
 
+import operator
+from functools import reduce
 from html import escape
 from math import log10
 
 from gi.repository import Gtk as gtk, Pango as pango, Gdk as gdk
 from .ext.gcutil import valid_name
 
-from . import conf
+from . import conf, qt
 from .conf import settings
-
-def printable_path (path):
-    """Get a printable version of a list-style path."""
-    return '/' + '/'.join(path)
-
-def printable_filesize (size):
-    """Get a printable version of a filesize in bytes."""
-    for factor, suffix in (
-        # NOTE: unit for bytes
-        (0, _('B')),
-        (1, _('KiB')),
-        (2, _('MiB')),
-        (3, _('GiB')),
-        (4, _('TiB'))
-    ):
-        if size < 1024 ** (factor + 1):
-            break
-    if factor == 0:
-        # bytes
-        return '{} {}'.format(size, suffix)
-    else:
-        size /= (1024 ** factor)
-        # 3 significant figures but always show up to units
-        dp = max(2 - int(log10(max(size, 1))), 0)
-        return ('{:.' + str(dp) + 'f} {}').format(size, suffix)
 
 def text_viewer (text, wrap_mode = gtk.WrapMode.WORD):
     """Get a read-only Gtk.TextView widget in a Gtk.ScrolledWindow.
@@ -82,62 +59,6 @@ wrap_mode: GTK wrap mode to use.
     v.set_halign(gtk.Align.FILL)
     v.show()
     return w
-
-def question (msg, options, parent = None, default = None, warning = False,
-              ask_again = None, return_dialogue = False):
-    """Show a dialogue asking a question.
-
-question(title, msg, options[, parent][, default], warning = False[,
-         ask_again], return_dialogue = False) -> response
-
-title: dialogue title text.
-msg: text to display; just a string or (primary, secondary).
-options: a list of options to present as buttons, where each is the button text
-         or a stock ID.
-parent: dialogue parent.
-default: the index of the option in the list that should be selected by default
-         (pressing enter normally).  If None or not given, there is no default.
-warning: whether this is a warning dialogue (instead of just a question).
-ask_again: show a 'Don't ask again' checkbox.  This is
-           (setting_key, match_response), where, if the checkbox is ticked and
-           the response is match_response, setting_key is added to the
-           'disabled_warnings' setting set.  This argument is ignored if
-           return_dialogue is True.
-return_dialogue: whether to return the created dialogue instead of running it.
-
-response: The index of the clicked button in the list, or a number less than 0
-          if the dialogue was closed.
-
-"""
-    if isinstance(msg, str):
-        msg = (msg,)
-    mt = gtk.MessageType.WARNING if warning else gtk.MessageType.QUESTION
-    d = gtk.MessageDialog(parent, gtk.DialogFlags.DESTROY_WITH_PARENT,
-                          mt, gtk.ButtonsType.NONE, msg[0])
-    if len(msg) >= 2:
-        d.format_secondary_text(msg[1])
-    d.add_buttons(*(sum(((o, i) for i, o in enumerate(options)), ())))
-    # FIXME: sets default to 0 if we don't set it here
-    if default is not None:
-        d.set_default_response(default)
-    if return_dialogue:
-        return d
-    else:
-        if ask_again is not None:
-            # add checkbox
-            c = gtk.CheckButton.new_with_mnemonic(_('_Don\'t ask again'))
-            d.get_message_area().pack_start(c, False, False, 0)
-            c.show()
-        response = d.run()
-        if ask_again is not None:
-            # handle checkbox value
-            setting_key, match_response = ask_again
-            if c.get_active() and response == match_response:
-                warnings = settings['disabled_warnings']
-                warnings.add(setting_key)
-                settings['disabled_warnings'] = warnings
-        d.destroy()
-        return response
 
 def error (msg, parent = None, *widgets):
     """Show an error dialogue.
@@ -269,34 +190,6 @@ tooltip: a tooltip for the button (else don't have a tooltip).
             gtk.Button.__init__(self, data, use_underline=('_' in data))
         if tooltip is not None:
             self.set_tooltip_text(tooltip)
-
-
-class Window (gtk.Window):
-    """A Gtk.Window subclass that saves its size.
-
-Takes a string identifier used in the setting keys.
-
-"""
-    def __init__ (self, ident):
-        self.ident = ident
-        gtk.Window.__init__(self)
-        w, h = settings['win_size_{}'.format(ident)][:2]
-        self.set_default_size(w, h)
-        if settings['win_max_{}'.format(ident)]:
-            self.maximize()
-        self.connect('size-allocate', self._size_cb)
-        self.connect('window-state-event', self._state_cb)
-
-    def _size_cb (self, w, size):
-        """Save changes to window size."""
-        if not settings['win_max_{}'.format(self.ident)]:
-            settings['win_size_{}'.format(self.ident)] = (size.width,
-                                                          size.height)
-
-    def _state_cb (self, w, e):
-        """Save changes to maximised state."""
-        is_max = e.new_window_state & gdk.WindowState.MAXIMIZED
-        settings['win_max_{}'.format(self.ident)] = bool(is_max)
 
 
 def move_conflict (fn_from, f_to, parent = None, invalid = False):
@@ -560,3 +453,278 @@ then ticked, the response returned from this call will be 0.
             f = lambda *args: self.response(0)
             self.autoclose.connect('toggled', f)
         return autoclose
+
+
+
+
+
+
+def printable_path (path):
+    """Get a printable version of a list-style path."""
+    return '/' + '/'.join(path)
+
+def printable_filesize (size):
+    """Get a printable version of a filesize in bytes."""
+    for factor, suffix in (
+        # NOTE: unit for bytes
+        (0, _('B')),
+        (1, _('KiB')),
+        (2, _('MiB')),
+        (3, _('GiB')),
+        (4, _('TiB'))
+    ):
+        if size < 1024 ** (factor + 1):
+            break
+    if factor == 0:
+        # bytes
+        return '{} {}'.format(size, suffix)
+    else:
+        size /= (1024 ** factor)
+        # 3 significant figures but always show up to units
+        dp = max(2 - int(log10(max(size, 1))), 0)
+        return ('{:.' + str(dp) + 'f} {}').format(size, suffix)
+
+
+def mk_action (defn, parent):
+    action = qt.QAction(parent)
+    parent.addAction(action)
+
+    if 'text' in defn:
+        action.setText(defn['text'])
+    if 'icon' in defn:
+        action.setIcon(qt.QIcon.fromTheme(defn['icon']))
+    if 'tooltip' in defn:
+        action.setToolTip(defn['tooltip'])
+    if 'key' in defn:
+        key = defn['key']
+        if not isinstance(key, (tuple, list)):
+            key = (key,)
+        action.setShortcuts([qt.QKeySequence(k) for k in key])
+        action.setShortcutContext(qt.Qt.WidgetWithChildrenShortcut)
+    if 'clicked' in defn:
+        action.triggered.connect(defn['clicked'])
+
+    return action
+
+
+def mk_actions (definitions, default_parent=None):
+    actions = {}
+    for name, defn in definitions.items():
+        parent = defn.get('parent', default_parent)
+        if parent is None:
+            raise ValueError('no parent given for action: {}'.format(defn))
+        actions[name] = mk_action(defn, parent)
+    return actions
+
+
+def invalid_icon ():
+    return qt.QIcon.fromTheme('image-missing')
+
+
+def question (msg, btns, parent=None, default=None, warning=False,
+              ask_again=None):
+    """Show a dialogue asking a question.
+
+question(msg, btns[, parent][, default], warning=False[, ask_again])
+    -> response
+
+msg: text to display; just a string or (primary, secondary).
+btns: a list of actions to present as buttons, where each is a
+      QMessageBox.StandardButton, or (text[, icon], role) where:
+    text: button text
+    icon: freedesktop icon name
+    role: QMessageBox.ButtonRole
+parent: dialogue parent.
+default: the index of the button in btns that should be selected by default.
+         If None or not given, there is no default.
+warning: whether this is a warning dialogue (instead of just a question).
+ask_again: show a 'Don't ask again' checkbox.  This is
+           (setting_key, match_response), such that if the checkbox is ticked
+           and the response is match_response, setting_key is added to the
+           'disabled_warnings' setting set.
+
+response: The index of the selected button in btns.
+
+"""
+    if ask_again is not None and ask_again[0] in settings['disabled_warnings']:
+        return ask_again[1]
+
+    if isinstance(msg, str):
+        msg = (msg,)
+    d = qt.QMessageBox(parent)
+    d.setIcon(qt.QMessageBox.Warning if warning else qt.QMessageBox.Question)
+    d.setTextFormat(qt.Qt.PlainText)
+    d.setText(msg[0])
+    if len(msg) >= 2:
+        d.setInformativeText(msg[1])
+
+    def fail_ask_again ():
+        print('warning: hacky implementation of \'ask again\' found '
+                'unexpected dialogue layout; refusing to continue')
+        nonlocal ask_again
+        ask_again = None
+
+
+    # add checkbox (HACK)
+    grid = d.layout()
+    num_cols = 3
+    num_rows = 3
+    checkbox_col = 2
+    checkbox_row = (num_rows - 1) if len(msg) >= 2 else (num_rows - 2)
+
+    if ask_again is not None:
+        # check it'll still work in this version of qt
+        if (not isinstance(grid, qt.QGridLayout) or
+            grid.columnCount() != num_cols or grid.rowCount() != num_rows):
+            fail_ask_again()
+
+
+    if ask_again is not None and checkbox_row == num_rows - 1:
+        # move buttons down to make a row for the checkbox
+        to_add = []
+        from_row = checkbox_row
+        to_row = from_row + 1
+
+        for col in range(3):
+            w = grid.itemAtPosition(from_row, col)
+            if isinstance(w, qt.QWidgetItem):
+                to_add.append((col, w))
+            elif w is not None:
+                # don't know what to do with this
+                fail_ask_again()
+                break
+
+        if ask_again is not None:
+            for col, w in to_add:
+                grid.addWidget(w.widget(), to_row, col)
+
+    if ask_again is not None:
+        c = qt.QCheckBox(_('&Don\'t ask again'))
+        grid.addWidget(c, checkbox_row, checkbox_col)
+
+
+    response_map = {}
+    for i, data in enumerate(btns):
+        if isinstance(data, (tuple, list)):
+            # (text[, icon], role)
+            btn = qt.QPushButton(data[0])
+            if len(data) == 3:
+                btn.setIcon(qt.QIcon.fromTheme(data[1]))
+            add_args = (btn, data[-1])
+        else:
+            # standard button
+            add_args = (data,)
+
+        btn = d.addButton(*add_args) or btn
+        response_map[btn] = i
+        if i == default:
+            d.setDefaultButton(btn)
+        # disable auto-default for every button, so that default=None works
+        btn.setAutoDefault(False)
+
+    d.exec()
+    response = response_map[d.clickedButton()]
+
+    if ask_again is not None:
+        # handle checkbox value
+        setting_key, match_response = ask_again
+        if c.isChecked() and response == match_response:
+            warnings = settings['disabled_warnings']
+            warnings.add(setting_key)
+            settings['disabled_warnings'] = warnings
+
+    return response
+
+
+class Window (qt.QMainWindow):
+    """A QMainWindow subclass that saves its size.
+
+Takes a string identifier used in the setting keys, followed by any arguments
+for QMainWindow.
+
+"""
+    def __init__ (self, ident, *args, **kwargs):
+        self.ident = ident
+        qt.QMainWindow.__init__(self, *args, **kwargs)
+        w, h = settings['win_size_{}'.format(ident)][:2]
+        self.resize(w, h)
+        if settings['win_max_{}'.format(ident)]:
+            self.setWindowState(self.windowState() | qt.Qt.WindowMaximized)
+
+    def resizeEvent (self, evt):
+        """Save changes to window size."""
+        #print('resize (SHOULD COME AFTER MAXIMISE)')
+        qt.QMainWindow.resizeEvent(self, evt)
+        size = evt.size()
+        if not settings['win_max_{}'.format(self.ident)]:
+            settings['win_size_{}'.format(self.ident)] = (size.width(),
+                                                          size.height())
+
+    def changeEvent (self, evt):
+        """Save changes to maximised state."""
+        qt.QMainWindow.changeEvent(self, evt)
+        if evt.type() == qt.QEvent.WindowStateChange:
+            old = evt.oldState()
+            new = self.windowState()
+            is_max = new & qt.Qt.WindowMaximized
+
+            if (old & qt.Qt.WindowMaximized) != is_maximised:
+                #print('maximised', is_max)
+                settings['win_max_{}'.format(self.ident)] = bool(is_max)
+
+
+class ActionButton (qt.QPushButton):
+    # https://qt-project.org/wiki/PushButton_Based_On_Action
+
+    def __init__ (self, action):
+        self._action = action
+        qt.QPushButton.__init__(self)
+        action.changed.connect(self._update_from_action)
+        self.clicked.connect(action.trigger)
+        self._update_from_action()
+
+    def _update_from_action (self):
+        self.setText(self._action.text())
+        self.setStatusTip(self._action.statusTip())
+        self.setToolTip(self._action.toolTip())
+        self.setIcon(self._action.icon())
+        self.setEnabled(self._action.isEnabled())
+        self.setCheckable(self._action.isCheckable())
+        self.setChecked(self._action.isChecked())
+
+
+# removes selection when clicking empty space
+class DeselectableTableView (qt.QTableView):
+    left_click = qt.pyqtSignal(qt.QPoint)
+    right_click = qt.pyqtSignal(qt.QPoint)
+
+    def __init__ (self, focus_column, *args, **kwargs):
+        self.focus_column = focus_column
+        qt.QTableView.__init__(self, *args, **kwargs)
+        mk_action({
+            'key': 'menu',
+            'clicked': lambda: self.right_click.emit(qt.QCursor.pos())
+        }, self)
+
+    def mousePressEvent (self, evt):
+        self.clearSelection()
+        qt.QTableView.mousePressEvent(self, evt)
+
+        btn = evt.button()
+        if btn & qt.Qt.LeftButton:
+            self.left_click.emit(evt.globalPos())
+        elif btn & qt.Qt.RightButton:
+            self.right_click.emit(evt.globalPos())
+
+    def currentChanged (self, current, previous):
+        qt.QTableView.currentChanged(self, current, previous)
+        mode = qt.QItemSelectionModel.Select | qt.QItemSelectionModel.Rows
+        # doesn't trigger a call if it doesn't change
+        self.setCurrentIndex(
+            self.model().index(current.row(), self.focus_column))
+
+
+# doesn't draw focus rectangle around cell
+class NoFocusItemDelegate (qt.QItemDelegate):
+    def drawFocus (self, painter, option, rect):
+        pass

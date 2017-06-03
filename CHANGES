@@ -1,4 +1,5 @@
 0.4.2-next:
+ * Russian translation
  * bug: may write invalid disks when increasing the size
 
 0.4.2:

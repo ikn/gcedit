@@ -1,85 +1,90 @@
-# Template for GCEdit translations.
-# This file is distributed under the new BSD license.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Russian translation for gcedit
+# Copyright (c) 2012 Rosetta Contributors and Canonical Ltd 2012
+# This file is distributed under the same license as the gcedit package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2012.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: 0.4.2-next\n"
+"Project-Id-Version: gcedit\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2017-06-03 18:52+0100\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"PO-Revision-Date: 2017-01-12 08:35+0000\n"
+"Last-Translator: Aleksey Kabanov <Unknown>\n"
+"Language-Team: Russian <ru@li.org>\n"
+"Language: ru\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2017-01-13 06:16+0000\n"
+"X-Generator: Launchpad (build 18302)\n"
 
 #. NOTE: unit for bytes
 #: ../gcedit/guiutil.py:45
 msgid "B"
-msgstr ""
+msgstr "Б"
 
 #: ../gcedit/guiutil.py:46
 msgid "KiB"
-msgstr ""
+msgstr "КиБ"
 
 #: ../gcedit/guiutil.py:47
 msgid "MiB"
-msgstr ""
+msgstr "МиБ"
 
 #: ../gcedit/guiutil.py:48
 msgid "GiB"
-msgstr ""
+msgstr "ГиБ"
 
 #: ../gcedit/guiutil.py:49
 msgid "TiB"
-msgstr ""
+msgstr "ТиБ"
 
 #: ../gcedit/guiutil.py:128
 msgid "_Don't ask again"
-msgstr ""
+msgstr "_Больше не спрашивать"
 
 #: ../gcedit/guiutil.py:319
 msgid "Invalid filename"
-msgstr ""
+msgstr "Недопустимое имя файла"
 
 #: ../gcedit/guiutil.py:320
 msgid ""
 "The file '{}' cannot be moved to '{}' because the destination name is "
 "invalid."
 msgstr ""
+"Файл '{}' невозможно переместить в '{}': недопустимое имя места назначения."
 
 #: ../gcedit/guiutil.py:323
 msgid "File exists at destination"
-msgstr ""
+msgstr "Файл уже существует в месте назначения"
 
 #: ../gcedit/guiutil.py:324
 msgid ""
 "The file '{}' cannot be moved to '{}' because the destination file exists."
 msgstr ""
+"Невозможно переместить файл '{}' в '{}', поскольку такой файл там уже "
+"существует."
 
 #: ../gcedit/guiutil.py:327
 msgid "_Rename"
-msgstr ""
+msgstr "_Переименовать"
 
 #: ../gcedit/guiutil.py:329
 msgid "_Overwrite"
-msgstr ""
+msgstr "_Заменить"
 
 #: ../gcedit/guiutil.py:342
 msgid "Error: invalid filename."
-msgstr ""
+msgstr "Ошибка: недопустимое имя файла."
 
 #. NOTE: name as in filename
 #: ../gcedit/guiutil.py:350
 msgid "New name:"
-msgstr ""
+msgstr "Новое имя:"
 
 #: ../gcedit/guiutil.py:380
 msgid "_Details"
-msgstr ""
+msgstr "_Подробности"
 
 #: ../gcedit/guiutil.py:382
 msgid ""
@@ -90,69 +95,69 @@ msgstr ""
 #. NOTE: name as in file/directory name
 #: ../gcedit/guiutil.py:402
 msgid "Couldn't create '{}' because its name is invalid."
-msgstr ""
+msgstr "Не удалось создать '{}': недопустимое имя."
 
 #. NOTE: name as in file/directory name
 #: ../gcedit/guiutil.py:406
 msgid ""
 "The following items couldn't be created because their names are invalid:"
-msgstr ""
+msgstr "Невозможно создать следующие объекты, так как их имена недопустимы:"
 
 #: ../gcedit/guiutil.py:461 ../gcedit/guiutil.py:511 ../gcedit/guiutil.py:518
 msgid "_Pause"
-msgstr ""
+msgstr "_Пауза"
 
 #: ../gcedit/guiutil.py:504
 msgid "_Automatically close when finished"
-msgstr ""
+msgstr "_Автоматически закрыть при завершении"
 
 #: ../gcedit/guiutil.py:513
 msgid "_Continue"
-msgstr ""
+msgstr "Про_должить"
 
 #: ../gcedit/search.py:62
 msgid "The selected file no longer exists."
-msgstr ""
+msgstr "Выбранный файл более не существует"
 
 #: ../gcedit/search.py:96
 msgid "Parent Directory"
-msgstr ""
+msgstr "Родительский каталог"
 
 #: ../gcedit/search.py:162
 msgid "_Match case"
-msgstr ""
+msgstr "_Учитывать регистр"
 
 #: ../gcedit/search.py:163
 msgid "Perform a case-insensitive search"
-msgstr ""
+msgstr "Осуществлять поиск с учётом регистра символов"
 
 #: ../gcedit/search.py:164
 msgid "Match _whole name only"
-msgstr ""
+msgstr "_Только имя целиком"
 
 #: ../gcedit/search.py:166
 msgid "Include _Directories"
-msgstr ""
+msgstr "В_ключая каталоги"
 
 #: ../gcedit/search.py:167
 msgid "Include _files"
-msgstr ""
+msgstr "Включая _файлы"
 
 #: ../gcedit/search.py:168
 msgid "_Regular expression"
-msgstr ""
+msgstr "_Регулярное выражение"
 
 #: ../gcedit/search.py:169
 msgid "Python regular expressions (like Perl's)"
-msgstr ""
+msgstr "Регулярное выражение Python (подобно Perl)"
 
 #: ../gcedit/search.py:223
 msgid "More options"
-msgstr ""
+msgstr "Дополнительные настройки"
 
 #: ../gcedit/search.py:223
 msgid "Hide extra options"
-msgstr ""
+msgstr "Скрыть дополнительные настройки"
 
 #: ../gcedit/ext/gcutil.py:638
 msgid "DVD magic word missing"
@@ -180,7 +185,7 @@ msgstr ""
 
 #: ../gcedit/ext/gcutil.py:658
 msgid "too many files in the filesystem"
-msgstr ""
+msgstr "слишком много файлов в файловой системе"
 
 #: ../gcedit/ext/gcutil.py:660
 msgid "filesystem table too small"
@@ -204,7 +209,7 @@ msgstr ""
 
 #: ../gcedit/ext/gcutil.py:694
 msgid "too long a filename"
-msgstr ""
+msgstr "слишком длинное имя файла"
 
 #: ../gcedit/ext/gcutil.py:1220
 msgid "'{}' is not a valid file"
@@ -212,73 +217,73 @@ msgstr ""
 
 #: ../gcedit/ext/gcutil.py:1310
 msgid "couldn't read from and write to the disk image"
-msgstr ""
+msgstr "не удаётся выполнить чтение и запись образа диска"
 
 #: ../gcedit/ext/gcutil.py:1354
 msgid "couldn't extract to a temporary file ({})"
-msgstr ""
+msgstr "не удалось извлечь во временный файл ({})"
 
 #: ../gcedit/ext/gcutil.py:1481
 msgid "either couldn't read from '{}' or couldn't write to the disk image"
-msgstr ""
+msgstr "ошибка или чтения из '{}', или записи в образ диска"
 
 #: ../gcedit/ext/gcutil.py:1741
 msgid "the disk is too large to fit in 1459978240 bytes"
-msgstr ""
+msgstr "диск слишком большой, чтобы уместиться в 1459978240 байт"
 
 #: ../gcedit/ext/fsmanage.py:261 ../gcedit/loader.py:179
 msgid "Name"
-msgstr ""
+msgstr "Имя"
 
 #: ../gcedit/ext/fsmanage.py:367 ../gcedit/ext/fsmanage.py:437
 #: ../gcedit/ext/fsmanage.py:1286 ../gcedit/editor.py:117
 msgid "Create directory"
-msgstr ""
+msgstr "Создать каталог"
 
 #: ../gcedit/ext/fsmanage.py:372 ../gcedit/ext/fsmanage.py:432
 #: ../gcedit/editor.py:102
 msgid "Paste cut or copied files"
-msgstr ""
+msgstr "Вставить вырезанные или скопированные файлы"
 
 #: ../gcedit/ext/fsmanage.py:375 ../gcedit/ext/fsmanage.py:441
 #: ../gcedit/editor.py:139
 msgid "Select all files"
-msgstr ""
+msgstr "Выделить все файлы"
 
 #: ../gcedit/ext/fsmanage.py:379 ../gcedit/ext/fsmanage.py:445
 #: ../gcedit/ext/fsmanage.py:1282 ../gcedit/editor.py:184
 msgid "Go to parent directory"
-msgstr ""
+msgstr "Перейти в родительский каталог"
 
 #: ../gcedit/ext/fsmanage.py:384 ../gcedit/ext/fsmanage.py:450
 #: ../gcedit/ext/fsmanage.py:1279 ../gcedit/editor.py:174
 msgid "Go to the previous directory"
-msgstr ""
+msgstr "Перейти в предыдущий каталог"
 
 #: ../gcedit/ext/fsmanage.py:388 ../gcedit/ext/fsmanage.py:454
 #: ../gcedit/ext/fsmanage.py:1280 ../gcedit/editor.py:179
 msgid "Go to the next directory in history"
-msgstr ""
+msgstr "Перейти в следующий каталог в истории"
 
 #: ../gcedit/ext/fsmanage.py:418
 msgid "Open all selected files"
-msgstr ""
+msgstr "Открыть все выделенные файлы"
 
 #: ../gcedit/ext/fsmanage.py:424 ../gcedit/editor.py:92
 msgid "Prepare to move selected files"
-msgstr ""
+msgstr "Подготовить к перемещению выделенные файлы"
 
 #: ../gcedit/ext/fsmanage.py:426 ../gcedit/editor.py:97
 msgid "Prepare to copy selected files"
-msgstr ""
+msgstr "Подготовить к копированию выделенные файлы"
 
 #: ../gcedit/ext/fsmanage.py:434 ../gcedit/editor.py:107
 msgid "Delete selected files"
-msgstr ""
+msgstr "Удалить выделенные файлы"
 
 #: ../gcedit/ext/fsmanage.py:436 ../gcedit/editor.py:112
 msgid "Rename selected files"
-msgstr ""
+msgstr "Переименовать выделенные файлы"
 
 #. NOTE: as in root directory of the filesystem
 #: ../gcedit/ext/fsmanage.py:1075
@@ -287,7 +292,7 @@ msgstr ""
 
 #: ../gcedit/editor.py:68
 msgid "Close this file and load a different one"
-msgstr ""
+msgstr "Закрыть этот файл и загрузить другой"
 
 #: ../gcedit/editor.py:72
 msgid "Back to _Loader"
@@ -295,15 +300,15 @@ msgstr ""
 
 #: ../gcedit/editor.py:73
 msgid "Go back to the list of recently opened files"
-msgstr ""
+msgstr "Вернуться к списку недавно открытых файлов"
 
 #: ../gcedit/editor.py:77
 msgid "Quit the application"
-msgstr ""
+msgstr "Выйти из приложения"
 
 #: ../gcedit/editor.py:82 ../gcedit/editor.py:322
 msgid "Undo the last change"
-msgstr ""
+msgstr "Отменить последнее изменение"
 
 #: ../gcedit/editor.py:87 ../gcedit/editor.py:323
 msgid "Redo the next change"
@@ -311,61 +316,61 @@ msgstr ""
 
 #: ../gcedit/editor.py:121 ../gcedit/editor.py:325
 msgid "_Import Files"
-msgstr ""
+msgstr "_Импортировать файлы"
 
 #. NOTE: tooltip on the 'Import Files' button
 #: ../gcedit/editor.py:123 ../gcedit/editor.py:327
 msgid "Import files from outside"
-msgstr ""
+msgstr "Импортировать внешние файлы"
 
 #: ../gcedit/editor.py:127 ../gcedit/editor.py:328
 msgid "I_mport Directories"
-msgstr ""
+msgstr "И_мпортировать каталоги"
 
 #. NOTE: tooltip on the 'Import Directories' button
 #: ../gcedit/editor.py:129 ../gcedit/editor.py:330
 msgid "Import directories from outside"
-msgstr ""
+msgstr "Импортировать внешние каталоги"
 
 #: ../gcedit/editor.py:133 ../gcedit/editor.py:332
 msgid "_Extract"
-msgstr ""
+msgstr "И_звлечь"
 
 #: ../gcedit/editor.py:134 ../gcedit/editor.py:333
 msgid "Extract the selected files"
-msgstr ""
+msgstr "Извлечь выделенные файлы"
 
 #: ../gcedit/editor.py:145
 msgid "Search for files in the disk"
-msgstr ""
+msgstr "Поиск файлов на диске"
 
 #: ../gcedit/editor.py:150
 msgid "Open the preferences window"
-msgstr ""
+msgstr "Открыть окно настроек"
 
 #: ../gcedit/editor.py:153
 msgid "_Disk"
-msgstr ""
+msgstr "_Диск"
 
 #: ../gcedit/editor.py:154
 msgid "_Discard Changes"
-msgstr ""
+msgstr "_Отменить изменения"
 
 #: ../gcedit/editor.py:155
 msgid "Undo all changes that have been made since the last write"
-msgstr ""
+msgstr "Отменить все изменения, сделанные с момента последней записи"
 
 #: ../gcedit/editor.py:159
 msgid "_Compress Disk"
-msgstr ""
+msgstr "С_жать диск"
 
 #: ../gcedit/editor.py:160
 msgid "Reorganise files in the disk to reduce free space"
-msgstr ""
+msgstr "Реорганизовать файлы на диске для уменьшения занятого пространства"
 
 #: ../gcedit/editor.py:164
 msgid "Decom_press Disk"
-msgstr ""
+msgstr "_Разжать диск"
 
 #: ../gcedit/editor.py:165
 msgid "Expand or compress the disk to a standard size"
@@ -373,63 +378,63 @@ msgstr ""
 
 #: ../gcedit/editor.py:168 ../gcedit/editor.py:334
 msgid "_Write"
-msgstr ""
+msgstr "_Записать"
 
 #: ../gcedit/editor.py:169 ../gcedit/editor.py:335
 msgid "Write changes to the disk image"
-msgstr ""
+msgstr "Записать изменения в образ диска"
 
 #: ../gcedit/editor.py:172
 msgid "_View"
-msgstr ""
+msgstr "_Вид"
 
 #. NOTE: filesize
 #: ../gcedit/editor.py:294 ../gcedit/loader.py:180
 msgid "Size"
-msgstr ""
+msgstr "Размер"
 
 #: ../gcedit/editor.py:385
 msgid "Close this file and open another?"
-msgstr ""
+msgstr "Закрыть этот файл и открыть другой?"
 
 #: ../gcedit/editor.py:386
 msgid "The changes you've made will be lost if you open a different file."
-msgstr ""
+msgstr "Сделанные изменения будут потеряны при открытии другого файла."
 
 #: ../gcedit/editor.py:389
 msgid "_Open Anyway"
-msgstr ""
+msgstr "Всё равно _открыть"
 
 #: ../gcedit/editor.py:492
 msgid "Cancelling..."
-msgstr ""
+msgstr "Отмена…"
 
 #: ../gcedit/editor.py:497
 msgid "Preparing..."
-msgstr ""
+msgstr "Подготовка…"
 
 #. NOTE: eg. 'Completed 5MiB of 34MiB at 4MiB/s; 7s
 #. remaining'
 #: ../gcedit/editor.py:539
 msgid "Completed {} of {} at {}/s; {}s remaining"
-msgstr ""
+msgstr "Завершено {} из {} при {}/с; {}с осталось"
 
 #. NOTE: eg. 'Completed 5MiB of 34MiB'
 #: ../gcedit/editor.py:544
 msgid "Completed {} of {}"
-msgstr ""
+msgstr "Завершено {} из {}"
 
 #: ../gcedit/editor.py:554
 msgid "Force _Cancel"
-msgstr ""
+msgstr "_Отменить принудительно"
 
 #: ../gcedit/editor.py:559
 msgid "Cannot cancel: files have been overwritten."
-msgstr ""
+msgstr "Невозможно отменить: файлы были перезаписаны."
 
 #: ../gcedit/editor.py:572
 msgid "Force this operation to cancel?"
-msgstr ""
+msgstr "Принудительно отменить это действие?"
 
 #: ../gcedit/editor.py:573
 msgid "Doing this may corrupt the disk image or the files on it."
@@ -437,11 +442,11 @@ msgstr ""
 
 #: ../gcedit/editor.py:575
 msgid "Continue _Working"
-msgstr ""
+msgstr "П_родолжить работу"
 
 #: ../gcedit/editor.py:575
 msgid "_Cancel Anyway"
-msgstr ""
+msgstr "_Отменить"
 
 #: ../gcedit/editor.py:607
 msgid ""
@@ -451,220 +456,224 @@ msgstr ""
 
 #: ../gcedit/editor.py:619
 msgid "Cancelled."
-msgstr ""
+msgstr "Отменено."
 
 #: ../gcedit/editor.py:623
 msgid "Completed"
-msgstr ""
+msgstr "Завершено"
 
 #: ../gcedit/editor.py:624
 msgid "All items complete."
-msgstr ""
+msgstr "Все объекты завершены."
 
 #: ../gcedit/editor.py:651
 msgid "No files selected: to extract, select some files first."
-msgstr ""
+msgstr "Файлы не выбраны: выберите файлы для извлечения."
 
 #. NOTE: title for a file chooser dialogue
 #: ../gcedit/editor.py:662
 msgid "Choose Where to Extract to"
-msgstr ""
+msgstr "Выберите, куда извлекать"
 
 #. NOTE: title for a file chooser dialogue
 #: ../gcedit/editor.py:667
 msgid "Choose a Directory to Extract All Items to"
-msgstr ""
+msgstr "Выберите каталог для извлечения всех объектов"
 
 #. NOTE: {} is an error message
 #: ../gcedit/editor.py:698
 msgid "Couldn't extract: {}."
-msgstr ""
+msgstr "Не удалось извлечь: {}."
 
 #: ../gcedit/editor.py:699
 msgid "reading or writing failed"
-msgstr ""
+msgstr "ошибка чтения или записи"
 
 #: ../gcedit/editor.py:700
 msgid "Extracting Files"
-msgstr ""
+msgstr "Извлечение файлов"
 
 #: ../gcedit/editor.py:701
 msgid "Extracting file: {}"
-msgstr ""
+msgstr "Извлечение файла: {}"
 
 #: ../gcedit/editor.py:707
 msgid ""
 "Couldn't extract to the following locations.  Maybe the files already exist, "
 "or you don't have permission to write here."
 msgstr ""
+"Не удалось извлечь в следующие места. Возможно, файлы уже существуют или у "
+"вас нет права на запись туда."
 
 #: ../gcedit/editor.py:742
 msgid "This will discard all changes that haven't been written to the disk."
-msgstr ""
+msgstr "Это отменит ещё не записанные на диск изменения."
 
 #: ../gcedit/editor.py:751
 msgid "Moving file: {}"
-msgstr ""
+msgstr "Перемещение файла: {}"
 
 #: ../gcedit/editor.py:760
 msgid "_Compress Anyway"
-msgstr ""
+msgstr "Всё равно _сжать"
 
 #: ../gcedit/editor.py:760
 msgid "Compress this disk?"
-msgstr ""
+msgstr "Сжать этот диск?"
 
 #: ../gcedit/editor.py:761
 msgid "Compressing Disk"
-msgstr ""
+msgstr "Сжатие диска"
 
 #: ../gcedit/editor.py:761
 msgid "Couldn't compress: {}."
-msgstr ""
+msgstr "Не удалось сжать: {}."
 
 #: ../gcedit/editor.py:767
 msgid "_Decompress Anyway"
-msgstr ""
+msgstr "Всё равно _разжать"
 
 #: ../gcedit/editor.py:767
 msgid "Decompress this disk?"
-msgstr ""
+msgstr "Разжать этот диск?"
 
 #: ../gcedit/editor.py:768
 msgid "Decompressing Disk"
-msgstr ""
+msgstr "Разжатие диска"
 
 #: ../gcedit/editor.py:769
 msgid "Couldn't decompress: {}."
-msgstr ""
+msgstr "Не удалось разжать: {}."
 
 #: ../gcedit/editor.py:777
 msgid "_Write Anyway"
-msgstr ""
+msgstr "Всё равно _записать"
 
 #: ../gcedit/editor.py:780
 msgid "The disk has been changed by another program; write anyway?"
-msgstr ""
+msgstr "Диск был изменён другой программой. Всё равно записать?"
 
 #: ../gcedit/editor.py:782
 msgid "Writing your changes now may corrupt some files in the disk."
-msgstr ""
+msgstr "Запись изменений может повредить некоторые файлы на диске."
 
 #: ../gcedit/editor.py:797
 msgid "Write changes to the disk?"
-msgstr ""
+msgstr "Записать изменения  на диск?"
 
 #: ../gcedit/editor.py:798
 msgid "Once your changes have been written to the disk, they cannot be undone."
-msgstr ""
+msgstr "После записи изменений на диск их будет уже невозможно отменить."
 
 #. NOTE: {} is an error message
 #: ../gcedit/editor.py:805
 msgid "Couldn't write: {}."
-msgstr ""
+msgstr "Не удалось записать: {}."
 
 #: ../gcedit/editor.py:807
 msgid "Writing to Disk"
-msgstr ""
+msgstr "Запись на диск"
 
 #: ../gcedit/editor.py:808
 msgid "Copying file: {}"
-msgstr ""
+msgstr "Копирование файла: {}"
 
 #. NOTE: About dialogue title; {} becomes the program name
 #: ../gcedit/editor.py:822
 msgid "About {}"
-msgstr ""
+msgstr "О {}"
 
 #: ../gcedit/editor.py:823
 msgid "Copyright 2012 Joseph Lansdowne"
-msgstr ""
+msgstr "Авторские права: Joseph Lansdowne, 2012"
 
 #: ../gcedit/editor.py:824
 msgid "A GameCube disk editor"
-msgstr ""
+msgstr "Редактор дисков GameCube"
 
 #. NOTE: replace this with your name as you wish to be credited
 #: ../gcedit/editor.py:829
 msgid "translator-credits"
 msgstr ""
+"Launchpad Contributions:\n"
+"  Aleksey Kabanov https://launchpad.net/~ak099"
 
 #: ../gcedit/editor.py:871
 msgid "Are you sure you want to quit?"
-msgstr ""
+msgstr "Вы действительно хотите выйти?"
 
 #: ../gcedit/editor.py:872
 msgid ""
 "If you don't write the changes you've made to the disk first, they will be "
 "lost."
-msgstr ""
+msgstr "Если не записать сделанные изменения на диск, они будут потеряны."
 
 #: ../gcedit/editor.py:875
 msgid "_Quit Anyway"
-msgstr ""
+msgstr "Всё равно _выйти"
 
 #. NOTE: the title for a file open dialogue
 #: ../gcedit/fsbackend.py:342
 msgid "Choose Directories"
-msgstr ""
+msgstr "Выберите каталоги"
 
 #. NOTE: the title for a file open dialogue
 #: ../gcedit/fsbackend.py:345
 msgid "Choose Files"
-msgstr ""
+msgstr "Выберите файлы"
 
 #: ../gcedit/fsbackend.py:362
 msgid "Can't import to a non-existent directory."
-msgstr ""
+msgstr "Невозможно импортировать в несуществующий каталог."
 
 #: ../gcedit/fsbackend.py:412
 msgid "Directory doesn't exist."
-msgstr ""
+msgstr "Каталог не существует."
 
 #: ../gcedit/fsbackend.py:451
 msgid "Drag-and-drop between instances is not supported yet."
-msgstr ""
+msgstr "Перетаскивание между экземплярами ещё не поддерживается."
 
 #: ../gcedit/fsbackend.py:461
 msgid "Can't copy to a non-existent directory."
-msgstr ""
+msgstr "Невозможно копировать в несуществующий каталог."
 
 #: ../gcedit/fsbackend.py:520
 msgid "Couldn't copy some items:"
-msgstr ""
+msgstr "Не удалось скопировать некоторые элементы:"
 
 #: ../gcedit/fsbackend.py:577
 msgid "Can't create a directory in a non-existent directory."
-msgstr ""
+msgstr "Нельзя создать каталог в несуществующем каталоге."
 
 #: ../gcedit/fsbackend.py:585
 msgid "Directory '{}' already exists."
-msgstr ""
+msgstr "Каталог '{}' уже существует."
 
 #: ../gcedit/conf.py:46
 msgid "GCEdit"
-msgstr ""
+msgstr "GCEdit"
 
 #: ../gcedit/loader.py:60
 msgid "Invalid file: {}"
-msgstr ""
+msgstr "Неверный файл: {}"
 
 #: ../gcedit/loader.py:64
 msgid "Couldn't read the file: {}"
-msgstr ""
+msgstr "Не удалось выполнить чтение файла: {}"
 
 #. NOTE: the title for a file open dialogue
 #: ../gcedit/loader.py:104
 msgid "Open Disk Image"
-msgstr ""
+msgstr "Открыть образ диска"
 
 #: ../gcedit/loader.py:160
 msgid "Recent files:"
-msgstr ""
+msgstr "Недавние файлы:"
 
 #: ../gcedit/loader.py:181
 msgid "Path"
-msgstr ""
+msgstr "Путь"
 
 #: ../gcedit/loader.py:188
 msgid "Banner"
@@ -672,23 +681,23 @@ msgstr ""
 
 #: ../gcedit/loader.py:217 ../gcedit/loader.py:403
 msgid "Remove _All"
-msgstr ""
+msgstr "Удалить _все"
 
 #: ../gcedit/loader.py:222
 msgid "_Browse..."
-msgstr ""
+msgstr "О_бзор…"
 
 #: ../gcedit/loader.py:358 ../gcedit/loader.py:371
 msgid "_Remove Anyway"
-msgstr ""
+msgstr "Всё равно _удалить"
 
 #: ../gcedit/loader.py:360
 msgid "Remove the selected file from this list?"
-msgstr ""
+msgstr "Удалить выбранный файл из списка?"
 
 #: ../gcedit/loader.py:373
 msgid "Remove all files from this list?"
-msgstr ""
+msgstr "Удалить все файлы из списка?"
 
 #: ../gcedit/prefs.py:83
 msgid "_Drag to select files"
@@ -702,7 +711,7 @@ msgstr ""
 
 #: ../gcedit/prefs.py:90
 msgid "Automatically close _progress dialogues when finished"
-msgstr ""
+msgstr "_Автоматически закрывать диалог прогресса при завершении"
 
 #: ../gcedit/prefs.py:94
 msgid "Close the _Find window when a result is selected"
@@ -714,58 +723,66 @@ msgstr ""
 
 #: ../gcedit/prefs.py:104
 msgid "_Enable trash"
-msgstr ""
+msgstr "_Использовать корзину"
 
 #: ../gcedit/prefs.py:110
 msgid "Trash _location:"
-msgstr ""
+msgstr "_Расположение корзины:"
 
 #: ../gcedit/prefs.py:117
 msgid "Maximum _size:"
-msgstr ""
+msgstr "_Максимальный размер:"
 
 #: ../gcedit/prefs.py:126
 msgid "Set a specific directory to use for _temporary files"
-msgstr ""
+msgstr "Ука_зать каталог для временных файлов"
 
 #: ../gcedit/prefs.py:127
 msgid "Otherwise the location is decided automatically"
-msgstr ""
+msgstr "Иначе местоположение будет выбрано автоматически"
 
 #: ../gcedit/prefs.py:131
 msgid "_Directory to use:"
-msgstr ""
+msgstr "_Каталог:"
 
 #: ../gcedit/prefs.py:136
 msgid "Read and write in _blocks of:"
-msgstr ""
+msgstr "Чтение и запись _блоками по:"
 
 #: ../gcedit/prefs.py:142
 msgid "Limit search history"
-msgstr ""
+msgstr "Лимит истории поиска"
 
 #: ../gcedit/prefs.py:143
 msgid ""
 "Note that this only limits the number of searches saved to disk: the number "
 "of searches remembered for current session is always unlimited"
 msgstr ""
+"Ограничивает лишь количество поисков, сохранённых на диск: количество "
+"поисков, запомненных для текущего сеанса всегда неограниченно"
 
 #: ../gcedit/prefs.py:149
 msgid "Maximum number of saved searches:"
-msgstr ""
+msgstr "Максимальное число сохранённых поисков:"
 
 #: ../gcedit/prefs.py:282
 msgid "Choose a directory"
-msgstr ""
+msgstr "Выберите каталог"
 
 #: ../gcedit/prefs.py:368
 msgid "_Interface"
-msgstr ""
+msgstr "_Интерфейс"
 
 #: ../gcedit/prefs.py:375
 msgid "_Advanced"
-msgstr ""
+msgstr "_Дополнительно"
 
 #: ../gcedit/prefs.py:466
 msgid "Preferences"
-msgstr ""
+msgstr "Настройки"
+
+#~ msgid "Doing this may corrupt the  disk image or the files on it."
+#~ msgstr "Это может повредить образ диска или файлы в нём."
+
+#~ msgid "Filename"
+#~ msgstr "Имя файла"

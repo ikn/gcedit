@@ -15,5 +15,5 @@ for po_file in "$po_dir"/*.po; do
     lang="${lang/\.po/}"
     locale_dir="$src_dir/gcedit/locale/$lang/LC_MESSAGES"
     mkdir -p "$locale_dir"
-    msgfmt -o "$locale_dir/gcedit.mo" "$po_file"
+    msgfmt --statistics -v -o "$locale_dir/gcedit.mo" "$po_file"
 done

@@ -1,20 +1,22 @@
-# Template for GCEdit translations.
-# This file is distributed under the new BSD license.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+# Kabyle translation for gcedit
+# Copyright (c) 2017 Rosetta Contributors and Canonical Ltd 2017
+# This file is distributed under the same license as the gcedit package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2017.
 #
-#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: 0.4.2-next\n"
+"Project-Id-Version: gcedit\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2017-06-03 18:52+0100\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
+"PO-Revision-Date: 2017-05-01 14:09+0000\n"
+"Last-Translator: Belkacem Mohammed <belkacem77@gmail.com>\n"
+"Language-Team: Kabyle <kab@li.org>\n"
+"Language: kab\n"
 "MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
+"X-Launchpad-Export-Date: 2017-05-03 06:09+0000\n"
+"X-Generator: Launchpad (build 18366)\n"
 
 #. NOTE: unit for bytes
 #: ../gcedit/guiutil.py:45
@@ -233,7 +235,7 @@ msgstr ""
 #: ../gcedit/ext/fsmanage.py:367 ../gcedit/ext/fsmanage.py:437
 #: ../gcedit/ext/fsmanage.py:1286 ../gcedit/editor.py:117
 msgid "Create directory"
-msgstr ""
+msgstr "Rnu akaram"
 
 #: ../gcedit/ext/fsmanage.py:372 ../gcedit/ext/fsmanage.py:432
 #: ../gcedit/editor.py:102
@@ -278,7 +280,7 @@ msgstr ""
 
 #: ../gcedit/ext/fsmanage.py:436 ../gcedit/editor.py:112
 msgid "Rename selected files"
-msgstr ""
+msgstr "Snifel isem n ifuyla yettwafernen"
 
 #. NOTE: as in root directory of the filesystem
 #: ../gcedit/ext/fsmanage.py:1075
@@ -311,7 +313,7 @@ msgstr ""
 
 #: ../gcedit/editor.py:121 ../gcedit/editor.py:325
 msgid "_Import Files"
-msgstr ""
+msgstr "_Kter ifuyla"
 
 #. NOTE: tooltip on the 'Import Files' button
 #: ../gcedit/editor.py:123 ../gcedit/editor.py:327
@@ -588,6 +590,8 @@ msgstr ""
 #: ../gcedit/editor.py:829
 msgid "translator-credits"
 msgstr ""
+"Launchpad Contributions:\n"
+"  Belkacem Mohammed https://launchpad.net/~belkacem77"
 
 #: ../gcedit/editor.py:871
 msgid "Are you sure you want to quit?"
@@ -606,12 +610,12 @@ msgstr ""
 #. NOTE: the title for a file open dialogue
 #: ../gcedit/fsbackend.py:342
 msgid "Choose Directories"
-msgstr ""
+msgstr "Fren ikaramen"
 
 #. NOTE: the title for a file open dialogue
 #: ../gcedit/fsbackend.py:345
 msgid "Choose Files"
-msgstr ""
+msgstr "Fren ifuyla"
 
 #: ../gcedit/fsbackend.py:362
 msgid "Can't import to a non-existent directory."
@@ -619,7 +623,7 @@ msgstr ""
 
 #: ../gcedit/fsbackend.py:412
 msgid "Directory doesn't exist."
-msgstr ""
+msgstr "Ulac akaram"
 
 #: ../gcedit/fsbackend.py:451
 msgid "Drag-and-drop between instances is not supported yet."
@@ -631,7 +635,7 @@ msgstr ""
 
 #: ../gcedit/fsbackend.py:520
 msgid "Couldn't copy some items:"
-msgstr ""
+msgstr "Ur izmir ara ad inɣel kra n iferdisen"
 
 #: ../gcedit/fsbackend.py:577
 msgid "Can't create a directory in a non-existent directory."

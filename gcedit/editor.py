@@ -570,7 +570,7 @@ err: whether the method raised an exception (to make it possible to distingish
             elif action == 'force_cancel':
                 # ask user to confirm force cancel request
                 msg1 = _('Force this operation to cancel?')
-                msg2 = _('Doing this may corrupt the  disk image or the files '
+                msg2 = _('Doing this may corrupt the disk image or the files '
                          'on it.')
                 btns = (_('Continue _Working'), _('_Cancel Anyway'))
                 if 'force_cancel' in settings['disabled_warnings'] or \
@@ -816,9 +816,9 @@ err: whether the method raised an exception (to make it possible to distingish
         """Show About dialogue."""
         d = gtk.AboutDialog()
         for k, v in {
-            # NOTE: About dialogue title; {} becomes the program name
             'program-name': conf.APPLICATION,
             'version': conf.VERSION,
+            # NOTE: About dialogue title; {} becomes the program name
             'title': _('About {}').format(conf.APPLICATION),
             'copyright': _('Copyright 2012 Joseph Lansdowne'),
             'comments': _('A GameCube disk editor'),

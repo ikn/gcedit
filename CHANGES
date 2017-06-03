@@ -1,3 +1,6 @@
+0.4.2-next:
+ * bug: may write invalid disks when increasing the size
+
 0.4.2:
  * show banner images in the initial window
  * bug: crashes when given an invalid disk

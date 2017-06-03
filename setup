@@ -4,6 +4,6 @@
 
 from distutils.core import setup
 
-setup(name = 'gcedit', version = '0.4.2',
+setup(name = 'gcedit', version = '0.4.2-next',
       packages = ['gcedit', 'gcedit.ext'],
       package_data = {'gcedit': ['locale/*/LC_MESSAGES/*.mo']})

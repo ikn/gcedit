@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 16-dev.
+Release: 16.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -38,12 +38,17 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 """
 
 # TODO:
+# - improve error reporting on failure (eg. write to RO FS)
 # - read should use struct.unpack for ints (do some timings)
 # - put code that gets gaps in fs in a function (used twice)
 # - compress should truncate if possible
 # - compile regex in search_tree, and raise ValueError if fails
+# - use str.casefold() in case-insensitive searches (requires Python 3.3)
+# - Wii support (http://wiibrew.org/wiki/Wii_Disc#Header)
 # RARC: http://hitmen.c02.at/files/yagcd/yagcd/chap15.html#sec15.3
 # Yaz0: http://hitmen.c02.at/files/yagcd/yagcd/chap16.html#sec16.2
+# SZS: https://github.com/RenolY2/yaz0-decode-encode (same as yaz0?)
+# http://szs.wiimm.de/ for file support
 
 from sys import byteorder
 import os
@@ -421,28 +426,34 @@ data (probably as bytes), and the returned image is bytes.
     return header + dest
 
 
-def tree_from_dir (root, walk_iter = None):
+def tree_from_dir (root, follow_symlinks=False):
     """Build a tree from a directory on the real filesystem.
+
+follow_symlinks: whether to follow directory symbolic links when traversing the
+                 filesystem
 
 This returns a dict in the same format as the tree attribute of GCFS objects.
 That is, you can place it directly in such a tree to import lots of files.
 
 """
-    tree = {}
-    if walk_iter is None:
-        walk_iter = os.walk(root)
-    try:
-        path, dirs, files = next(walk_iter)
-    except StopIteration:
-        # seems to indicate a dir we don't have read access to
-        tree[None] = []
-    else:
-        # files
-        tree[None] = [(f, _join(path, f)) for f in files]
-        # dirs
-        for d in dirs:
-            tree[(d, None)] = tree_from_dir(d, walk_iter)
-    return tree
+    walk_iter = os.walk(root, followlinks=follow_symlinks)
+
+    def recur ():
+        tree = {}
+        try:
+            path, dirs, files = next(walk_iter)
+        except StopIteration:
+            # seems to indicate a dir we don't have read access to
+            tree[None] = []
+        else:
+            # files
+            tree[None] = [(f, _join(path, f)) for f in files]
+            # dirs
+            for d in dirs:
+                tree[(d, None)] = recur()
+        return tree
+
+    return recur()
 
 
 def tree_names (tree):
@@ -1019,7 +1030,7 @@ overwrite: whether to overwrite files if they exist and ignore existing
            directories (if False and a file/directory exists, it will be in the
            failed list).
 progress: a function to call to indicate progress.  See the same argument to
-          the write method for details.
+          the copy function for details.
 
 failed: a list of files and directories that could not be created.  This is in
         the same format as the given files, but may include ones not given (if
@@ -1134,7 +1145,7 @@ write([tmp_dir][, progress]) -> cancelled
 
 tmp_dir: a directory to store temporary files in for some operations.
 progress: a function to call to indicate progress.  See the same argument to
-          the write method for details.  If this function is successfully
+          the copy function for details.  If this function is successfully
           cancelled, the disk and this GCFS instance (including the tree
           attribute) will be left unaltered (for all intents and purposes,
           anyway).
@@ -1443,11 +1454,13 @@ be imported in the same call to this function.
                         f.truncate(last_start)
                     # split up the progress function
                     total = total_clean + total_dirty
-                    p_clean = lambda d, t, n: progress(d, total, n)
+                    p_clean = lambda d, t, n: (None if progress is None
+                                               else progress(d, total, n))
                     def p_dirty (d, t, n):
                         if d is not None:
                             d += total_clean
-                        return progress(d, total, n)
+                        return (None if progress is None
+                                else progress(d, total, n))
                     # perform the copy
                     fn = self.fn
                     for clean in (True, False):
@@ -1489,6 +1502,7 @@ be imported in the same call to this function.
         self.names = names
         with open(self.fn, 'r+b') as f:
             write(self.fst_size, f, 0x428, 0x4)
+            write(self.fst_size, f, 0x42c, 0x4)
             root = (True, 0, 0, self.num_entries)
             args = ((0x0, 0x1), (0x1, 0x3), (0x4, 0x4), (0x8, 0x4))
             offset = self.fs_start
@@ -1613,7 +1627,7 @@ See compress for more details.
 compress([progress]) -> cancelled
 
 progress: a function to call to indicate progress.  See the same argument to
-          the write method for details.
+          the copy function for details.
 
 cancelled: whether the action was cancelled (through the progress function).
            If so, this is the value used to cancel it (2 or 3).
@@ -1642,7 +1656,7 @@ tmp_dir: a directory to store temporary files.  If this does not exist, it is
          created and deleted before returning; if not given, Python's tempfile
          package is used.  If quick is True, this is ignored.
 progress: a function to call to indicate progress.  See the same argument to
-          the write method for details.
+          the copy function for details.
 
 This function removes all free space in the image's filesystem to make it
 smaller.  GameCube images often have a load of free space between the
@@ -1698,7 +1712,7 @@ compressing.  Make sure you write everything you want to keep first.
 decompress([progress]) -> cancelled
 
 progress: a function to call to indicate progress.  See the same argument to
-          the write method for details.
+          the copy function for details.
 
 cancelled: whether the action was cancelled (through the progress function).
            If so, this is the value used to cancel it (2 or 3).

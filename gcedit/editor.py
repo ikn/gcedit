@@ -823,8 +823,8 @@ err: whether the method raised an exception (to make it possible to distingish
             'copyright': _('Copyright 2012 Joseph Lansdowne'),
             'comments': _('A GameCube disk editor'),
             'license-type': gtk.License.GPL_3_0,
-            'website': 'http://i-know-nothing.co.cc/GCEdit',
-            'website-label': 'i-know-nothing.co.cc/GCEdit',
+            'website': 'http://ikn.org.uk/GCEdit',
+            'website-label': 'ikn.org.uk/GCEdit',
             # NOTE: replace this with your name as you wish to be credited
             'translator-credits': _('translator-credits'),
             'logo-icon-name': conf.IDENTIFIER,

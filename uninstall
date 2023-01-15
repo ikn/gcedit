@@ -1,0 +1,25 @@
+#! /usr/bin/env bash
+
+# Silly script to reverse the Setuptools install.  Setuptools doesn't have
+# uninstall functionality (and pip can't uninstall from a provided root), so we
+# do this by installing and asking Setuptools to record what it just installed.
+
+root="$1"
+prefix="$2"
+
+# setuptools logs to stdout for some reason
+{ {
+    python3 setup.py install \
+        --record=>(cat >&3) --root="${root:-/}" --prefix="$prefix"
+} >&2; } 3>&1 | {
+    while read -r f; do
+        rm -v -- "${root:-/}$f" || exit 1
+        rmdir --parents "$(dirname "${root:-/}$f")" 2> /dev/null || true
+    done
+}
+
+for err in "${PIPESTATUS[@]}"; do
+    if [ "$err" -ne 0 ]; then
+        exit "$err"
+    fi
+done

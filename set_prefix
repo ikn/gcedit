@@ -1,9 +1,0 @@
-#! /bin/bash
-
-# create a copy of the main script that knows where stuff is installed
-# (apparently distutils won't put anything in Python's home dir to let it know
-# where packages are installed if elsewhere)
-
-script=run_gcedit
-tmp_script=."$script".tmp
-sed "s:^_LIB_PREFIX.*$:_LIB_PREFIX = '$1':" < "$script" > "$tmp_script"

@@ -1,9 +1,0 @@
-#! /usr/bin/env python
-
-# script for building and installing the Python package
-
-from distutils.core import setup
-
-setup(name = 'gcedit', version = '0.4.2-next',
-      packages = ['gcedit', 'gcedit.ext'],
-      package_data = {'gcedit': ['locale/*/LC_MESSAGES/*.mo']})

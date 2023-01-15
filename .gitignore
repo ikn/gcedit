@@ -1,0 +1,6 @@
+/build/
+/dist/
+/gcedit.egg-info
+__pycache__/
+/gcedit/locale/
+icons/*.xcf

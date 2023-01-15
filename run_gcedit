@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -6,11 +6,6 @@
 # version.
 
 import sys
-from distutils import sysconfig
-
-_LIB_PREFIX = '/usr/local'
-sys.path.append(sysconfig.get_python_lib(prefix = _LIB_PREFIX))
-
 # non-lowercase modules = evil
 from gi.repository import Gtk as gtk, Gdk as gdk, GObject as gobject
 from gcedit import conf

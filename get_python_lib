@@ -1,9 +1,0 @@
-#! /usr/bin/env python
-
-# a silly script to get the Python lib dir for a prefix to work around
-# distutils having no uninstall functionality before Python 3.3
-
-from sys import argv
-from distutils import sysconfig
-
-print(sysconfig.get_python_lib(prefix = argv[1]))

@@ -6,6 +6,8 @@
 # version.
 
 import sys
+import gi
+gi.require_version('Gtk', '3.0')
 # non-lowercase modules = evil
 from gi.repository import Gtk as gtk, Gdk as gdk, GObject as gobject
 from gcedit import conf

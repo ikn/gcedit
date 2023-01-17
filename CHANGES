@@ -1,4 +1,5 @@
 0.4.2-next:
+ * bug: can't quit with Python >= 3.9
  * bug: won't start when GTK 4 is installed
  * update build setup to avoid packaging issues
  * Russian translation

@@ -1,7 +1,7 @@
 """GameCube file utilities.
 
 Python version: 3.
-Release: 16.
+Release: 17.
 
 Licensed under the GNU General Public License, version 3; if this was not
 included, you can find it here:
@@ -50,6 +50,19 @@ PAUSED_WAIT = .1: in functions that take a progress function, if the action is
 # SZS: https://github.com/RenolY2/yaz0-decode-encode (same as yaz0?)
 # http://szs.wiimm.de/ for file support
 
+# wii
+# - interface to read/write given seek/length
+#   - implementation: on-disk file
+#   - implementation: wrap any implementation to provide encryption
+#   - implement copy on top of this interface
+# - interface which provides basic methods for manipulating a simple fs
+#   - eg. read, write, compress
+#   - implementation: gc fs
+#   - implementation: wii partitions, using a gc fs for each underneath
+#       - to compress a wii disk, compute final size for each partition
+# - separate wii/gc classes
+# - wrapper function which returns a wii/gc based on magic word
+
 from sys import byteorder
 import os
 from os.path import getsize, exists, dirname, basename
@@ -73,6 +86,15 @@ _decode = lambda b: b.decode(CODEC)
 _encode = lambda s: s.encode(CODEC)
 _decoded = lambda s: _decode(s) if isinstance(s, bytes) else s
 _sep = lambda s: _encode(os.sep) if isinstance(s, bytes) else os.sep
+
+class Sanity:
+    CHECK = 1
+    ASSUME_GAMECUBE = 2
+    ASSUME_WII = 3
+
+class FSType:
+    GAMECUBE = 1
+    WII = 2
 
 
 def _join (*dirs):
@@ -387,7 +409,7 @@ data (probably as bytes), and the returned image is bytes.
     dest = bytearray(w * h * 3)
     # split image data into 2-byte integers
     src = array('H')
-    src.fromstring(img_data)
+    src.frombytes(img_data)
     if byteorder == 'little':
         # switch endianness
         src.byteswap()
@@ -557,14 +579,14 @@ IOError; you should handle this yourself.
 
     CONSTRUCTOR
 
-GCFS(fn, sanity = True)
+GCFS(fn, sanity = Sanity.CHECK)
 
 fn: file path to the image file.
 sanity: perform some sanity checks when loading the filesystem.  If any fail,
         DiskError is raised.  This is to protect against crashes or hangs in
-        the case of invalid files.  Passing False is not recommended, but may
-        be necessary if there happens to be a valid disk that falls outside
-        these checks.
+        the case of invalid files.  Passing another value is not recommended,
+        but may be necessary if there happens to be a valid disk that falls
+        outside these checks.
 
     METHODS
 
@@ -622,7 +644,7 @@ tree: a dict representing the root directory.  Each directory is a dict whose
 
 """
 
-    def __init__ (self, fn, sanity = True):
+    def __init__ (self, fn, sanity = Sanity.CHECK):
         self.fn = str(fn)
         self.sanity = sanity
         # read data from the disk
@@ -632,15 +654,24 @@ tree: a dict representing the root directory.  Each directory is a dict whose
         """Read and store data from the disk."""
         sanity = self.sanity
         with open(self.fn, 'rb') as f:
-            if sanity:
+            if sanity == Sanity.CHECK:
                 # check DVD magic word
-                if read(f, 0x1c, 0x4, True) != 0xc2339f3d:
+                if read(f, 0x1c, 0x4, True) == 0xc2339f3d:
+                    self.fs_type = FSType.GAMECUBE
+                elif read(f, 0x18, 0x4, True) != 0x5d1c9ea3:
+                    self.fs_type = FSType.WII
+                else:
                     raise DiskError(_('DVD magic word missing'))
                 end = f.seek(0, 2)
+            elif sanity == Sanity.ASSUME_GAMECUBE:
+                self.fs_type = FSType.GAMECUBE
+            elif sanity == Sanity.ASSUME_WII:
+                self.fs_type = FSType.WII
+
             self.fs_start = fs_start = read(f, 0x424, 0x4, True)
             self.fst_size = fst_size = read(f, 0x428, 0x4, True)
             fst_end = fs_start + fst_size
-            if sanity:
+            if sanity == Sanity.CHECK:
                 # check FST position and size
                 if fs_start < 0x2440: # this is where the Apploader starts
                     raise DiskError(_('filesystem starts too early'))
@@ -651,7 +682,7 @@ tree: a dict representing the root directory.  Each directory is a dict whose
                 if fst_end > end:
                     raise DiskError(_('filesystem ends too late'))
             self.num_entries = n = read(f, fs_start + 0x8, 0x4, True)
-            if sanity:
+            if sanity == Sanity.CHECK:
                 if n == 0:
                     raise DiskError(_('no root directory entry'))
                 if n > 10 ** 5:
@@ -660,7 +691,7 @@ tree: a dict representing the root directory.  Each directory is a dict whose
                     raise DiskError(_('filesystem table too small'))
             self.str_start = str_start = fs_start + n * 0xc
             # string table should start within FST
-            if sanity and self.str_start > fst_end:
+            if sanity == Sanity.CHECK and self.str_start > fst_end:
                 raise DiskError(_('filesystem table ends too early'))
             # get file data
             self.entries = entries = []
@@ -672,7 +703,7 @@ tree: a dict representing the root directory.  Each directory is a dict whose
                 data = [read(f, entry_offset + offset, size, True)
                         for offset, size in args]
                 data[0] = d = bool(data[0])
-                if sanity:
+                if sanity == Sanity.CHECK:
                     # string table must be contained within FST
                     if str_start + data[1] > fst_end:
                         msg = _('found a file whose name starts too late')

@@ -5,7 +5,7 @@ with open('README.md', 'r') as f:
 
 setuptools.setup(
     name='gcedit',
-    version='0.4.3',
+    version='0.4.3.dev',
     author='Joseph Lansdowne',
     author_email='ikn@ikn.org.uk',
     description='GameCube disk editor',

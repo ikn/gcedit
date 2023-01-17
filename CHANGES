@@ -1,3 +1,5 @@
+0.4.3-next:
+
 0.4.3:
  * bug: can't quit with Python >= 3.9
  * bug: won't start when GTK 4 is installed

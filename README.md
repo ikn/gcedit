@@ -1,4 +1,4 @@
-GCEdit 0.4.2-next.
+GCEdit 0.4.3.
 
 A GameCube disk editor.
 

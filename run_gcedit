@@ -19,10 +19,6 @@ gtk.Window.set_default_icon_name(conf.IDENTIFIER)
 
 fn_hist = conf.read_lines('disk_history')
 if __name__ == '__main__':
-    # initialise threading support
-    gobject.threads_init()
-    gdk.threads_init()
-    gdk.threads_enter()
     ldr = None
     try:
         # use the first argument as a filename to load, if given
@@ -41,4 +37,3 @@ if __name__ == '__main__':
     if ldr is None or not ldr.do_quit:
         # start GTK main loop
         gtk.main()
-    gdk.threads_leave()

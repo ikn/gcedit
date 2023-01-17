@@ -23,7 +23,7 @@ supported.
 # Dependencies
 
 - [Python 3](http://www.python.org) (>= 3.2)
-- [PyGObject 3](https://live.gnome.org/PyGObject)
+- [PyGObject 3](https://live.gnome.org/PyGObject) (>= 3.11)
 
 # Usage
 

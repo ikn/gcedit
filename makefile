@@ -5,8 +5,8 @@ exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
 docdir := $(datarootdir)/doc/$(project_name)
 
-ICONS := $(wildcard icons/hicolor/*/apps/*.png)
-ICON_PATTERN := icons/hicolor/%/apps/%.png
+ICONS := $(wildcard icons/hicolor/*/apps/$(project_name).png)
+ICON_PATTERN := icons/hicolor/%/apps/$(project_name).png
 ICON_PATH = $(patsubst install-%.png,$(ICON_PATTERN),$@)
 ICON_PATH_UNINSTALL = $(patsubst uninstall-%.png,$(ICON_PATTERN),$@)
 

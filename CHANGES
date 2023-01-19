@@ -1,4 +1,5 @@
 0.4.3-next:
+ * install bug: makefile doesn't install icons
 
 0.4.3:
  * bug: can't quit with Python >= 3.9

@@ -11,7 +11,7 @@ setuptools.setup(
     description='GameCube disk editor',
     long_description=readme_text,
     long_description_content_type='text/markdown',
-    url='http://ikn.org.uk/lib/gw2buildutil',
+    url='http://ikn.org.uk/app/gcedit',
     packages=setuptools.find_packages(),
     package_data={'': ['locale/*/LC_MESSAGES/*.mo']},
     classifiers=[

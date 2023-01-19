@@ -17,8 +17,9 @@ Build dependencies:
 
 There is no installation method on Windows.
 
-Run `make`, `make install`.  The usual `DESTDIR`, etc. arguments to `make` are
-supported.
+Run `make`, `make install`.  The makefile respects the `prefix`, `DESTDIR`, etc.
+arguments.  To uninstall, run `make uninstall`.  `make clean` and
+`make distclean` are also supported.
 
 # Dependencies
 

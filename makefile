@@ -5,33 +5,37 @@ exec_prefix := $(prefix)
 bindir := $(exec_prefix)/bin
 docdir := $(datarootdir)/doc/$(project_name)
 
-ICONS := $(wildcard icons/hicolor/*/apps/$(project_name).png)
-ICON_PATTERN := icons/hicolor/%/apps/$(project_name).png
-ICON_PATH = $(patsubst install-%.png,$(ICON_PATTERN),$@)
-ICON_PATH_UNINSTALL = $(patsubst uninstall-%.png,$(ICON_PATTERN),$@)
+ICON_ROOT := icons/hicolor
+ICON_DIRS := $(patsubst $(ICON_ROOT)/%/apps,%,$(wildcard $(ICON_ROOT)/*/apps))
+ICON_DIR_PATH = $(ICON_ROOT)/$(patsubst icons-install-%,%,$@)/apps
+ICON_DIR_PATH_UNINSTALL = $(ICON_ROOT)/$(patsubst icons-uninstall-%,%,$@)/apps
+ICON_PATH_UNINSTALL = $(wildcard $(ICON_DIR_PATH_UNINSTALL)/*)
 
 INSTALL_PROGRAM := install
 INSTALL_DATA := install -m 644
 
-.PHONY: all clean install uninstall
+.PHONY: all clean distclean install uninstall
 
 all:
 	./i18n/gen_mo
 	python3 setup.py bdist
 
 clean:
-	find "$(project_name)" -type d -name '__pycache__' | xargs $(RM) -r
 	$(RM) -r build/ dist/ "$(project_name).egg-info/"
 	$(RM) -r "$(project_name)/locale/"
 
-install-%.png:
-	mkdir -p $(shell dirname $(DESTDIR)$(datarootdir)/$(ICON_PATH))
-	$(INSTALL_DATA) $(ICON_PATH) $(DESTDIR)$(datarootdir)/$(ICON_PATH)
+distclean: clean
+	find "$(project_name)" -type d -name '__pycache__' | xargs $(RM) -r
 
-uninstall-%.png:
-	$(RM) $(DESTDIR)$(datarootdir)/$(ICON_PATH_UNINSTALL)
+icons-install-%:
+	mkdir -p "$(DESTDIR)$(datarootdir)/$(ICON_DIR_PATH)"
+	$(INSTALL_DATA) -t "$(DESTDIR)$(datarootdir)/$(ICON_DIR_PATH)" \
+	    $(wildcard $(ICON_DIR_PATH)/*)
 
-install: $(patsubst $(ICON_PATTERN),install-%.png,$(ICONS))
+icons-uninstall-%:
+	$(RM) $(patsubst $(ICON_DIR_PATH_UNINSTALL)/%,$(DESTDIR)$(datarootdir)/$(ICON_DIR_PATH_UNINSTALL)/%,$(ICON_PATH_UNINSTALL))
+
+install: $(patsubst %,icons-install-%,$(ICON_DIRS))
 	@ # executable
 	mkdir -p "$(DESTDIR)$(bindir)/"
 	$(INSTALL_PROGRAM) "run_$(project_name)" "$(DESTDIR)$(bindir)/$(project_name)"
@@ -44,7 +48,7 @@ install: $(patsubst $(ICON_PATTERN),install-%.png,$(ICONS))
 	mkdir -p "$(DESTDIR)$(datarootdir)/applications"
 	$(INSTALL_DATA) "$(project_name).desktop" "$(DESTDIR)$(datarootdir)/applications"
 
-uninstall: $(patsubst $(ICON_PATTERN),uninstall-%.png,$(ICONS))
+uninstall: $(patsubst %,icons-uninstall-%,$(ICON_DIRS))
 	@ # executable
 	$(RM) "$(DESTDIR)$(bindir)/$(project_name)"
 	@ # package
